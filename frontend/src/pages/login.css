@@ -1,0 +1,366 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Open+Sans:wght@600;700;800&family=Outfit:wght@400;600;700;800&display=swap');
+
+.login-container {
+  width: 100%;
+  height: 100vh;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 5%;
+  box-sizing: border-box;
+  font-family: 'Open Sans', 'Outfit', sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-container::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.1); /* Slight darkening to make UI pop */
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* --- LOGO AREA --- */
+.logo-area {
+  z-index: 2;
+  align-self: flex-start;
+  margin-top: 80px;
+  margin-left: 20px;
+  animation: float 4s ease-in-out infinite;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.logo-text {
+  font-family: 'Fredoka One', cursive;
+  font-size: 6rem;
+  margin: 0;
+  color: #ffcc00;
+  text-transform: uppercase;
+  /* Complex text shadow to replicate the 3D shiny logo */
+  text-shadow: 
+    0px 3px 0 #fff,
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff,
+    0 8px 0 #b35900,
+    0 15px 20px rgba(0,0,0,0.5);
+  letter-spacing: 2px;
+  line-height: 1;
+  position: relative;
+  z-index: 2;
+}
+
+.logo-banner {
+  background: #3c2a93;
+  border: 2px solid #5a45cc;
+  border-radius: 4px;
+  padding: 8px 30px;
+  margin-top: -15px;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+
+.logo-banner::before,
+.logo-banner::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 30px;
+  background: #271b63;
+  z-index: -1;
+}
+.logo-banner::before {
+  left: -10px;
+  transform: translateY(-50%) skewY(15deg);
+}
+.logo-banner::after {
+  right: -10px;
+  transform: translateY(-50%) skewY(-15deg);
+}
+
+.logo-banner span {
+  color: #f7ca5e;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+
+/* --- PANEL CONTAINER --- */
+.panel-container {
+  z-index: 2;
+  margin-right: 8vw;
+}
+
+.panel {
+  background: #251e59;
+  border: 4px solid #f6b825;
+  border-radius: 12px;
+  width: 400px;
+  position: relative;
+  box-shadow: 
+    0 0 0 2px #18113c,
+    0 20px 40px rgba(0, 0, 0, 0.6);
+  padding: 45px 35px 35px 35px;
+  box-sizing: border-box;
+}
+
+/* Decorative inner border */
+.panel-inner-border {
+  position: absolute;
+  top: 8px; right: 8px; bottom: 8px; left: 8px;
+  border: 1px solid rgba(246, 184, 37, 0.3);
+  pointer-events: none;
+  border-radius: 6px;
+}
+
+.corner {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #f6b825;
+  transform: rotate(45deg);
+}
+.corner.top-left { top: -3px; left: -3px; }
+.corner.top-right { top: -3px; right: -3px; }
+.corner.bottom-left { bottom: -3px; left: -3px; }
+.corner.bottom-right { bottom: -3px; right: -3px; }
+
+/* Panel Gem at the top */
+.panel-gem {
+  position: absolute;
+  top: -45px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70px;
+  height: 70px;
+  background: #e3a31c; /* Gold frame */
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 10px 10px rgba(0,0,0,0.5); /* Clip path hides this usually, use filter on parent if needed */
+}
+
+/* Wrap panel-gem in a div with filter for drop shadow if we want perfect shadows, but let's keep it simple */
+.panel-gem::before {
+  content: '';
+  position: absolute;
+  top: 4px; left: 4px; right: 4px; bottom: 4px;
+  background: #9d50e8;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  background: linear-gradient(135deg, #b86bfe 0%, #7c2cc4 100%);
+}
+
+.panel-gem::after {
+  content: '';
+  position: absolute;
+  top: 15%; left: 25%;
+  width: 25%; height: 25%;
+  background: rgba(255,255,255,0.4);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+/* --- PANEL CONTENT --- */
+.panel-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+
+.welcome-text {
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.wizard-text {
+  color: #f6b825;
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin: 2px 0 0;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+}
+
+.separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 15px 0 30px;
+  width: 60%;
+}
+
+.sep-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(246, 184, 37, 0.4);
+}
+
+.sep-diamond {
+  width: 6px;
+  height: 6px;
+  background: #f6b825;
+  transform: rotate(45deg);
+}
+
+/* --- FORM & INPUTS --- */
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  background: #18133b;
+  border: 1px solid #3c3475;
+  border-radius: 8px;
+  padding: 12px 15px;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+  transition: all 0.2s ease;
+}
+
+.input-group:focus-within {
+  border-color: #f6b825;
+}
+
+.input-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 15px;
+  color: #a09abf;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.input-group input {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  width: 100%;
+  outline: none;
+  font-family: inherit;
+}
+
+.input-group input::placeholder {
+  color: #a09abf;
+  font-weight: 600;
+}
+
+/* --- BUTTON --- */
+.button-container {
+  margin-top: 15px;
+  filter: drop-shadow(0 6px 4px rgba(0,0,0,0.4)); /* Apply shadow to container so clip-path doesn't hide it */
+}
+
+.login-container .start-btn {
+  width: 100%;
+  background: linear-gradient(180deg, #ffd34d 0%, #f4aa19 50%, #df8b09 100%);
+  border: none;
+  padding: 15px 0;
+  cursor: pointer;
+  position: relative;
+  /* Hexagon shape */
+  clip-path: polygon(15px 0%, calc(100% - 15px) 0%, 100% 50%, calc(100% - 15px) 100%, 15px 100%, 0% 50%);
+  transition: all 0.1s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-container .start-btn::before {
+  /* Inner light border for 3D bevel effect */
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px; right: 2px; bottom: 2px;
+  clip-path: polygon(14px 0%, calc(100% - 14px) 0%, 100% 50%, calc(100% - 14px) 100%, 14px 100%, 0% 50%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+.login-container .start-btn span {
+  color: #4a2d04;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.login-container .start-btn:hover {
+  filter: brightness(1.1);
+}
+
+.login-container .start-btn:active {
+  transform: translateY(2px);
+}
+
+.login-container .error-message {
+  background: linear-gradient(135deg, #e73b3b 0%, #a11414 100%);
+  border: 2px solid #ff7b7b;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.2), 0 4px 8px rgba(0,0,0,0.4);
+  width: 100%;
+  margin-bottom: 20px;
+  animation: shake 0.4s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+/* --- ANIMATIONS & RESPONSIVE --- */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@media (max-width: 900px) {
+  .login-container {
+    flex-direction: column;
+    justify-content: center;
+    gap: 60px;
+    padding: 20px;
+  }
+  
+  .logo-area {
+    margin-top: 0;
+    margin-left: 0;
+    transform: scale(0.7);
+    animation: none;
+  }
+
+  .panel-container {
+    margin-right: 0;
+    transform: scale(0.9);
+  }
+}

@@ -1,53 +1,116 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
-
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
+.app {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
 }
 
-.hero {
-  position: relative;
+.game-end-screen {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  font-family: 'Arial', sans-serif;
+}
 
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
+.game-end-container {
+  background: white;
+  padding: 50px;
+  border-radius: 20px;
+  text-align: center;
+  max-width: 600px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
 
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
+.end-emoji {
+  font-size: 5em;
+  margin-bottom: 20px;
+}
 
-  .framework,
-  .vite {
-    position: absolute;
-  }
+.game-end-container h1 {
+  font-size: 3em;
+  margin: 20px 0 10px 0;
+  color: #333;
+}
 
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
+.game-end-container p {
+  font-size: 1.2em;
+  color: #666;
+  margin-bottom: 40px;
+}
 
-  .vite {
-    z-index: 0;
+.end-stats {
+  background: #f5f5f5;
+  padding: 30px;
+  border-radius: 10px;
+  margin-bottom: 30px;
+}
+
+.end-stat {
+  text-align: center;
+}
+
+.end-stat span {
+  display: block;
+  color: #888;
+  font-size: 0.9em;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.end-stat h2 {
+  font-size: 2.5em;
+  color: #667eea;
+  margin: 0;
+}
+
+.end-actions {
+  display: flex;
+  gap: 15px;
+  flex-direction: column;
+}
+
+.action-btn {
+  padding: 15px 30px;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 1.1em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.action-btn:hover {
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  transform: translateY(-2px);
+}
+
+.action-btn.secondary {
+  background: linear-gradient(135deg, #ccc 0%, #999 100%);
+}
+
+.action-btn.secondary:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
     top: 107px;
     height: 26px;
     width: auto;

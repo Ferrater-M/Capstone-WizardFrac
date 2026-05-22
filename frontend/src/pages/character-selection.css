@@ -1,0 +1,313 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Open+Sans:wght@600;700;800&family=Outfit:wght@400;600;700;800&display=swap');
+
+.character-selection {
+  min-height: 100vh;
+  background: radial-gradient(circle at center, #2e2460 0%, #150f2e 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Open Sans', 'Outfit', sans-serif;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+/* --- NAV BAR --- */
+.nav-bar {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 40px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 2px solid rgba(246, 184, 37, 0.3);
+  box-sizing: border-box;
+}
+
+.nav-logo span {
+  font-family: 'Fredoka One', cursive;
+  font-size: 2rem;
+  color: #ffcc00;
+  text-shadow: 0 4px 6px rgba(0,0,0,0.5);
+  letter-spacing: 2px;
+}
+
+.menu-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 10px 25px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+}
+
+.menu-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: #f6b825;
+}
+
+/* --- CONTAINER & GRID --- */
+.character-selection-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 1000px;
+  padding: 40px 20px;
+  box-sizing: border-box;
+}
+
+.characters-grid {
+  display: flex;
+  justify-content: center;
+  gap: 60px;
+  margin-bottom: 60px;
+  width: 100%;
+}
+
+.character-card {
+  width: 300px;
+  background: #251e59;
+  border: 4px solid #3c3475;
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.character-card:hover {
+  transform: translateY(-10px);
+  border-color: #f6b825;
+  box-shadow: 0 20px 40px rgba(246, 184, 37, 0.2);
+}
+
+.character-card.selected {
+  border-color: #ffd34d;
+  background: #33297a;
+  box-shadow: 0 0 30px rgba(255, 211, 77, 0.4);
+  transform: translateY(-10px) scale(1.05);
+}
+
+/* --- CHARACTER IMAGE (WIREFRAME STYLE WITH X) --- */
+.character-image {
+  width: 100%;
+  aspect-ratio: 3/4;
+  background: #e2e8f0;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+}
+
+.image-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+  position: relative;
+}
+
+/* Creates the X from the wireframe */
+.image-placeholder::before,
+.image-placeholder::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  width: 2px;
+  height: 150%;
+  background: rgba(0,0,0,0.2);
+  transform-origin: top center;
+}
+.image-placeholder::before {
+  transform: translateX(-50%) rotate(36deg);
+}
+.image-placeholder::after {
+  transform: translateX(-50%) rotate(-36deg);
+}
+
+.character-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: relative;
+  z-index: 2;
+}
+
+/* --- OVERLAY & BADGE --- */
+.selected-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(255, 211, 77, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+}
+
+.check-icon {
+  background: #ffd34d;
+  color: #4a2d04;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: bold;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.character-label {
+  background: #e2e8f0;
+  color: #1e293b;
+  width: 80%;
+  padding: 10px 0;
+  text-align: center;
+  border-radius: 6px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+.character-card.selected .character-label {
+  background: #ffd34d;
+  color: #4a2d04;
+}
+
+/* --- CHARACTER INFO & STATS --- */
+.character-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  text-align: center;
+  padding: 0 10px;
+}
+
+.rarity {
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+  letter-spacing: 1px;
+}
+
+.rarity.badge-common {
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.rarity.badge-rare {
+  background: rgba(168, 85, 247, 0.2);
+  color: #d8b4fe;
+  border: 1px solid #a855f7;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+}
+
+.description {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin-bottom: 15px;
+  min-height: 40px;
+}
+
+.stats {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.stat-pill {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  padding: 6px 15px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+/* --- BUTTON --- */
+.selection-actions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.confirm-btn {
+  background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
+  color: #1e293b;
+  border: none;
+  padding: 18px 80px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+  letter-spacing: 2px;
+}
+
+.confirm-btn:not(:disabled) {
+  background: linear-gradient(180deg, #ffd34d 0%, #f4aa19 50%, #df8b09 100%);
+  color: #4a2d04;
+}
+
+.confirm-btn:not(:disabled):hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 20px rgba(0,0,0,0.4);
+}
+
+.confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --- ERROR MESSAGE --- */
+.error-message {
+  background: #ff6b6b;
+  color: white;
+  padding: 15px 30px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  text-align: center;
+  font-weight: bold;
+  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+}
+
+/* --- ANIMATIONS & RESPONSIVE --- */
+@keyframes popIn {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 768px) {
+  .characters-grid {
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+  }
+  
+  .character-card {
+    width: 250px;
+  }
+}
