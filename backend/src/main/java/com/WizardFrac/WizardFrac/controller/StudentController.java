@@ -25,6 +25,14 @@ public class StudentController {
             return ResponseEntity.badRequest().body("Nickname is required");
         }
 
+        // Check if nickname already exists — reject duplicates
+        Optional<Student> existing = studentService.getStudentByNickname(nickname);
+        if (existing.isPresent()) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Nickname is not available. Please use another nickname.");
+            return ResponseEntity.status(409).body(error);
+        }
+
         Student student = studentService.findOrCreateStudent(nickname);
         
         Map<String, Object> response = new HashMap<>();

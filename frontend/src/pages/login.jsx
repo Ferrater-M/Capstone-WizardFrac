@@ -28,8 +28,11 @@ const LandingPage = ({ onLoginSuccess }) => {
       if (response.ok) {
         const student = await response.json();
         onLoginSuccess(student);
+      } else if (response.status === 409) {
+        const data = await response.json();
+        setError(data.error || 'Nickname is not available. Please use another nickname.');
       } else {
-        setError('Failed to login. Please try again.');
+        setError('Failed to start game. Please try again.');
       }
     } catch (err) {
       setError('Connection error. Make sure the backend server is running.');
