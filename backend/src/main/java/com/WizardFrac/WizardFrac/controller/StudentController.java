@@ -29,18 +29,18 @@ public class StudentController {
         Optional<Student> existing = studentService.getStudentByNickname(nickname);
         if (existing.isPresent()) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", "Nickname is not available. Please use another nickname.");
+            error.put("error", "Nickname is already exist. Please use another nickname.");
             return ResponseEntity.status(409).body(error);
         }
 
         Student student = studentService.findOrCreateStudent(nickname);
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("studentId", student.getId());
         response.put("nickname", student.getNickname());
         response.put("selectedCharacterId", student.getSelectedCharacterId());
         response.put("createdAt", student.getCreatedAt());
-        
+
         return ResponseEntity.ok(response);
     }
 
@@ -58,7 +58,7 @@ public class StudentController {
         response.put("nickname", s.getNickname());
         response.put("selectedCharacterId", s.getSelectedCharacterId());
         response.put("lastLoginAt", s.getLastLoginAt());
-        
+
         return ResponseEntity.ok(response);
     }
 }

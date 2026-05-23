@@ -30,7 +30,7 @@ const LandingPage = ({ onLoginSuccess }) => {
         onLoginSuccess(student);
       } else if (response.status === 409) {
         const data = await response.json();
-        setError(data.error || 'Nickname is not available. Please use another nickname.');
+        setError(data.error || 'Nickname is already exist. Please use another nickname.');
       } else {
         setError('Failed to start game. Please try again.');
       }
@@ -62,7 +62,7 @@ const LandingPage = ({ onLoginSuccess }) => {
             <div className="corner bottom-left"></div>
             <div className="corner bottom-right"></div>
           </div>
-          
+
           <div className="panel-gem">
             <div className="gem-inner"></div>
           </div>
@@ -70,7 +70,7 @@ const LandingPage = ({ onLoginSuccess }) => {
           <div className="panel-content">
             <h2 className="welcome-text">WELCOME BACK,</h2>
             <h3 className="wizard-text">YOUNG WIZARD!</h3>
-            
+
             <div className="separator">
               <span className="sep-line"></span>
               <span className="sep-diamond"></span>
