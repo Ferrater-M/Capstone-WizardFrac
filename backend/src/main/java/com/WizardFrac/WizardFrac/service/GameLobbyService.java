@@ -34,17 +34,13 @@ public class GameLobbyService {
             return gameProgressRepository.save(newProgress);
         });
 
-        // Check island unlock conditions
+        // Check island unlock conditions (Temporarily unlocked for editing)
         if ("Similar".equalsIgnoreCase(islandType)) {
             // Similar Island is always available
         } else if ("Dissimilar".equalsIgnoreCase(islandType)) {
-            if (!progress.getDissimilarIslandUnlocked() || progress.getSimilarIslandMaxStage() < 1) {
-                throw new RuntimeException("Dissimilar Island is locked. Complete Similar Island first.");
-            }
+            // Temporarily unlocked for editing
         } else if ("Hybrid".equalsIgnoreCase(islandType)) {
-            if (!progress.getHybridIslandUnlocked() || progress.getDissimilarIslandMaxStage() < 1) {
-                throw new RuntimeException("Hybrid Island is locked. Complete Dissimilar Island first.");
-            }
+            // Temporarily unlocked for editing
         }
 
         // Create game session

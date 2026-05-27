@@ -4,6 +4,7 @@ import com.WizardFrac.WizardFrac.entity.GameProgress;
 import com.WizardFrac.WizardFrac.entity.SpellAttempt;
 import com.WizardFrac.WizardFrac.service.GameProgressService;
 import com.WizardFrac.WizardFrac.dto.SpellAttemptDTO;
+import com.WizardFrac.WizardFrac.dto.DiagnosticsDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -67,5 +68,12 @@ public class GameProgressController {
     @GetMapping("/history/{studentId}")
     public ResponseEntity<?> getSessionHistory(@PathVariable Long studentId) {
         return ResponseEntity.ok(gameProgressService.getSessionHistory(studentId));
+    }
+
+    // Get diagnostics data
+    @GetMapping("/diagnostics/{studentId}")
+    public ResponseEntity<DiagnosticsDTO> getDiagnostics(@PathVariable Long studentId) {
+        DiagnosticsDTO diagnostics = gameProgressService.getDiagnostics(studentId);
+        return ResponseEntity.ok(diagnostics);
     }
 }

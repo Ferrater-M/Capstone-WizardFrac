@@ -1,7 +1,13 @@
 package com.WizardFrac.WizardFrac.entity;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "students")
@@ -21,6 +27,9 @@ public class Student {
 
     @Column(nullable = true)
     private Long selectedCharacterId;
+
+    @Column(nullable = true)
+    private String selectedCharacterName;
 
     public Student() {
         this.createdAt = LocalDateTime.now();
@@ -72,5 +81,13 @@ public class Student {
 
     public void setSelectedCharacterId(Long selectedCharacterId) {
         this.selectedCharacterId = selectedCharacterId;
+    }
+
+    public String getSelectedCharacterName() {
+        return selectedCharacterName;
+    }
+
+    public void setSelectedCharacterName(String selectedCharacterName) {
+        this.selectedCharacterName = selectedCharacterName;
     }
 }

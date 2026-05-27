@@ -3,14 +3,14 @@ package com.WizardFrac.WizardFrac.service;
 import com.WizardFrac.WizardFrac.entity.*;
 import com.WizardFrac.WizardFrac.repository.*;
 import com.WizardFrac.WizardFrac.dto.SpellAttemptDTO;
+import com.WizardFrac.WizardFrac.dto.DiagnosticsDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class GameProgressService {
@@ -171,5 +171,96 @@ public class GameProgressService {
     // Get session history
     public List<GameSession> getSessionHistory(Long studentId) {
         return gameSessionRepository.findByStudentIdOrderByStartedAtDesc(studentId);
+    }
+
+    // Get diagnostics data for student
+    public DiagnosticsDTO getDiagnostics(Long studentId) {
+        List<GameSession> sessions = gameSessionRepository.findByStudentIdOrderByStartedAtDesc(studentId);
+        
+        List<SpellAttempt> allAttempts = new ArrayList<>();
+        for (GameSession session : sessions) {
+            allAttempts.addAll(spellAttemptRepository.findByGameSessionIdOrderByTimestamp(session.getId()));
+        }
+
+        // Calculate summary
+        int totalCorrect = 0;
+        int totalIncorrect = 0;
+        double totalMultiplier = 0;
+
+        for (SpellAttempt attempt : allAttempts) {
+            if (attempt.getIsCorrect()) {
+                totalCorrect++;
+            } else {
+                totalIncorrect++;
+            }
+            totalMultiplier += attempt.getMultiplierValue();
+        }
+
+        double avgMultiplier = allAttempts.isEmpty() ? 1.0 : totalMultiplier / allAttempts.size();
+        DiagnosticsDTO.SummaryDTO summary = new DiagnosticsDTO.SummaryDTO(
+            totalCorrect, 
+            totalIncorrect, 
+            sessions.size(), 
+            avgMultiplier
+        );
+
+        // Calculate competency mastery
+        Map<String, List<SpellAttempt>> attemptsByCompetency = allAttempts.stream()
+            .collect(Collectors.groupingBy(SpellAttempt::getMechanicType));
+
+        List<DiagnosticsDTO.CompetencyMasteryDTO> competencies = new ArrayList<>();
+
+        Map<String, String> competencyNames = new HashMap<>();
+        competencyNames.put("SameContainer", "Similar Fractions");
+        competencyNames.put("ButterflyMethod", "Dissimilar Fractions");
+        competencyNames.put("MixedConversion", "Mixed Numbers");
+
+        for (String competencyId : Arrays.asList("SameContainer", "ButterflyMethod", "MixedConversion")) {
+            List<SpellAttempt> compAttempts = attemptsByCompetency.getOrDefault(competencyId, new ArrayList<>());
+            
+            int compCorrect = 0;
+            for (SpellAttempt attempt : compAttempts) {
+                if (attempt.getIsCorrect()) compCorrect++;
+            }
+
+            double accuracy = compAttempts.isEmpty() ? 0.0 : (double) compCorrect / compAttempts.size() * 100;
+            String masteryLevel = getMasteryLevel(accuracy);
+            List<Double> trendData = compAttempts.isEmpty() ? Arrays.asList(0.0) : Arrays.asList(accuracy); // Simplified for now
+
+            competencies.add(new DiagnosticsDTO.CompetencyMasteryDTO(
+                competencyId,
+                competencyNames.getOrDefault(competencyId, competencyId),
+                masteryLevel,
+                accuracy,
+                trendData
+            ));
+        }
+
+        // Calculate streak history
+        List<DiagnosticsDTO.StreakHistoryDTO> streakHistory = new ArrayList<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-dd");
+        
+        for (GameSession session : sessions) {
+            String dateStr = session.getStartedAt().format(formatter);
+            int peakStreak = session.getActiveStreak(); // Simplified
+            streakHistory.add(new DiagnosticsDTO.StreakHistoryDTO(dateStr, peakStreak));
+        }
+
+        // Limit to last 10 sessions
+        if (streakHistory.size() > 10) {
+            streakHistory = streakHistory.subList(0, 10);
+        }
+
+        return new DiagnosticsDTO(competencies, summary, streakHistory);
+    }
+
+    private String getMasteryLevel(double accuracy) {
+        if (accuracy >= 80) {
+            return "Proficient";
+        } else if (accuracy >= 60) {
+            return "Developing";
+        } else {
+            return "Beginner";
+        }
     }
 }

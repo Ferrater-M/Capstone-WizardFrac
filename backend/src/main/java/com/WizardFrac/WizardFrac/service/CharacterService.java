@@ -1,15 +1,16 @@
 package com.WizardFrac.WizardFrac.service;
 
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.WizardFrac.WizardFrac.dto.CharacterSelectionDTO;
 import com.WizardFrac.WizardFrac.entity.Character;
 import com.WizardFrac.WizardFrac.entity.Student;
 import com.WizardFrac.WizardFrac.repository.CharacterRepository;
 import com.WizardFrac.WizardFrac.repository.StudentRepository;
-import com.WizardFrac.WizardFrac.dto.CharacterSelectionDTO;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
 
 @Service
 public class CharacterService {
@@ -37,6 +38,7 @@ public class CharacterService {
         if (studentOpt.isPresent() && characterOpt.isPresent()) {
             Student student = studentOpt.get();
             student.setSelectedCharacterId(selection.getCharacterId());
+            student.setSelectedCharacterName(selection.getCharacterName());
             return studentRepository.save(student);
         }
 
