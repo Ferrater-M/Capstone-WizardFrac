@@ -11,6 +11,7 @@ import StudentDashboard from './pages/StudentDashboard';
 function App() {
   const [currentScreen, setCurrentScreen] = useState('login'); // login, character-selection, game-lobby, game, game-end, dashboard
   const [studentId, setStudentId] = useState(null);
+  const [studentNickname, setStudentNickname] = useState(null);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [gameSession, setGameSession] = useState(null);
   const [gameResult, setGameResult] = useState(null);
@@ -18,6 +19,7 @@ function App() {
   // Handle login completion
   const handleLogin = (student) => {
     setStudentId(student.studentId);
+    setStudentNickname(student.nickname);
     setSelectedCharacter(
       student.selectedCharacterId
         ? {
@@ -70,6 +72,7 @@ function App() {
   // Handle return to login
   const handleReturnToLogin = () => {
     setStudentId(null);
+    setStudentNickname(null);
     setSelectedCharacter(null);
     setGameSession(null);
     setGameResult(null);
@@ -94,6 +97,7 @@ function App() {
         return (
           <SimilarIslandGame
             studentId={studentId}
+            studentNickname={studentNickname}
             gameSession={gameSession}
             onGameEnd={handleGameEnd}
             onExitToLobby={handleExitToLobby}
