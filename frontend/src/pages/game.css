@@ -2,39 +2,79 @@
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
-  font-family: 'Arial', sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   display: flex;
   flex-direction: column;
+}
+
+.game-container.similar-island {
+  background: url('/SimilarWalkableArea.png') center/cover no-repeat;
+}
+
+.game-container.dissimilar-island {
+  background: url('/DisilimarBackground.jpg') center/cover no-repeat;
+}
+
+.game-container.hybrid-island {
+  background: url('/HybridBackground.jpg') center/cover no-repeat;
 }
 
 .game-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
   color: white;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 15px 30px;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
-.game-info {
-  font-size: 1.3em;
-  font-weight: bold;
-  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+.header-stat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.2em;
+  font-weight: 700;
+}
+
+.header-stat .stat-label {
+  color: #fff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.header-stat .stat-value {
+  font-size: 1.5em;
+  color: #fff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+  font-weight: 800;
+}
+
+.header-stat .hearts {
+  display: flex;
+  gap: 5px;
 }
 
 .exit-btn {
-  padding: 8px 20px;
-  background: rgba(255, 255, 255, 0.2);
+  padding: 10px 28px;
+  background: rgba(255, 255, 255, 0.35);
   color: white;
   border: 2px solid white;
-  border-radius: 5px;
+  border-radius: 10px;
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 700;
+  font-size: 1.05em;
   transition: all 0.3s ease;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .exit-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  transform: scale(1.08);
 }
 
 .game-main {
@@ -43,141 +83,180 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  max-width: 800px;
-  margin: 0 auto;
   width: 100%;
 }
 
-.game-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+.battle-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  gap: 30px;
+  padding: 30px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.player-section, .enemy-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 15px;
-  width: 100%;
-  margin-bottom: 30px;
+  flex: 1;
+  min-height: 300px;
 }
 
-.stat-box {
-  background: white;
-  padding: 15px;
-  border-radius: 10px;
-  text-align: center;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+.player-section h3, .enemy-section h3 {
+  color: white;
+  font-size: 2.2em;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+  margin: 0;
+  font-weight: 800;
 }
 
-.stat-label {
-  font-size: 0.85em;
-  color: #666;
-  font-weight: bold;
-  margin-bottom: 8px;
-  text-transform: uppercase;
+.character-box {
+  width: 150px;
+  height: 150px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid rgba(255, 255, 255, 0.3);
 }
 
-.stat-value {
+.character-icon {
+  font-size: 5em;
+}
+
+.player-hearts, .enemy-hearts {
+  display: flex;
+  gap: 8px;
   font-size: 1.8em;
-  font-weight: bold;
-  color: #333;
-}
-
-.stat-box.lives .stat-value {
-  color: #ff6b6b;
-}
-
-.stat-box.streak .stat-value {
-  color: #f1c40f;
-}
-
-.stat-box.multiplier .stat-value {
-  color: #667eea;
-}
-
-.stat-box.score .stat-value {
-  color: #2ecc71;
 }
 
 .enemy-section {
-  width: 100%;
-  margin-bottom: 30px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 15px;
+  position: relative;
 }
 
 .enemy {
   text-align: center;
+  position: relative;
 }
 
 .enemy-icon {
-  font-size: 4em;
-  margin-bottom: 15px;
-}
-
-.health-bar {
-  width: 100%;
-  height: 30px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 15px;
-  overflow: hidden;
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
   margin-bottom: 10px;
-  border: 2px solid white;
 }
 
-.health-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #2ecc71 0%, #f1c40f 50%, #ff6b6b 100%);
-  transition: width 0.3s ease;
+.enemy.attacking {
+  animation: enemyAttack 1s ease;
 }
 
-.health-text {
+@keyframes enemyAttack {
+  0% {
+    transform: translateX(0);
+  }
+  30% {
+    transform: translateX(-100px);
+  }
+  60% {
+    transform: translateX(-100px) scale(1.1);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.problem-area {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.problem-area h3 {
   color: white;
-  font-size: 1.1em;
-  font-weight: bold;
+  font-size: 2.2em;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+  margin: 0;
+  font-weight: 800;
 }
 
 .problem-section {
   width: 100%;
   background: white;
-  padding: 30px;
+  padding: 40px 30px;
   border-radius: 15px;
-  margin-bottom: 20px;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  text-align: center;
 }
 
-.mechanic-label {
-  color: #667eea;
-  font-size: 0.9em;
+.feedback-message {
+  text-align: center;
+  font-size: 1.5em;
   font-weight: bold;
-  margin-bottom: 10px;
-  text-transform: uppercase;
+  padding: 20px;
+  border-radius: 10px;
+  margin-top: 20px;
+}
+
+.feedback-message.correct {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 2px solid #10b981;
+}
+
+.feedback-message.wrong {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 2px solid #ef4444;
 }
 
 .problem-statement {
-  font-size: 2.5em;
+  font-size: 3em;
   color: #333;
   font-weight: bold;
-  text-align: center;
+}
+
+.problem-statement-large {
+  font-size: 2.5em;
+  color: white;
+  font-weight: bold;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+  margin-bottom: 20px;
 }
 
 .answer-form {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 15px;
   width: 100%;
-  margin-bottom: 20px;
+  max-width: 400px;
 }
 
 .answer-input {
-  flex: 1;
-  padding: 12px 15px;
-  border: 2px solid white;
-  border-radius: 8px;
-  font-size: 1.1em;
+  padding: 15px 20px;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  font-size: 1.3em;
   background: white;
   color: #333;
+  text-align: center;
   transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
 .answer-input:focus {
   outline: none;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  border-color: #667eea;
 }
 
 .answer-input:disabled {
@@ -186,22 +265,22 @@
 }
 
 .submit-btn {
-  padding: 12px 30px;
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+  padding: 15px 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   font-weight: bold;
   cursor: pointer;
-  font-size: 1.1em;
+  font-size: 1.3em;
   text-transform: uppercase;
   transition: all 0.3s ease;
-  white-space: nowrap;
+  box-shadow: 0 6px 15px rgba(102, 126, 234, 0.4);
 }
 
 .submit-btn:hover:not(:disabled) {
-  box-shadow: 0 6px 15px rgba(255, 107, 107, 0.4);
-  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+  transform: translateY(-3px);
 }
 
 .submit-btn:disabled {
@@ -210,13 +289,14 @@
 }
 
 .feedback {
-  padding: 15px 20px;
-  border-radius: 8px;
-  font-size: 1.2em;
+  padding: 20px 30px;
+  border-radius: 12px;
+  font-size: 1.4em;
   font-weight: bold;
   text-align: center;
-  margin-bottom: 20px;
+  margin-top: 20px;
   animation: slideIn 0.3s ease;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
 }
 
 .feedback.correct {
@@ -240,26 +320,44 @@
   }
 }
 
-.problem-counter {
+.cast-spell-btn {
+  margin-top: 30px;
+  padding: 15px 50px;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
   color: white;
-  font-size: 1em;
-  text-align: center;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  border-radius: 15px;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 1.3em;
+  text-transform: uppercase;
+  box-shadow: 0 8px 20px rgba(240, 147, 251, 0.4);
+  transition: all 0.3s ease;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-@media (max-width: 768px) {
-  .game-stats {
-    grid-template-columns: repeat(2, 1fr);
+.cast-spell-btn:hover {
+  box-shadow: 0 12px 30px rgba(240, 147, 251, 0.6);
+  transform: scale(1.1);
+}
+
+@media (max-width: 900px) {
+  .battle-area {
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .player-section, .enemy-section {
+    min-height: auto;
   }
 
   .problem-statement {
-    font-size: 1.8em;
+    font-size: 2em;
   }
 
-  .answer-form {
-    flex-direction: column;
-  }
-
-  .submit-btn {
-    width: 100%;
+  .game-header {
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
   }
 }

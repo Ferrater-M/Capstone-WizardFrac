@@ -25,6 +25,23 @@
   z-index: 1;
 }
 
+.login-background {
+  position: absolute;
+  inset: 0;
+  background: url('/LoginBackground.jpg') center / cover no-repeat;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.login-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top left, rgba(111, 61, 255, 0.24), transparent 22%),
+              radial-gradient(circle at bottom right, rgba(255, 205, 85, 0.18), transparent 24%),
+              linear-gradient(135deg, rgba(10, 10, 25, 0.42), rgba(25, 10, 55, 0.72));
+  pointer-events: none;
+}
+
 /* --- LOGO AREA --- */
 .logo-area {
   z-index: 2;

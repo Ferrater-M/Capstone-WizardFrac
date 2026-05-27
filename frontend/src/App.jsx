@@ -3,17 +3,30 @@ import './App.css';
 import LandingPage from './pages/login';
 import CharacterSelection from './pages/character-selection';
 import GameLobby from './pages/game-lobby';
-import Game from './pages/game';
+import SimilarIslandGame from './pages/SimilarIslandGame';
+import DissimilarIslandGame from './pages/DissimilarIslandGame';
+import HybridIslandGame from './pages/HybridIslandGame';
+import StudentDashboard from './pages/StudentDashboard';
 
 function App() {
-  const [currentScreen, setCurrentScreen] = useState('login'); // login, character-selection, game-lobby, game, game-end
+  const [currentScreen, setCurrentScreen] = useState('login'); // login, character-selection, game-lobby, game, game-end, dashboard
   const [studentId, setStudentId] = useState(null);
+  const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [gameSession, setGameSession] = useState(null);
   const [gameResult, setGameResult] = useState(null);
 
   // Handle login completion
   const handleLogin = (student) => {
     setStudentId(student.studentId);
+    setSelectedCharacter(
+      student.selectedCharacterId
+        ? {
+            id: student.selectedCharacterId,
+            name: student.selectedCharacterName,
+          }
+        : null
+    );
+
     if (student.selectedCharacterId) {
       // Character already selected, go directly to lobby
       setCurrentScreen('game-lobby');
@@ -25,6 +38,7 @@ function App() {
 
   // Handle character selection
   const handleCharacterSelected = (character) => {
+    setSelectedCharacter(character);
     setCurrentScreen('game-lobby');
   };
 
@@ -40,6 +54,12 @@ function App() {
     setCurrentScreen('game-end');
   };
 
+  // Handle exit to lobby
+  const handleExitToLobby = () => {
+    setGameSession(null);
+    setCurrentScreen('game-lobby');
+  };
+
   // Handle return to lobby
   const handleReturnToLobby = () => {
     setGameSession(null);
@@ -50,9 +70,56 @@ function App() {
   // Handle return to login
   const handleReturnToLogin = () => {
     setStudentId(null);
+    setSelectedCharacter(null);
     setGameSession(null);
     setGameResult(null);
     setCurrentScreen('login');
+  };
+
+  // Handle open dashboard
+  const handleOpenDashboard = () => {
+    setCurrentScreen('dashboard');
+  };
+
+  // Handle back to lobby from dashboard
+  const handleBackToLobbyFromDashboard = () => {
+    setCurrentScreen('game-lobby');
+  };
+
+  const renderGame = () => {
+    if (!gameSession) return null;
+
+    switch (gameSession.islandType) {
+      case 'Similar':
+        return (
+          <SimilarIslandGame
+            studentId={studentId}
+            gameSession={gameSession}
+            onGameEnd={handleGameEnd}
+            onExitToLobby={handleExitToLobby}
+          />
+        );
+      case 'Dissimilar':
+        return (
+          <DissimilarIslandGame
+            studentId={studentId}
+            gameSession={gameSession}
+            onGameEnd={handleGameEnd}
+            onExitToLobby={handleExitToLobby}
+          />
+        );
+      case 'Hybrid':
+        return (
+          <HybridIslandGame
+            studentId={studentId}
+            gameSession={gameSession}
+            onGameEnd={handleGameEnd}
+            onExitToLobby={handleExitToLobby}
+          />
+        );
+      default:
+        return null;
+    }
   };
 
   return (
@@ -71,17 +138,20 @@ function App() {
       {currentScreen === 'game-lobby' && (
         <GameLobby
           studentId={studentId}
+          selectedCharacter={selectedCharacter}
           onGameStart={handleGameStart}
+          onOpenDashboard={handleOpenDashboard}
         />
       )}
       
-      {currentScreen === 'game' && gameSession && (
-        <Game
+      {currentScreen === 'dashboard' && (
+        <StudentDashboard
           studentId={studentId}
-          gameSession={gameSession}
-          onGameEnd={handleGameEnd}
+          onBack={handleBackToLobbyFromDashboard}
         />
       )}
+      
+      {currentScreen === 'game' && gameSession && renderGame()}
       
       {currentScreen === 'game-end' && gameResult && (
         <div className="game-end-screen">
@@ -91,6 +161,26 @@ function App() {
                 <div className="end-emoji">🎉</div>
                 <h1>VICTORY!</h1>
                 <p>You defeated the enemy!</p>
+                
+                {gameSession?.isBoss && (
+                  <div className="rewards-section">
+                    <h2>🎁 Boss Rewards!</h2>
+                    <div className="rewards-list">
+                      <div className="reward-item">
+                        <span className="reward-icon">⭐</span>
+                        <span className="reward-text">+500 Bonus Points</span>
+                      </div>
+                      <div className="reward-item">
+                        <span className="reward-icon">🏆</span>
+                        <span className="reward-text">Boss Slayer Badge</span>
+                      </div>
+                      <div className="reward-item">
+                        <span className="reward-icon">🔓</span>
+                        <span className="reward-text">Next Island Unlocked!</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -102,7 +192,7 @@ function App() {
             <div className="end-stats">
               <div className="end-stat">
                 <span>Final Score</span>
-                <h2>{gameResult.score}</h2>
+                <h2>{gameResult.score}{gameSession?.isBoss ? ' + 500' : ''}</h2>
               </div>
             </div>
             <div className="end-actions">

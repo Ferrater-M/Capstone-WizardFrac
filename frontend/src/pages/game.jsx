@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './game.css';
 
 const Game = ({ studentId, gameSession, onGameEnd }) => {
@@ -14,6 +14,54 @@ const Game = ({ studentId, gameSession, onGameEnd }) => {
   const [problemCount, setProblemCount] = useState(0);
   const [feedbackType, setFeedbackType] = useState(''); // 'correct', 'incorrect', ''
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bossPosition, setBossPosition] = useState({ x: 0, y: 0 });
+  const enemySectionRef = useRef(null);
+  const animationFrameRef = useRef(null);
+  const directionRef = useRef({ x: 1, y: 1 });
+  const speedRef = useRef(gameSession.isBoss ? 2 : 0);
+
+  // Boss movement animation
+  useEffect(() => {
+    if (!gameSession.isBoss || !enemySectionRef.current) return;
+
+    const animate = () => {
+      const container = enemySectionRef.current;
+      if (!container) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const bossWidth = 100;
+      const bossHeight = 100;
+      const maxX = containerRect.width - bossWidth;
+      const maxY = containerRect.height - bossHeight;
+
+      setBossPosition(prev => {
+        let newX = prev.x + directionRef.current.x * speedRef.current;
+        let newY = prev.y + directionRef.current.y * speedRef.current;
+
+        if (newX <= 0 || newX >= maxX) {
+          directionRef.current.x *= -1;
+          newX = Math.max(0, Math.min(maxX, newX));
+        }
+
+        if (newY <= 0 || newY >= maxY) {
+          directionRef.current.y *= -1;
+          newY = Math.max(0, Math.min(maxY, newY));
+        }
+
+        return { x: newX, y: newY };
+      });
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [gameSession.isBoss]);
 
   // Auto-save spell attempt to backend
   const saveSpellAttempt = async (attempt) => {
@@ -146,8 +194,21 @@ const Game = ({ studentId, gameSession, onGameEnd }) => {
     }
   };
 
+  const getIslandClassName = () => {
+    switch (gameSession.islandType) {
+      case 'Similar':
+        return 'game-container similar-island';
+      case 'Dissimilar':
+        return 'game-container dissimilar-island';
+      case 'Hybrid':
+        return 'game-container hybrid-island';
+      default:
+        return 'game-container';
+    }
+  };
+
   return (
-    <div className="game-container">
+    <div className={getIslandClassName()}>
       <div className="game-header">
         <div className="game-info">
           <span className="island-info">
@@ -179,9 +240,14 @@ const Game = ({ studentId, gameSession, onGameEnd }) => {
           </div>
         </div>
 
-        <div className="enemy-section">
-          <div className="enemy">
-            <div className="enemy-icon">👿</div>
+        <div className="enemy-section" ref={enemySectionRef}>
+          <div 
+            className={`enemy ${gameSession.isBoss ? 'boss' : ''}`}
+            style={{
+              transform: `translate(${bossPosition.x}px, ${bossPosition.y}px)`
+            }}
+          >
+            <div className="enemy-icon">{gameSession.isBoss ? '👹' : '👿'}</div>
             <div className="health-bar">
               <div
                 className="health-fill"

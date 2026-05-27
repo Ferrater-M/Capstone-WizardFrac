@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import './login.css';
 
+const LoginBackground = () => (
+  <div className="login-background" aria-hidden="true">
+    <div className="login-bg-overlay" />
+  </div>
+);
+
 const LandingPage = ({ onLoginSuccess }) => {
   const [nickname, setNickname] = useState('');
   const [error, setError] = useState('');
@@ -41,6 +47,7 @@ const LandingPage = ({ onLoginSuccess }) => {
 
   return (
     <div className="login-container">
+      <LoginBackground />
       {/* Top Left Logo Area */}
       <div className="logo-area">
         <h1 className="logo-text">WIZARDFRAC</h1>

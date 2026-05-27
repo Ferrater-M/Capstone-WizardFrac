@@ -26,6 +26,26 @@ const CharacterSelection = ({ studentId, onCharacterSelected }) => {
     setSelectedCharacterId(characterId);
   };
 
+  const getGenderIcon = (name) => {
+    if (name.toLowerCase().includes('girl')) {
+      return '/Female.png';
+    }
+    if (name.toLowerCase().includes('boy')) {
+      return '/Male.png';
+    }
+    return null;
+  };
+
+  const getCharacterCardImage = (character) => {
+    if (character.name.toLowerCase().includes('girl')) {
+      return '/Female.png';
+    }
+    if (character.name.toLowerCase().includes('boy')) {
+      return '/Male.png';
+    }
+    return character.imageUrl || '/Female.png';
+  };
+
   const handleConfirmSelection = async () => {
     if (!selectedCharacterId) {
       setError('Please select a character');
@@ -79,9 +99,12 @@ const CharacterSelection = ({ studentId, onCharacterSelected }) => {
         {error && <div className="error-message">{error}</div>}
 
         <div className="characters-grid">
-          {characters.filter(c => c.rarity !== 'Common').map(character => {
-            const displayName = character.name.includes('Boy') ? 'Boy' : character.name.includes('Girl') ? 'Girl' : character.name;
-            return (
+          {characters
+            .filter(c => c.rarity !== 'Common')
+            .filter(c => c.name !== 'Ember Sage' && c.name !== 'Frost Warden')
+            .map(character => {
+              const displayName = character.name;
+              return (
               <div
                 key={character.id}
                 className={`character-card ${selectedCharacterId === character.id ? 'selected' : ''}`}
@@ -89,26 +112,25 @@ const CharacterSelection = ({ studentId, onCharacterSelected }) => {
               >
                 <div className="character-image">
                   {/* Using a magical CSS gradient placeholder if image fails to load, or show the image */}
-                  {character.imageUrl ? (
-                    <img src={character.imageUrl} alt={displayName} />
+                  {getCharacterCardImage(character) ? (
+                    <img src={getCharacterCardImage(character)} alt={displayName} />
                   ) : (
                     <div className="image-placeholder"></div>
                   )}
+                  {getGenderIcon(character.name) && (
+                    <div className="gender-badge">
+                      <img className="gender-icon" src={getGenderIcon(character.name)} alt="gender icon" />
+                    </div>
+                  )}
+                  <div className="character-name-badge">{displayName}</div>
                   {selectedCharacterId === character.id && (
                     <div className="selected-overlay">
                       <span className="check-icon">✓</span>
                     </div>
                   )}
                 </div>
-                <div className="character-label">
-                  {displayName}
-                </div>
                 <div className="character-info">
-                  <span className={`rarity badge-${character.rarity.toLowerCase()}`}>{character.rarity}</span>
                   <p className="description">{character.description}</p>
-                  <div className="stats">
-                    <span className="stat-pill">♥ {character.initialHealth} HP</span>
-                  </div>
                 </div>
               </div>
             );
