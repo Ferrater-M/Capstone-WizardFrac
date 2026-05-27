@@ -108,6 +108,8 @@ function App() {
         return (
           <DissimilarIslandGame
             studentId={studentId}
+            studentNickname={studentNickname}
+            selectedCharacter={selectedCharacter}
             gameSession={gameSession}
             onGameEnd={handleGameEnd}
             onExitToLobby={handleExitToLobby}
