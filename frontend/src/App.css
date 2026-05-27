@@ -37,7 +37,49 @@
 .game-end-container p {
   font-size: 1.2em;
   color: #666;
-  margin-bottom: 40px;
+  margin-bottom: 30px;
+}
+
+.rewards-section {
+  background: linear-gradient(135deg, #fff9e6 0%, #ffecd2 100%);
+  padding: 30px;
+  border-radius: 15px;
+  margin-bottom: 30px;
+  border: 3px solid #ffc107;
+}
+
+.rewards-section h2 {
+  font-size: 1.8em;
+  color: #d35400;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.rewards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.reward-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 15px 20px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 193, 7, 0.5);
+}
+
+.reward-icon {
+  font-size: 2em;
+}
+
+.reward-text {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #333;
 }
 
 .end-stats {
