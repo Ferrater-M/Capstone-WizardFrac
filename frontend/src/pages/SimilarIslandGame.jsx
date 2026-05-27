@@ -4,7 +4,7 @@ import DrawingCanvas from '../components/DrawingCanvas';
 import FractionPattern from '../components/FractionPattern';
 import '../components/components.css';
 
-const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby }) => {
+const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, gameSession, onGameEnd, onExitToLobby }) => {
   const [currentProblem, setCurrentProblem] = useState('2/3 + 1/3 = ?');
   const [mechanicType, setMechanicType] = useState(gameSession.mechanicType);
   const [answer, setAnswer] = useState('');
@@ -13,20 +13,85 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
   const [streak, setStreak] = useState(0);
   const [multiplier, setMultiplier] = useState(1.0);
   const [enemyHealth, setEnemyHealth] = useState(gameSession.enemyHealth);
+  const [enemyLives, setEnemyLives] = useState(3);
   const [score, setScore] = useState(0);
   const [problemCount, setProblemCount] = useState(0);
   const [feedbackType, setFeedbackType] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enemyAttacking, setEnemyAttacking] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
+  const [currentHint, setCurrentHint] = useState('');
   const [circleDetected, setCircleDetected] = useState(false);
   const [bossPosition, setBossPosition] = useState({ x: 0, y: 0 });
   const enemySectionRef = useRef(null);
   const animationFrameRef = useRef(null);
   const directionRef = useRef({ x: 1, y: 1 });
   const speedRef = useRef(2);
+  const fractionPatternRef = useRef(null);
 
   const handleCircleDetected = () => {
     setCircleDetected(true);
+  };
+
+  const handleWrongAnswer = (hint, submittedValue) => {
+    const newLives = lives - 1;
+    setLives(newLives);
+    setEnemyAttacking(true);
+    setFeedback(hint ? `✗ Wrong! ${hint}` : '✗ Wrong answer! You lost a heart.');
+    setFeedbackType('incorrect');
+    if (hint) setCurrentHint(hint);
+
+    const match = currentProblem.match(/(\d+)\/(\d+)\s*([+-])\s*(\d+)\/(\d+)/);
+    let correctAnswerStr = '?';
+    if (match) {
+      const resNum = match[3] === '+' ? parseInt(match[1]) + parseInt(match[4]) : parseInt(match[1]) - parseInt(match[4]);
+      const resDen = parseInt(match[2]);
+      const divisor = gcd(Math.abs(resNum), resDen);
+      correctAnswerStr = `${resNum / divisor}/${resDen / divisor}`;
+    }
+
+    const attempt = {
+      gameSessionId: gameSession.sessionId,
+      mechanicType: mechanicType,
+      problemStatement: currentProblem,
+      answerSubmitted: String(submittedValue ?? ''),
+      correctAnswer: correctAnswerStr,
+      isCorrect: false,
+      errorType: 'INCORRECT_ANSWER',
+      remainingLives: newLives,
+      streakCount: 0,
+      multiplierValue: 1.0,
+      enemyHealthBefore: enemyHealth,
+      enemyHealthAfter: enemyHealth,
+      pointsEarned: 0,
+    };
+    saveSpellAttempt(attempt);
+
+    if (newLives <= 0) {
+      saveGameEnd('FAILED', false);
+      setTimeout(() => setGameOver(true), 800);
+    } else {
+      setTimeout(() => {
+        setEnemyAttacking(false);
+        setFeedback('');
+        setFeedbackType('');
+      }, 4000);
+    }
+  };
+
+  const saveGameEnd = async (status, isWon) => {
+    try {
+      await fetch(
+        `http://localhost:8080/api/game-progress/end-session/${gameSession.sessionId}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status, isWon }),
+        }
+      );
+    } catch (err) {
+      console.error('Error saving game end:', err);
+    }
   };
 
   const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
@@ -59,8 +124,8 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
                    (submittedAnswer === `${simplifiedNum}` && simplifiedDen === 1);
     }
     
-    const healthDeduction = isCorrect ? 10 : 5;
-    const newEnemyHealth = Math.max(0, enemyHealth - healthDeduction);
+    const newEnemyLives = isCorrect ? Math.max(0, enemyLives - 1) : enemyLives;
+    const newEnemyHealth = Math.max(0, enemyHealth - (isCorrect ? 33 : 0));
     const newStreak = isCorrect ? streak + 1 : 0;
     const newMultiplier = Math.min(2.0, 1.0 + newStreak * 0.2);
     const pointsEarned = isCorrect ? Math.floor(10 * newMultiplier) : 0;
@@ -86,6 +151,7 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
     await saveSpellAttempt(attempt);
 
     setEnemyHealth(newEnemyHealth);
+    setEnemyLives(newEnemyLives);
     setStreak(newStreak);
     setMultiplier(newMultiplier);
     setScore(newScore);
@@ -108,7 +174,7 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
       return;
     }
 
-    if (newEnemyHealth <= 0) {
+    if (newEnemyLives <= 0) {
       handleGameEnd('COMPLETED', true);
       return;
     }
@@ -226,6 +292,13 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
     }
   };
 
+  const problemMatch = currentProblem.match(/(\d+)\/(\d+)\s*([+-])\s*(\d+)\/(\d+)/);
+  const displayNum1 = problemMatch ? problemMatch[1] : '?';
+  const displayDen1 = problemMatch ? problemMatch[2] : '?';
+  const displayOp   = problemMatch ? problemMatch[3] : '+';
+  const displayNum2 = problemMatch ? problemMatch[4] : '?';
+  const displayDen2 = problemMatch ? problemMatch[5] : '?';
+
   const renderHearts = (count, max) => {
     const hearts = [];
     for (let i = 0; i < max; i++) {
@@ -244,7 +317,10 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
     <div
       className="wireframe-game-container"
       style={{
-        background: '#d4c5c9',
+        backgroundImage: 'url(/SimilarBackground.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
         minHeight: '100vh',
         padding: '20px',
         display: 'flex',
@@ -258,30 +334,31 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
         className="wireframe-header"
         style={{
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '10px',
+          flexDirection: 'column',
+          gap: '6px',
           background: '#ddd',
           padding: '10px',
           border: '2px solid #888',
         }}
       >
-        <button style={{ padding: '8px 20px', background: '#bbb', border: '2px solid #888' }}>
-          Game logo
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-          <span>[Player Nickname]</span>
-          <span>HP: {renderHearts(lives, 3)}</span>
-          <span>Streak: x{multiplier.toFixed(1)}</span>
-          <span>Score: {score}</span>
-          <span>Level: {gameSession.level}/7</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+          <button style={{ padding: '8px 20px', background: '#bbb', border: '2px solid #888' }}>
+            Game logo
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 'bold' }}>{studentNickname || 'Player'}</span>
+            <span>HP: {renderHearts(lives, 3)}</span>
+            <span>Streak: x{multiplier.toFixed(1)}</span>
+            <span>Score: {score}</span>
+            <span>Level: {gameSession.level}/7</span>
+          </div>
+          <button
+            style={{ padding: '8px 20px', background: '#bbb', border: '2px solid #888' }}
+            onClick={handleExitGame}
+          >
+            Menu
+          </button>
         </div>
-        <button 
-          style={{ padding: '8px 20px', background: '#bbb', border: '2px solid #888' }}
-          onClick={handleExitGame}
-        >
-          Menu
-        </button>
       </div>
 
       <div
@@ -293,7 +370,9 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
           border: '2px solid #888',
         }}
       >
-        <span style={{ fontSize: '14px' }}>Hint: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor...</span>
+        <span style={{ fontSize: '14px' }}>
+          {currentHint ? `💡 Hint: ${currentHint}` : '💡 Hint: Answer each step correctly to cast your spell!'}
+        </span>
       </div>
 
       <div
@@ -315,7 +394,7 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
         >
           <div style={{ display: 'flex', gap: '5px' }}>{renderHearts(lives, 3)}</div>
           <div style={{ fontSize: '24px', fontWeight: 'bold' }}>Problem</div>
-          <div style={{ display: 'flex', gap: '5px' }}>{renderHearts(Math.ceil(enemyHealth / 33), 3)}</div>
+          <div style={{ display: 'flex', gap: '5px' }}>{renderHearts(enemyLives, 3)}</div>
         </div>
 
         <div
@@ -353,7 +432,11 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
                 height: '100%',
                 background: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #888 10px, #888 12px)',
               }}></div>
-              <span style={{ position: 'relative', zIndex: 1, fontSize: '48px' }}>🧙</span>
+              <img
+                src={selectedCharacter?.name?.toLowerCase().includes('girl') ? '/Female.png' : '/Male.png'}
+                alt="Player"
+                style={{ position: 'relative', zIndex: 1, width: '120px', height: '120px', objectFit: 'contain' }}
+              />
             </div>
             <h3 style={{ margin: 0, fontSize: '20px' }}>Player</h3>
           </div>
@@ -388,7 +471,7 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
                     textAlign: 'center',
                     color: '#000',
                   }}
-                  value="2"
+                  value={displayNum1}
                   readOnly
                 />
                 <div style={{ width: '80px', height: '4px', background: '#888' }}></div>
@@ -404,7 +487,7 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
                     textAlign: 'center',
                     color: '#000',
                   }}
-                  value="3"
+                  value={displayDen1}
                   readOnly
                 />
               </div>
@@ -420,7 +503,7 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
                   textAlign: 'center',
                   color: '#000',
                 }}
-                value="+"
+                value={displayOp}
                 readOnly
               />
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -436,7 +519,7 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
                     textAlign: 'center',
                     color: '#000',
                   }}
-                  value="1"
+                  value={displayNum2}
                   readOnly
                 />
                 <div style={{ width: '80px', height: '4px', background: '#888' }}></div>
@@ -452,7 +535,7 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
                     textAlign: 'center',
                     color: '#000',
                   }}
-                  value="3"
+                  value={displayDen2}
                   readOnly
                 />
               </div>
@@ -474,9 +557,12 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
               {!circleDetected ? (
                 <DrawingCanvas onCircleDetected={handleCircleDetected} />
               ) : (
-                <FractionPattern 
-                  problem={currentProblem.replace(' = ?', '')} 
+                <FractionPattern
+                  ref={fractionPatternRef}
+                  problem={currentProblem.replace(' = ?', '')}
                   onAnswerSubmit={handleAnswerSubmit}
+                  onWrongAnswer={handleWrongAnswer}
+                  onStepCorrect={() => setCurrentHint('')}
                 />
               )}
             </div>
@@ -531,18 +617,22 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
           className="wireframe-cast-btn"
           style={{
             padding: '10px 40px',
-            background: '#ddd',
+            background: circleDetected ? '#8b5cf6' : '#ddd',
             border: '2px solid #888',
             fontSize: '18px',
-            cursor: 'pointer',
+            cursor: circleDetected ? 'pointer' : 'not-allowed',
+            color: circleDetected ? '#fff' : '#999',
+            opacity: circleDetected ? 1 : 0.6,
           }}
+          disabled={!circleDetected}
+          onClick={() => fractionPatternRef.current?.submitCurrentStep()}
         >
           Cast Spell
         </button>
       </div>
 
       {feedback && (
-        <div 
+        <div
           className="feedback"
           style={{
             textAlign: 'center',
@@ -553,6 +643,53 @@ const SimilarIslandGame = ({ studentId, gameSession, onGameEnd, onExitToLobby })
           }}
         >
           {feedback}
+        </div>
+      )}
+
+      {gameOver && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '16px',
+            padding: '48px 56px',
+            textAlign: 'center',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+          }}>
+            <div style={{ fontSize: '64px' }}>💀</div>
+            <h1 style={{ margin: 0, fontSize: '36px', color: '#dc2626' }}>GAME OVER</h1>
+            <p style={{ margin: 0, fontSize: '18px', color: '#555' }}>You ran out of hearts!</p>
+            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#333' }}>
+              Final Score: {score}
+            </div>
+            <button
+              style={{
+                marginTop: '12px',
+                padding: '12px 36px',
+                fontSize: '18px',
+                fontWeight: 'bold',
+                background: '#8b5cf6',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+              }}
+              onClick={onExitToLobby}
+            >
+              Return to Island Selection
+            </button>
+          </div>
         </div>
       )}
     </div>
