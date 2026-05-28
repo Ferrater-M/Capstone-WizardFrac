@@ -70,13 +70,16 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     if (newLives <= 0) {
       saveGameEnd('FAILED', false);
       setTimeout(() => setGameOver(true), 800);
-    } else {
-      setTimeout(() => {
-        setEnemyAttacking(false);
-        setFeedback('');
-        setFeedbackType('');
-      }, 4000);
     }
+  };
+
+  const handleRequestNewProblem = () => {
+    setEnemyAttacking(false);
+    setFeedback('');
+    setFeedbackType('');
+    setCircleDetected(false);
+    setCurrentHint('');
+    generateNextProblem();
   };
 
   const saveGameEnd = async (status, isWon) => {
@@ -543,6 +546,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   onAnswerSubmit={handleAnswerSubmit}
                   onWrongAnswer={handleWrongAnswer}
                   onStepCorrect={() => setCurrentHint('')}
+                  onRequestNewProblem={handleRequestNewProblem}
                 />
               )}
             </div>
