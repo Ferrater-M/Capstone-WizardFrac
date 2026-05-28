@@ -204,11 +204,13 @@ function App() {
         <GameLobby
           key={lobbyKey}
           studentId={studentId}
+          studentNickname={studentNickname}
           selectedCharacter={selectedCharacter}
           onGameStart={handleGameStart}
           onOpenDashboard={handleOpenDashboard}
           onEnterIslandInterior={pauseMusic}
           onLeaveIslandInterior={resumeMusic}
+          onLogout={handleReturnToLogin}
         />
       )}
       
@@ -222,59 +224,96 @@ function App() {
       {currentScreen === 'game' && gameSession && renderGame()}
       
       {currentScreen === 'game-end' && gameResult && (
-        <div className="game-end-screen">
-          <div className="game-end-container">
-            {gameResult.isWon ? (
-              <>
-                <h1>VICTORY!</h1>
-                <p>You defeated the enemy!</p>
-                
-                {gameSession?.isBoss && (
-                  <div className="rewards-section">
-                    <h2>🎁 Boss Rewards!</h2>
-                    <div className="rewards-list">
-                      <div className="reward-item">
-                        <span className="reward-icon">⭐</span>
-                        <span className="reward-text">+500 Bonus Points</span>
-                      </div>
-                      <div className="reward-item">
-                        <span className="reward-icon">🏆</span>
-                        <span className="reward-text">Boss Slayer Badge</span>
-                      </div>
-                      <div className="reward-item">
-                        <span className="reward-icon">🔓</span>
-                        <span className="reward-text">Next Island Unlocked!</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="end-emoji">💀</div>
-                <h1>GAME OVER</h1>
-                <p>You ran out of lives.</p>
-              </>
+        <div style={{
+          position: 'fixed', inset: 0,
+          backgroundImage: 'url(/PostMatchBackground.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        }}>
+          {/* Title + Description + Score box */}
+          <div style={{
+            position: 'relative',
+            background: '#251e59',
+            border: '4px solid #f6b825',
+            borderRadius: '12px',
+            boxShadow: '0 0 0 2px #18113c, 0 20px 40px rgba(0,0,0,0.6)',
+            padding: '36px 56px 28px',
+            textAlign: 'center',
+          }}>
+            {/* Inner thin border */}
+            <div style={{
+              position: 'absolute',
+              top: 8, right: 8, bottom: 8, left: 8,
+              border: '1px solid #f6b825',
+              borderRadius: '6px',
+              pointerEvents: 'none',
+            }} />
+
+            <h1 style={{
+              fontSize: 'clamp(2.5em, 6vw, 5em)',
+              fontWeight: 900,
+              margin: 0,
+              color: gameResult.isWon ? '#f6b825' : '#ef4444',
+              textShadow: '0 0 20px rgba(0,0,0,0.6), 2px 2px 6px rgba(0,0,0,0.8)',
+              letterSpacing: '6px',
+              textTransform: 'uppercase',
+            }}>
+              {gameResult.isWon ? 'VICTORY!' : 'DEFEAT!'}
+            </h1>
+
+            <p style={{
+              fontSize: 'clamp(1em, 2vw, 1.3em)',
+              color: '#fff',
+              margin: '36px 0 0',
+              fontWeight: 500,
+            }}>
+              {gameResult.isWon ? 'You defeated the enemy!' : 'You ran out of lives.'}
+            </p>
+
+            <p style={{
+              fontSize: 'clamp(1.1em, 2vw, 1.6em)',
+              color: '#fff',
+              margin: '12px 0 0',
+              fontWeight: 700,
+            }}>
+              Score: {gameResult.score}{gameSession?.isBoss ? ' + 500' : ''}
+            </p>
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: 'flex', flexDirection: 'row', gap: '12px', marginTop: '16px' }}>
+            {gameResult.isWon && gameSession?.level < 6 && (
+              <button onClick={handleNextLevel} style={{
+                padding: '12px 28px', fontSize: '15px', fontWeight: 700,
+                background: 'rgba(40,40,40,0.8)', color: '#fff',
+                border: '1px solid rgba(255,255,255,0.3)', borderRadius: '10px',
+                cursor: 'pointer', backdropFilter: 'blur(10px)',
+              }}>
+                ▶ Next Level
+              </button>
             )}
-            <div className="end-stats">
-              <div className="end-stat">
-                <span>Final Score</span>
-                <h2>{gameResult.score}{gameSession?.isBoss ? ' + 500' : ''}</h2>
-              </div>
-            </div>
-            <div className="end-actions">
-              {gameResult.isWon && gameSession?.level < 6 && (
-                <button className="action-btn primary" onClick={handleNextLevel}>
-                  ▶ NEXT LEVEL
-                </button>
-              )}
-              <button className="action-btn" onClick={handleReturnToLobby}>
-                BACK TO LOBBY
-              </button>
-              <button className="action-btn secondary" onClick={handleReturnToLogin}>
-                BACK TO LOGIN
-              </button>
-            </div>
+            <button onClick={handleReturnToLobby} style={{
+              padding: '12px 28px', fontSize: '15px', fontWeight: 700,
+              background: 'rgba(40,40,40,0.8)', color: '#fff',
+              border: '1px solid rgba(255,255,255,0.3)', borderRadius: '10px',
+              cursor: 'pointer', backdropFilter: 'blur(10px)',
+            }}>
+              Back to Lobby
+            </button>
+            <button onClick={handleReturnToLogin} style={{
+              padding: '12px 28px', fontSize: '15px', fontWeight: 700,
+              background: 'rgba(40,40,40,0.8)', color: '#fff',
+              border: '1px solid rgba(255,255,255,0.3)', borderRadius: '10px',
+              cursor: 'pointer', backdropFilter: 'blur(10px)',
+            }}>
+              Back to Login
+            </button>
           </div>
         </div>
       )}

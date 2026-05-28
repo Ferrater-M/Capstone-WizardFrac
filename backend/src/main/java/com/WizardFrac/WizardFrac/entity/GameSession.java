@@ -44,8 +44,8 @@ public class GameSession {
     @Column(nullable = false)
     private String status; // ACTIVE, COMPLETED, FAILED, PAUSED
 
-    @Column(nullable = true)
-    private String sessionDataJson; // JSON storing detailed session data
+    @Column(nullable = true, columnDefinition = "TEXT")
+    private String sessionDataJson;
 
     public GameSession() {
         this.startedAt = LocalDateTime.now();

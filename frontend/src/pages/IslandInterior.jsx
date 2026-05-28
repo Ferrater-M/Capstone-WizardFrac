@@ -36,6 +36,7 @@ const makeEnemies = () => {
 
 const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
   const isCompleted = (level) => maxStage >= level;
+  const isLocked    = (level) => level > maxStage + 1;
 
   const [playerPos,  setPlayerPos]  = useState({ x: SQUARE / 2, y: SQUARE / 2 });
   const [nearEnemy,  setNearEnemy]  = useState(null);
@@ -71,6 +72,7 @@ const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
   useEffect(() => {
     const { x, y } = playerPos;
     const closest = enemies.reduce((best, e) => {
+      if (isLocked(e.level)) return best;
       const d = Math.hypot(e.x - x, e.y - y);
       return d < REACH && (best === null || d < best.d) ? { e, d } : best;
     }, null);
@@ -93,7 +95,8 @@ const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
     };
   }, [nearEnemy, onSelectLevel]);
 
-  const enemyColor = (level, done) => {
+  const enemyColor = (level, done, locked) => {
+    if (locked)      return '#4b5563';
     if (done)        return '#10b981';
     if (level === 6) return '#7c3aed';
     return '#3b82f6';
@@ -112,20 +115,6 @@ const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
       backgroundPosition: 'center',
     }}>
 
-      {/* WalkableArea island PNG in front of background */}
-      {overlay && (
-        <img
-          src={overlay}
-          alt="island"
-          style={{
-            position: 'absolute', inset: 0,
-            width: '100%', height: '100%',
-            objectFit: 'cover',
-            zIndex: 1,
-            pointerEvents: 'none',
-          }}
-        />
-      )}
 
       {/* Back button */}
       <button
@@ -159,7 +148,7 @@ const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
         textShadow: '1px 1px 3px #000', pointerEvents: 'none',
         whiteSpace: 'nowrap',
       }}>
-        WASD / Arrow keys to move · Walk to an enemy and press Enter or click to fight
+        WASD / Arrow keys to move · Walk to an enemy and press Enter to fight
       </div>
 
       {/* Walkable square */}
@@ -171,17 +160,32 @@ const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
         zIndex: 2,
       }}>
 
+        {/* WalkableArea island PNG — larger than the square so edges aren't clipped */}
+        {overlay && (
+          <img
+            src={overlay}
+            alt="island"
+            style={{
+              position: 'absolute',
+              top: '-100%', left: '-100%',
+              width: '300%', height: '300%',
+              objectFit: 'contain',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+
         {/* Enemies */}
         {enemies.map(enemy => {
-          const done  = isCompleted(enemy.level);
-          const boss  = enemy.level === 6;
-          const near  = nearEnemy?.level === enemy.level;
-          const color = enemyColor(enemy.level, done);
+          const done   = isCompleted(enemy.level);
+          const locked = isLocked(enemy.level);
+          const boss   = enemy.level === 6;
+          const near   = nearEnemy?.level === enemy.level;
+          const color  = enemyColor(enemy.level, done, locked);
 
           return (
             <div
               key={enemy.level}
-              onClick={() => onSelectLevel(enemy.level)}
               style={{
                 position: 'absolute',
                 left: enemy.x - E_RAD,
@@ -192,13 +196,14 @@ const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
                 border: `3px solid ${near ? '#fff' : 'rgba(255,255,255,0.35)'}`,
                 boxShadow: near ? `0 0 16px ${color}, 0 0 32px ${color}` : '0 2px 8px rgba(0,0,0,0.5)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 13, fontWeight: 800, color: '#fff',
-                cursor: 'pointer',
+                fontSize: locked ? 16 : 13, fontWeight: 800, color: '#fff',
+                cursor: 'default',
+                opacity: locked ? 0.55 : 1,
                 transition: 'box-shadow 0.15s, border-color 0.15s',
                 userSelect: 'none',
               }}
             >
-              {boss && (
+              {!locked && boss && (
                 <span style={{
                   position: 'absolute', top: -24,
                   fontSize: 20,
@@ -207,7 +212,7 @@ const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
                   👑
                 </span>
               )}
-              {done ? '✓' : boss ? '!' : enemy.level}
+              {locked ? '🔒' : done ? '✓' : boss ? '!' : enemy.level}
             </div>
           );
         })}
@@ -243,7 +248,10 @@ const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
           }}>
             {nearEnemy.level === 6 ? '👑 Boss Fight' : `Level ${nearEnemy.level}`}
             <br />
-            <span style={{ color: '#fbbf24' }}>Enter / Click</span>
+            {isCompleted(nearEnemy.level)
+              ? <span style={{ color: '#10b981' }}>Defeated</span>
+              : <span style={{ color: '#fbbf24' }}>Press Enter</span>
+            }
           </div>
         )}
       </div>

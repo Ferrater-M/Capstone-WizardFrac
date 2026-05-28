@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './game-lobby.css';
 import IslandInterior from './IslandInterior';
 
-const GameLobby = ({ studentId, selectedCharacter, onGameStart, onOpenDashboard, onEnterIslandInterior, onLeaveIslandInterior }) => {
+const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onEnterIslandInterior, onLeaveIslandInterior, onLogout }) => {
   const [gameProgress, setGameProgress] = useState(null);
   const [selectedIsland, setSelectedIsland] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState(1);
@@ -10,6 +10,7 @@ const GameLobby = ({ studentId, selectedCharacter, onGameStart, onOpenDashboard,
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [character, setCharacter] = useState(selectedCharacter);
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     setCharacter(selectedCharacter);
@@ -168,22 +169,17 @@ const GameLobby = ({ studentId, selectedCharacter, onGameStart, onOpenDashboard,
 
   return (
     <div className="game-lobby">
-      {character && (
-        <div className="selected-character-banner">
-          <strong>Character:</strong> {character.name}
-        </div>
-      )}
+      <div className="lobby-top-right">
+        <button className="dashboard-btn" onClick={onOpenDashboard}>Dashboard</button>
+        <button className="logout-btn" onClick={() => setShowMenu(true)}>Menu</button>
+      </div>
       <div className="lobby-container">
-        <h1 className="lobby-title">WIZARD ISLANDS</h1>
-        <p className="lobby-subtitle">Choose your adventure</p>
+        <div className="lobby-title-box">
+          <h1 className="lobby-title">WIZARD ISLANDS</h1>
+          <p className="lobby-subtitle">Choose your adventure</p>
+        </div>
 
         {error && <div className="error-message">{error}</div>}
-
-        <div className="lobby-actions">
-          <button className="dashboard-btn" onClick={onOpenDashboard}>
-            📊 Progress Dashboard
-          </button>
-        </div>
 
         <div className="islands-grid">
           {islands.map(island => (
@@ -201,6 +197,11 @@ const GameLobby = ({ studentId, selectedCharacter, onGameStart, onOpenDashboard,
                   src={island.image}
                   alt={island.title}
                 />
+                <div className="island-info">
+                  <h3>{island.title}</h3>
+                  <p className="description">{island.description}</p>
+                  <p className="mechanic">Mechanic: {island.mechanic}</p>
+                </div>
                 {!island.unlocked && (
                   <div className="lock-overlay">
                     <span className="lock-icon">🔒</span>
@@ -208,16 +209,60 @@ const GameLobby = ({ studentId, selectedCharacter, onGameStart, onOpenDashboard,
                   </div>
                 )}
               </div>
-              <div className="island-info">
-                <h3>{island.title}</h3>
-                <p className="description">{island.description}</p>
-                <p className="mechanic">Mechanic: {island.mechanic}</p>
-              </div>
             </div>
           ))}
         </div>
 
       </div>
+
+      {showMenu && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 1000,
+        }}
+          onClick={() => setShowMenu(false)}
+        >
+          <div style={{
+            background: '#fff', borderRadius: '16px', padding: '48px 56px',
+            textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px',
+          }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 style={{ margin: 0, fontSize: '28px', color: '#1f2937' }}>Menu</h2>
+            {studentNickname && (
+              <p style={{ margin: 0, fontSize: '16px', color: '#555' }}>
+                <strong>Username:</strong> {studentNickname}
+              </p>
+            )}
+            {character && (
+              <p style={{ margin: 0, fontSize: '16px', color: '#555' }}>
+                <strong>Character:</strong> {character.name}
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+              <button style={{
+                padding: '12px 32px', fontSize: '16px', fontWeight: 'bold',
+                background: '#e5e7eb', color: '#374151',
+                border: 'none', borderRadius: '10px', cursor: 'pointer',
+              }}>
+                Settings
+              </button>
+              <button style={{
+                padding: '12px 32px', fontSize: '16px', fontWeight: 'bold',
+                background: '#8b5cf6', color: '#fff',
+                border: 'none', borderRadius: '10px', cursor: 'pointer',
+              }}
+                onClick={onLogout}
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

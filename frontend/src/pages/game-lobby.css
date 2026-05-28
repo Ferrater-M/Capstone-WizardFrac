@@ -1,33 +1,79 @@
 .game-lobby {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('/IslandBackground.jpg') center/cover no-repeat;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 0 8px;
+  box-sizing: border-box;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   position: relative;
 }
 
-.selected-character-banner {
+.lobby-top-right {
   position: absolute;
   top: 20px;
-  left: 20px;
-  color: white;
-  font-size: 1.1em;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+  right: 20px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+}
+
+.logout-btn {
+  padding: 5px 14px;
+  background: rgba(0,0,0,0.45);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 6px;
+  font-size: 0.85em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.logout-btn:hover {
+  background: rgba(255,255,255,0.15);
 }
 
 .lobby-container {
   width: 100%;
-  max-width: 1200px;
+  height: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.lobby-title-box {
+  position: relative;
+  background: #251e59;
+  border: 4px solid #f6b825;
+  border-radius: 12px;
+  box-shadow: 0 0 0 2px #18113c, 0 20px 40px rgba(0,0,0,0.6);
+  padding: 32px 40px 14px;
+  text-align: center;
+  margin: 40px auto 0;
+  width: fit-content;
+}
+
+.lobby-title-box::before {
+  content: '';
+  position: absolute;
+  top: 8px; right: 8px; bottom: 8px; left: 8px;
+  border: 1px solid #f6b825;
+  border-radius: 6px;
+  pointer-events: none;
 }
 
 .lobby-title {
   text-align: center;
   color: white;
-  font-size: 4em;
-  margin-bottom: 10px;
+  font-size: clamp(1.8em, 3.5vw, 3.5em);
+  margin: 0 0 24px;
+  padding-top: 0;
   text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 255, 255, 0.3);
   letter-spacing: 4px;
   font-weight: 900;
@@ -37,8 +83,8 @@
 .lobby-subtitle {
   text-align: center;
   color: rgba(255, 255, 255, 0.95);
-  font-size: 1.5em;
-  margin-bottom: 40px;
+  font-size: clamp(0.9em, 1.5vw, 1.3em);
+  margin: 0 0 10px;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
   font-weight: 500;
 }
@@ -46,22 +92,25 @@
 .islands-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 50px;
-  margin-bottom: 40px;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0;
 }
 
 .island-card-wrapper {
   position: relative;
   overflow: visible;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   cursor: pointer;
   transition: all 0.3s ease;
+  min-height: 0;
+  margin: 0 -40px;
+  z-index: 1;
 }
 
 .island-card-wrapper:hover:not(.locked) {
   transform: translateY(-5px);
+  z-index: 2;
 }
 
 .island-card-wrapper.locked {
@@ -70,44 +119,49 @@
 
 .floating-island-wrapper {
   position: relative;
-  width: 400px;
-  height: 400px;
+  width: 100%;
+  height: 100%;
   z-index: 2;
 }
 
 .floating-island {
-  width: 400px;
-  max-width: 100%;
-  height: auto;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   display: block;
   animation: float 6s ease-in-out infinite;
   filter: drop-shadow(0 24px 40px rgba(0, 0, 0, 0.22));
 }
 
 .island-info {
-  margin-top: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 18px 20px 32px;
   text-align: center;
-  max-width: 400px;
+  pointer-events: none;
 }
 
 .island-info h3 {
-  margin: 10px 0 8px;
-  font-size: 1.6em;
+  margin: 0 0 8px;
+  font-size: 2em;
   color: #fff;
   font-weight: 700;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+  text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.8);
 }
 
 .island-info .description,
 .island-info .mechanic {
-  margin: 6px 0;
+  margin: 4px 0;
   color: rgba(255, 255, 255, 0.95);
-  font-size: 1.1em;
+  font-size: 1.2em;
+  text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.7);
 }
 
 .island-info .mechanic {
   font-style: italic;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.88);
   font-weight: 500;
 }
 
@@ -242,11 +296,6 @@
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-.lobby-actions {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 40px;
-}
 
 .start-btn {
   padding: 15px 50px;
@@ -301,12 +350,23 @@
 }
 
 @media (max-width: 768px) {
-  .lobby-title {
-    font-size: 2em;
+  .game-lobby {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  .lobby-container {
+    height: auto;
   }
 
   .islands-grid {
     grid-template-columns: 1fr;
+    flex: none;
+  }
+
+  .island-card-wrapper {
+    height: 60vw;
   }
 
   .start-btn {
@@ -315,23 +375,18 @@
 }
 
 .dashboard-btn {
-  padding: 15px 40px;
-  font-size: 1.2em;
-  font-weight: bold;
-  border: 3px solid rgba(255,255,255,0.5);
-  border-radius: 16px;
-  background: rgba(255,255,255,0.15);
-  color: white;
+  padding: 5px 14px;
+  background: rgba(0,0,0,0.45);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 6px;
+  font-size: 0.85em;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  letter-spacing: 2px;
+  transition: background 0.2s;
   backdrop-filter: blur(10px);
 }
 
 .dashboard-btn:hover {
-  background: rgba(255,255,255,0.25);
-  transform: translateY(-3px);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  border-color: white;
+  background: rgba(255,255,255,0.15);
 }
