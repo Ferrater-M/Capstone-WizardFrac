@@ -15,6 +15,7 @@ function App() {
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [gameSession, setGameSession] = useState(null);
   const [gameResult, setGameResult] = useState(null);
+  const [lobbyKey, setLobbyKey] = useState(0);
 
   // Handle login completion
   const handleLogin = (student) => {
@@ -59,6 +60,7 @@ function App() {
   // Handle exit to lobby
   const handleExitToLobby = () => {
     setGameSession(null);
+    setLobbyKey(k => k + 1);
     setCurrentScreen('game-lobby');
   };
 
@@ -66,7 +68,28 @@ function App() {
   const handleReturnToLobby = () => {
     setGameSession(null);
     setGameResult(null);
+    setLobbyKey(k => k + 1);
     setCurrentScreen('game-lobby');
+  };
+
+  // Handle next level after victory
+  const handleNextLevel = async () => {
+    const nextLevel = (gameSession.level || 1) + 1;
+    try {
+      const res = await fetch(`http://localhost:8080/api/game-lobby/start-stage/${studentId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ islandType: gameSession.islandType, stageNumber: nextLevel }),
+      });
+      if (res.ok) {
+        const newSession = await res.json();
+        setGameSession({ ...newSession, level: nextLevel, isBoss: nextLevel === 6 });
+        setGameResult(null);
+        setCurrentScreen('game');
+      }
+    } catch (err) {
+      console.error('Error starting next level:', err);
+    }
   };
 
   // Handle return to login
@@ -144,6 +167,7 @@ function App() {
       
       {currentScreen === 'game-lobby' && (
         <GameLobby
+          key={lobbyKey}
           studentId={studentId}
           selectedCharacter={selectedCharacter}
           onGameStart={handleGameStart}
@@ -203,6 +227,11 @@ function App() {
               </div>
             </div>
             <div className="end-actions">
+              {gameResult.isWon && gameSession?.level < 6 && (
+                <button className="action-btn primary" onClick={handleNextLevel}>
+                  ▶ NEXT LEVEL
+                </button>
+              )}
               <button className="action-btn" onClick={handleReturnToLobby}>
                 BACK TO LOBBY
               </button>

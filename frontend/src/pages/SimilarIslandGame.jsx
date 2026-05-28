@@ -261,33 +261,13 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   };
 
   const handleGameEnd = async (status, isWon) => {
-    try {
-      const response = await fetch(
-        `http://localhost:8080/api/game-progress/end-session/${gameSession.sessionId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            status: status,
-            isWon: isWon,
-          }),
-        }
-      );
-
-      if (response.ok) {
-        onGameEnd({ status, isWon, score });
-      }
-    } catch (err) {
-      console.error('Error ending game session:', err);
-      onGameEnd({ status, isWon, score });
-    }
+    await saveGameEnd(status, isWon);
+    onGameEnd({ status, isWon, score });
   };
 
   const handleExitGame = async () => {
     if (window.confirm('Are you sure you want to exit? Progress will be saved.')) {
-      await handleGameEnd('PAUSED', false);
+      await saveGameEnd('PAUSED', false);
       onExitToLobby();
     }
   };

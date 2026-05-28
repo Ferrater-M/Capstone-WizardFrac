@@ -88,7 +88,7 @@ const DissimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, g
     } catch (err) { console.error('Error saving game end:', err); }
   };
 
-  const handleAnswerSubmit = ({ numerator, denominator }) => {
+  const handleAnswerSubmit = async ({ numerator, denominator }) => {
     const newStreak = streak + 1;
     const newMultiplier = Math.min(2.0, 1.0 + Math.max(0, newStreak - 3) * 0.2);
     const pointsEarned = Math.floor(100 * newMultiplier);
@@ -120,7 +120,7 @@ const DissimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, g
     });
 
     if (newEnemyLives <= 0) {
-      saveGameEnd(true);
+      await saveGameEnd(true);
       setTimeout(() => onGameEnd({ isWon: true, score: newScore }), 1500);
       return;
     }

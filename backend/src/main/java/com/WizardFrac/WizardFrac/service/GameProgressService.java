@@ -7,6 +7,7 @@ import com.WizardFrac.WizardFrac.dto.DiagnosticsDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -64,6 +65,7 @@ public class GameProgressService {
     }
 
     // End game session and save full session record (UC-1.2 - session end saving)
+    @Transactional
     public void endGameSession(Long gameSessionId, String status, boolean isWon) {
         Optional<GameSession> sessionOpt = gameSessionRepository.findById(gameSessionId);
         if (sessionOpt.isEmpty()) {

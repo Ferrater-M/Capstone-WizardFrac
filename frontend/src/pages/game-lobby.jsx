@@ -135,6 +135,7 @@ const GameLobby = ({ studentId, selectedCharacter, onGameStart, onOpenDashboard 
       description: 'Master fractions with same denominators',
       mechanic: 'Same Container',
       unlocked: true,
+      maxStage: gameProgress?.similarIslandMaxStage || 0,
       color: '#667eea',
       image: '/SimilarIsland.png',
     },
@@ -143,7 +144,8 @@ const GameLobby = ({ studentId, selectedCharacter, onGameStart, onOpenDashboard 
       title: 'Dissimilar Island',
       description: 'Conquer the Butterfly Method',
       mechanic: 'Butterfly Method',
-      unlocked: true, // Temporarily unlocked for editing
+      unlocked: true,
+      maxStage: gameProgress?.dissimilarIslandMaxStage || 0,
       color: '#764ba2',
       image: '/DisimilarIsland.png',
     },
@@ -152,7 +154,8 @@ const GameLobby = ({ studentId, selectedCharacter, onGameStart, onOpenDashboard 
       title: 'Hybrid Island',
       description: 'Master mixed number conversions',
       mechanic: 'Mixed Conversion',
-      unlocked: true, // Temporarily unlocked for editing
+      unlocked: true,
+      maxStage: gameProgress?.hybridIslandMaxStage || 0,
       color: '#f093fb',
       image: '/HybridIsland.png',
     },
@@ -162,6 +165,7 @@ const GameLobby = ({ studentId, selectedCharacter, onGameStart, onOpenDashboard 
     return (
       <IslandInterior
         island={selectedIsland}
+        maxStage={selectedIsland.maxStage}
         onSelectLevel={handleSelectLevel}
         onBack={handleBackToLobby}
       />

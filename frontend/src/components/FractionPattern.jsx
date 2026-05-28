@@ -76,6 +76,8 @@ const FractionPattern = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer, on
     setStepStatus(newStatus);
     if (isCorrect) {
       onStepCorrect?.();
+      setResultNumerator('');
+      setResultDenominator('');
       setStep(3);
     } else {
       onWrongAnswer?.('Only add or subtract the top numbers. The denominator does not change in this step!', resultNumerator);
@@ -88,15 +90,15 @@ const FractionPattern = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer, on
     const { sumDiff, nonSimplified, simplified } = calculateCorrectAnswers();
     const userNum = parseInt(resultNumerator);
     const userDen = parseInt(resultDenominator);
+    const isWholeAnswer = simplified.denominator === 1;
 
     let isCorrect;
-    if (sumDiff === 0) {
-      isCorrect = userNum === 0;
+    if (isWholeAnswer) {
+      isCorrect = userNum === simplified.numerator;
     } else {
       isCorrect =
         (userNum === nonSimplified.numerator && userDen === nonSimplified.denominator) ||
-        (userNum === simplified.numerator && userDen === simplified.denominator) ||
-        (simplified.denominator === 1 && userNum === simplified.numerator && userDen === 1);
+        (userNum === simplified.numerator && userDen === simplified.denominator);
     }
 
     const newStatus = [...stepStatus];
@@ -104,7 +106,11 @@ const FractionPattern = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer, on
     setStepStatus(newStatus);
 
     if (!isCorrect) {
-      onWrongAnswer?.('Use the numerator from Step 2 and the common denominator from Step 1 as your answer!', `${resultNumerator}/${resultDenominator}`);
+      if (isWholeAnswer) {
+        onWrongAnswer?.(`The fraction simplifies to a whole number. ${sumDiff} ÷ ${correctDen} = ${simplified.numerator}`, resultNumerator);
+      } else {
+        onWrongAnswer?.('Use the numerator from Step 2 and the common denominator from Step 1 as your answer!', `${resultNumerator}/${resultDenominator}`);
+      }
       setResultNumerator('');
       setResultDenominator('');
       return;
@@ -112,12 +118,7 @@ const FractionPattern = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer, on
 
     onStepCorrect?.();
 
-    if (sumDiff === 0) {
-      onAnswerSubmit('0');
-      return;
-    }
-
-    if (simplified.denominator === 1) {
+    if (isWholeAnswer) {
       onAnswerSubmit(`${simplified.numerator}`);
       return;
     }
@@ -154,6 +155,9 @@ const FractionPattern = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer, on
     const { simplified } = calculateCorrectAnswers();
     onAnswerSubmit(`${simplified.numerator}/${simplified.denominator}`);
   };
+
+  const { simplified: _simplified } = correctDen > 0 ? calculateCorrectAnswers() : { simplified: { denominator: 0 } };
+  const isWholeAnswer = _simplified.denominator === 1;
 
   const inputStyle = {
     width: '80px',
@@ -223,24 +227,39 @@ const FractionPattern = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer, on
         </form>
       ) : step === 3 ? (
         <form ref={form3Ref} onSubmit={handleFinalAnswerSubmit} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <div style={{ color: '#333', fontSize: '20px', fontWeight: 'bold' }}>Step 3: Enter the final answer</div>
+          <div style={{ color: '#333', fontSize: '20px', fontWeight: 'bold' }}>
+            {isWholeAnswer ? 'Step 3: Enter the whole number answer' : 'Step 3: Enter the final answer'}
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <input
-              type="number"
-              value={resultNumerator}
-              onChange={(e) => setResultNumerator(e.target.value)}
-              placeholder="Numerator"
-              autoFocus
-              style={inputStyle}
-            />
-            <span style={{ fontSize: '32px', fontWeight: 'bold', color: '#333' }}>/</span>
-            <input
-              type="number"
-              value={resultDenominator}
-              onChange={(e) => setResultDenominator(e.target.value)}
-              placeholder="Denominator"
-              style={inputStyle}
-            />
+            {isWholeAnswer ? (
+              <input
+                type="number"
+                value={resultNumerator}
+                onChange={(e) => setResultNumerator(e.target.value)}
+                placeholder="Whole #"
+                autoFocus
+                style={inputStyle}
+              />
+            ) : (
+              <>
+                <input
+                  type="number"
+                  value={resultNumerator}
+                  onChange={(e) => setResultNumerator(e.target.value)}
+                  placeholder="Numerator"
+                  autoFocus
+                  style={inputStyle}
+                />
+                <span style={{ fontSize: '32px', fontWeight: 'bold', color: '#333' }}>/</span>
+                <input
+                  type="number"
+                  value={resultDenominator}
+                  onChange={(e) => setResultDenominator(e.target.value)}
+                  placeholder="Denominator"
+                  style={inputStyle}
+                />
+              </>
+            )}
             <button type="submit" style={{ display: 'none' }} />
             {stepStatus[2] && (
               <span style={{ fontSize: '32px', color: stepStatus[2] === 'correct' ? '#10b981' : '#ef4444' }}>

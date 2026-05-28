@@ -1,10 +1,10 @@
 package com.WizardFrac.WizardFrac.controller;
 
 import com.WizardFrac.WizardFrac.entity.GameProgress;
-import com.WizardFrac.WizardFrac.entity.SpellAttempt;
 import com.WizardFrac.WizardFrac.service.GameProgressService;
 import com.WizardFrac.WizardFrac.dto.SpellAttemptDTO;
 import com.WizardFrac.WizardFrac.dto.DiagnosticsDTO;
+import com.WizardFrac.WizardFrac.dto.GameProgressDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,8 +25,10 @@ public class GameProgressController {
     public ResponseEntity<?> recordSpellAttempt(@PathVariable Long gameSessionId,
                                                @RequestBody SpellAttemptDTO attemptDTO) {
         try {
-            SpellAttempt attempt = gameProgressService.recordSpellAttempt(gameSessionId, attemptDTO);
-            return ResponseEntity.ok(attempt);
+            gameProgressService.recordSpellAttempt(gameSessionId, attemptDTO);
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Spell attempt saved");
+            return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
@@ -61,7 +63,19 @@ public class GameProgressController {
         if (progress.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(progress.get());
+        GameProgress p = progress.get();
+        GameProgressDTO dto = new GameProgressDTO(
+            p.getStudent().getId(),
+            p.getSimilarIslandMaxStage(),
+            p.getDissimilarIslandUnlocked(),
+            p.getDissimilarIslandMaxStage(),
+            p.getHybridIslandUnlocked(),
+            p.getHybridIslandMaxStage(),
+            p.getTotalScore(),
+            p.getTotalGamesPlayed(),
+            p.getTotalGamesWon()
+        );
+        return ResponseEntity.ok(dto);
     }
 
     // Get session history

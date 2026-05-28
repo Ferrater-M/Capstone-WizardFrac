@@ -8,7 +8,6 @@ const ButterflyStepPanel = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer,
   const [lastResult, setLastResult] = useState(null);
 
   const isMixed = problem?.isMixed || false;
-  const totalSteps = isMixed ? 7 : 5;
 
   useImperativeHandle(ref, () => ({
     submitCurrentStep: () => handleStepComplete()
@@ -34,6 +33,17 @@ const ButterflyStepPanel = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer,
   const sumDiff = problem.operator === '+' ? cross1 + cross2 : cross1 - cross2;
   const divisor = gcd(Math.abs(sumDiff), commonDenom);
 
+  // Derived answer values
+  const finalNum = sumDiff / divisor;
+  const finalDen = commonDenom / divisor;
+  const isImproper = finalNum > finalDen && finalDen > 1;
+  const convWhole = isImproper ? Math.floor(finalNum / finalDen) : 0;
+  const convRemainder = isImproper ? finalNum % finalDen : 0;
+
+  const totalSteps = isMixed ? (isImproper ? 8 : 7) : (isImproper ? 6 : 5);
+  const isFractionInput = isMixed ? currentStep === 7 : currentStep === 5;
+  const isConversionInput = isImproper && currentStep === totalSteps;
+
   const getHint = (step) => {
     if (isMixed) {
       switch (step) {
@@ -44,6 +54,7 @@ const ButterflyStepPanel = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer,
         case 5: return `Multiply both denominators together: ${problem.denominator1} × ${problem.denominator2} = ?`;
         case 6: return `${problem.operator === '+' ? 'Add' : 'Subtract'} the two cross products you found in Steps 3 and 4.`;
         case 7: return `Write your answer as a simplified fraction. Can you reduce it further?`;
+        case 8: return `Divide ${finalNum} by ${finalDen}: whole number is ${convWhole}, remainder is ${convRemainder}. Write as ${convWhole} ${convRemainder}/${finalDen}.`;
         default: return '';
       }
     } else {
@@ -53,6 +64,7 @@ const ButterflyStepPanel = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer,
         case 3: return `Multiply both denominators together: ${problem.denominator1} × ${problem.denominator2} = ?`;
         case 4: return `${problem.operator === '+' ? 'Add' : 'Subtract'} the two cross products you found in Steps 1 and 2.`;
         case 5: return `Write your answer as a simplified fraction. Can you reduce it further?`;
+        case 6: return `Divide ${finalNum} by ${finalDen}: whole number is ${convWhole}, remainder is ${convRemainder}. Write as ${convWhole} ${convRemainder}/${finalDen}.`;
         default: return '';
       }
     }
@@ -68,6 +80,7 @@ const ButterflyStepPanel = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer,
         case 5: return parseInt(inputValue) === commonDenom;
         case 6: return parseInt(inputValue) === sumDiff;
         case 7: return parseInt(inputNum) === sumDiff / divisor && parseInt(inputDen) === commonDenom / divisor;
+        case 8: return parseInt(inputNum) === convWhole && parseInt(inputDen) === convRemainder;
         default: return false;
       }
     } else {
@@ -77,6 +90,7 @@ const ButterflyStepPanel = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer,
         case 3: return parseInt(inputValue) === commonDenom;
         case 4: return parseInt(inputValue) === sumDiff;
         case 5: return parseInt(inputNum) === sumDiff / divisor && parseInt(inputDen) === commonDenom / divisor;
+        case 6: return parseInt(inputNum) === convWhole && parseInt(inputDen) === convRemainder;
         default: return false;
       }
     }
@@ -90,7 +104,7 @@ const ButterflyStepPanel = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer,
     return 'WRONG_BOTH';
   };
 
-  const isFractionInput = currentStep === totalSteps;
+
 
   const handleStepComplete = () => {
     const isCorrect = checkStep(currentStep);
@@ -114,8 +128,10 @@ const ButterflyStepPanel = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer,
         onAnswerSubmit({ numerator: sumDiff / divisor, denominator: commonDenom / divisor });
       }
     } else {
-      const submitted = isFractionInput ? `${inputNum}/${inputDen}` : inputValue;
-      const errorType = isFractionInput ? getErrorType(inputNum, inputDen) : 'INCORRECT_STEP';
+      const submitted = isConversionInput
+        ? `${inputNum} ${inputDen}/${finalDen}`
+        : isFractionInput ? `${inputNum}/${inputDen}` : inputValue;
+      const errorType = isConversionInput ? 'WRONG_CONVERSION' : isFractionInput ? getErrorType(inputNum, inputDen) : 'INCORRECT_STEP';
       onWrongAnswer?.(getHint(currentStep), submitted, errorType);
       setTimeout(() => {
         setInputValue('');
@@ -133,13 +149,15 @@ const ButterflyStepPanel = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer,
     'Step 4: Right Cross Product',
     'Step 5: Multiply the Denominators',
     'Step 6: Combine the Cross Products',
-    'Step 7: Final Answer',
+    isImproper ? 'Step 7: Write as a Fraction' : 'Step 7: Final Answer',
+    ...(isImproper ? ['Step 8: Convert to Mixed Number'] : []),
   ] : [
     'Step 1: Left Cross Product',
     'Step 2: Right Cross Product',
     'Step 3: Multiply the Denominators',
     'Step 4: Combine the Cross Products',
-    'Step 5: Final Answer',
+    isImproper ? 'Step 5: Write as a Fraction' : 'Step 5: Final Answer',
+    ...(isImproper ? ['Step 6: Convert to Mixed Number'] : []),
   ];
 
   const inputStyle = {
@@ -175,8 +193,36 @@ const ButterflyStepPanel = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer,
 
       {isMixed && currentStep <= 2 && renderConversionHint()}
 
+      {isConversionInput && (
+        <div style={{ fontSize: 14, color: '#555', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 8, padding: '4px 12px' }}>
+          Convert {finalNum}/{finalDen} to a mixed number
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {isFractionInput ? (
+        {isConversionInput ? (
+          <>
+            <input
+              type="number"
+              placeholder="Whole"
+              value={inputNum}
+              onChange={(e) => { setInputNum(e.target.value); setLastResult(null); }}
+              style={inputStyle}
+              autoFocus
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <input
+                type="number"
+                placeholder="Rem"
+                value={inputDen}
+                onChange={(e) => { setInputDen(e.target.value); setLastResult(null); }}
+                style={{ ...inputStyle, width: '60px' }}
+              />
+              <div style={{ width: '60px', height: '3px', background: '#888', margin: '2px 0' }} />
+              <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#333' }}>{finalDen}</div>
+            </div>
+          </>
+        ) : isFractionInput ? (
           <>
             <input
               type="number"
