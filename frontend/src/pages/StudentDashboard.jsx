@@ -53,7 +53,6 @@ const StudentDashboard = ({ studentId, onBack }) => {
       <div className="dashboard-header">
         <button className="back-btn" onClick={onBack}>← Back</button>
         <div className="dashboard-title-block">
-          <div className="dashboard-title-icon">🧙‍♂️</div>
           <h1 className="dashboard-title">Progress Dashboard</h1>
           <p className="dashboard-subtitle">Your Wizard Training Journey</p>
         </div>
@@ -101,7 +100,7 @@ const StudentDashboard = ({ studentId, onBack }) => {
           {/* Competencies */}
           {competencies?.length > 0 && (
             <div className="competencies-section">
-              <h3 className="section-title">🎯 Competency Mastery</h3>
+              <h3 className="section-title">Competency Mastery</h3>
               <div className="competencies-grid">
                 {competencies.map(comp => (
                   <CompetencyMasteryCard key={comp.competencyId} competency={comp} />
