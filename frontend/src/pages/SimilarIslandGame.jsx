@@ -84,6 +84,18 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const den1Ref = useRef(null);
   const den2Ref = useRef(null);
   const circleContainerRef = useRef(null);
+  const ostRef = useRef(null);
+
+  useEffect(() => {
+    const track = Math.floor(Math.random() * 3) + 1;
+    const audio = new Audio(`/OSTFiles/similarcombatOST${track}.mp3`);
+    audio.loop = true;
+    audio.volume = 0.8;
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+    ostRef.current = audio;
+    return () => { audio.pause(); audio.src = ''; };
+  }, []);
 
   const handleCircleDetected = () => {
     new Audio('/SoundEffects/circleAppear.wav').play().catch(() => {});
@@ -542,8 +554,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     <div
       className="wireframe-game-container"
       style={{
-        backgroundImage: 'url(/SimilarBackground.jpg)',
-        backgroundSize: 'cover',
+        backgroundImage: 'url(/InMatchUIElements/SimilarIsland/ForrestCombatBackground.png)',
+        backgroundSize: 'contain',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
         height: '100svh',
@@ -632,10 +644,11 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               flexDirection: 'column',
               alignItems: 'center',
               gap: '6px',
-              marginRight: circleDetected && interactableVisible ? '120px' : '16px',
+              marginRight: circleDetected && interactableVisible ? '160px' : '36px',
               transition: 'margin 0.5s ease',
               zIndex: 2,
               flexShrink: 0,
+              position: 'relative',
             }}
           >
             <div style={{ display: 'flex', gap: '4px' }}>{renderHearts(lives, 3)}</div>
@@ -663,8 +676,64 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 style={{ position: 'relative', zIndex: 1, width: '170px', height: '170px', objectFit: 'contain',
                   animation: playerFlashing ? 'enemyFlash 0.5s ease-out' : 'none' }}
               />
+
+              {/* Sparkle particles at bottom of character box */}
+              {circleDetected && interactableVisible && (
+                <>
+                  <style>{`
+                    @keyframes riseAndFade {
+                      0%   { transform: translateY(0)    rotate(0deg)   scale(1);   opacity: 0.9; }
+                      1000%  { transform: translateY(-20px) rotate(120deg) scale(0.85); opacity: 0.85; }
+                      30% { transform: translateY(-140px) rotate(360deg) scale(0.15); opacity: 0; }
+                    }
+                  `}</style>
+                  {[
+                    { left: '5%',  delay: '0s',    dur: '2.6s', size: 22 },
+                    { left: '18%', delay: '-0.6s', dur: '3.0s', size: 18 },
+                    { left: '30%', delay: '-1.1s', dur: '2.4s', size: 26 },
+                    { left: '42%', delay: '-0.3s', dur: '2.8s', size: 20 },
+                    { left: '55%', delay: '-1.5s', dur: '2.7s', size: 16 },
+                    { left: '67%', delay: '-0.9s', dur: '3.1s', size: 14 },
+                    { left: '78%', delay: '-1.8s', dur: '2.5s', size: 24 },
+                    { left: '90%', delay: '-0.4s', dur: '2.9s', size: 19 },
+                    { left: '12%', delay: '-2.1s', dur: '2.6s', size: 15 },
+                    { left: '48%', delay: '-1.3s', dur: '3.2s', size: 21 },
+                    { left: '72%', delay: '-0.7s', dur: '2.3s', size: 17 },
+                    { left: '35%', delay: '-2.4s', dur: '2.8s', size: 23 },
+                  ].map((p, i) => (
+                    <img key={i} src="/BlueSparkle.png" alt="" style={{
+                      position: 'absolute', bottom: 0, left: p.left,
+                      width: p.size, height: p.size,
+                      pointerEvents: 'none', zIndex: 3,
+                      animation: `riseAndFade ${p.dur} ease-out ${p.delay} infinite`,
+                    }} />
+                  ))}
+                </>
+              )}
+              {/* Platform at bottom of character box, above Player label */}
+              <img
+                src="/InMatchUIElements/SimilarIsland/SimilarIslandPlatform.png"
+                alt="platform"
+                style={{
+                  position: 'absolute', bottom: '-50px', left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '120%', objectFit: 'contain',
+                  pointerEvents: 'none', zIndex: 0,
+                }}
+              />
             </div>
-            <h3 style={{ margin: 0, fontSize: '20px' }}>Player</h3>
+            <div style={{ position: 'relative', marginTop: '40px', border: '4px solid #fff', background: 'transparent', padding: '6px 18px', color: '#fff', fontSize: '14px', fontWeight: 700, background: '#000' }}>
+              <div style={{ position: 'absolute', inset: 5, border: '1px solid #fff', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+              <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+              <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+              <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+              <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+              <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+              <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+              <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+              {studentNickname || 'Player'}
+            </div>
           </div>
 
           <div
@@ -713,7 +782,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               {/* Fraction 1 */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
                 <span style={{ fontSize: 28, fontWeight: 800, color: '#222', minWidth: 40, textAlign: 'center' }}>{displayNum1}</span>
-                <div style={{ width: 50, height: 3, background: '#703737', borderRadius: 2, margin: '3px 0' }} />
+                <div style={{ width: 50, height: 3, background: '#222', borderRadius: 2, margin: '3px 0' }} />
                 <span ref={den1Ref} style={{ fontSize: 28, fontWeight: 800, color: '#222', minWidth: 40, textAlign: 'center' }}>{displayDen1}</span>
               </div>
 
@@ -723,7 +792,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               {/* Fraction 2 */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
                 <span style={{ fontSize: 28, fontWeight: 800, color: '#222', minWidth: 40, textAlign: 'center' }}>{displayNum2}</span>
-                <div style={{ width: 50, height: 3, background: '#703737', borderRadius: 2, margin: '3px 0' }} />
+                <div style={{ width: 50, height: 3, background: '#222', borderRadius: 2, margin: '3px 0' }} />
                 <span ref={den2Ref} style={{ fontSize: 28, fontWeight: 800, color: '#222', minWidth: 40, textAlign: 'center' }}>{displayDen2}</span>
               </div>
 
@@ -858,7 +927,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   <button
                     style={{
                       padding: '4px 56px',
-                      background: '#e8d5b4',
+                      background: '#703737',
                       border: '4px solid #703737',
                       borderRadius: 0,
                       boxShadow: 'none',
@@ -867,7 +936,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       fontFamily: '"Press Start 2P", monospace',
                       whiteSpace: 'nowrap',
                       cursor: circleDetected && magicN ? 'pointer' : 'not-allowed',
-                      color: '#222',
+                      color: '#e8d5b4',
                       opacity: circleDetected && magicN ? 1 : 0.45,
                       backdropFilter: 'blur(6px)',
                     }}
@@ -941,7 +1010,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   <button
                     style={{
                       padding: '4px 56px',
-                      background: '#e8d5b4',
+                      background: '#703737',
                       border: '4px solid #703737',
                       borderRadius: 0,
                       boxShadow: 'none',
@@ -949,7 +1018,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       fontSize: 11, fontWeight: 700,
                       fontFamily: '"Press Start 2P", monospace',
                       cursor: checkButtonReady && (simplifiedResultIsWhole ? simplifiedInput : simplifiedInput && simplifiedDenInput) ? 'pointer' : 'not-allowed',
-                      color: '#222',
+                      color: '#e8d5b4',
                       opacity: checkButtonReady ? ((simplifiedResultIsWhole ? simplifiedInput : simplifiedInput && simplifiedDenInput) ? 1 : 0.45) : undefined,
                       pointerEvents: checkButtonReady ? 'auto' : 'none',
                       backdropFilter: 'blur(6px)',
@@ -1004,12 +1073,12 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         padding: '4px 16px',
                         fontSize: 10, fontWeight: 700,
                         fontFamily: '"Press Start 2P", monospace',
-                        background: '#e8d5b4',
+                        background: '#703737',
                         border: '4px solid #703737',
                         borderRadius: 0,
                         boxShadow: 'none',
                         position: 'relative',
-                        color: '#222',
+                        color: '#e8d5b4',
                         cursor: 'pointer',
                         backdropFilter: 'blur(6px)',
                         animation: 'problemFadeIn 0.4s ease-out',
@@ -1144,7 +1213,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 width: 90, height: 64,
                                 fontSize: 28, fontWeight: 800, textAlign: 'center',
                                 border: '3px dashed #222', borderRadius: 0,
-                                background: 'transparent', color: '#703737',
+                                background: 'transparent', color: '#222',
                                 outline: 'none', appearance: 'none',
                                 WebkitAppearance: 'none', MozAppearance: 'none',
                                 boxShadow: '0 4px 16px rgba(0,0,0,0.7)',
@@ -1171,7 +1240,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                   textShadow: '0 0 8px rgba(0,0,0,0.9)',
                                 }}
                               />
-                              <div style={{ width: 90, height: 3, background: '#703737', borderRadius: 2 }} />
+                              <div style={{ width: 90, height: 3, background: '#222', borderRadius: 2 }} />
                               <input
                                 type="text"
                                 inputMode="numeric"
@@ -1239,7 +1308,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               flexDirection: 'column',
               alignItems: 'center',
               gap: '6px',
-              marginLeft: circleDetected && interactableVisible ? '120px' : '16px',
+              marginLeft: circleDetected && interactableVisible ? '160px' : '36px',
               transition: 'margin 0.5s ease',
               zIndex: 2,
               flexShrink: 0,
@@ -1284,8 +1353,30 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   animation: enemyFlashing ? 'enemyFlash 0.5s ease-out' : 'none',
                 }}
               />
+              {/* Platform at bottom of enemy box, above Enemy label */}
+              <img
+                src="/InMatchUIElements/SimilarIsland/SimilarIslandPlatform.png"
+                alt="platform"
+                style={{
+                  position: 'absolute', bottom: '-50px', left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '120%', objectFit: 'contain',
+                  pointerEvents: 'none', zIndex: 0,
+                }}
+              />
             </div>
-            <h3 style={{ margin: 0, fontSize: '20px' }}>Enemy</h3>
+            <div style={{ position: 'relative', marginTop: '40px', border: '4px solid #fff', background: 'transparent', padding: '6px 18px', color: '#fff', fontSize: '14px', fontWeight: 700, background: '#000' }}>
+              <div style={{ position: 'absolute', inset: 5, border: '1px solid #fff', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+              <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+              <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+              <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+              <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+              <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+              <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+              <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+              Enemy
+            </div>
           </div>
         </div>
       </div>
