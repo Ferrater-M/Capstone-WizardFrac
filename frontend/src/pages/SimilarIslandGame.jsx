@@ -41,7 +41,6 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [appearSparkles, setAppearSparkles] = useState([]);
   const [bubbles, setBubbles] = useState(null);
   const bubble1Ref = useRef(null);
-  const sessionHintsUsed = useRef(0);
   const rectWrapperRef = useRef(null);
   const rectScaleRef  = useRef(1);
   const [rectScale, setRectScale] = useState(1);
@@ -230,7 +229,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status, isWon, hintsUsed: sessionHintsUsed.current }),
+          body: JSON.stringify({ status, isWon }),
         }
       );
       if (!res.ok) {
@@ -985,7 +984,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   {((!hintUsed && !checkPhase) || (!phase2HintUsed && finalAnswerVisible)) && (
                     <button
                       onClick={() => finalAnswerVisible
-                        ? (sessionHintsUsed.current += 1, setPhase2HintUsed(true), setFormulaVisible(true))
+                        ? (setPhase2HintUsed(true), setFormulaVisible(true))
                         : setShowHintConfirm(true)
                       }
                       style={{
@@ -1119,7 +1118,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       ) : (
                         /* Phase 2 — simplified fraction input */
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animation: 'problemFadeIn 0.4s ease-out' }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace' }}>Final Answer:</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)' }}>Final Answer:</span>
                           {simplifiedResultIsWhole ? (
                             /* Whole number — single field */
                             <input
@@ -1200,11 +1199,11 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                     {/* Denominator — appears only after animation completes */}
                     <div style={{
                       position: 'absolute',
-                      left: '50%', top: '231px',
+                      left: '50%', top: '235px',
                       transform: 'translateX(-50%)',
                       width: 40, height: 36,
                       fontSize: 14, fontWeight: 900, textAlign: 'center',
-                      background: 'transparent', color: '#222',
+                      background: 'transparent', color: '#ffffff',
                       zIndex: 2,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       opacity: denVisible && !checkPhase && !dBubble ? 1 : 0,
@@ -1379,7 +1378,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             <p style={{ fontSize: 20, fontWeight: 700, margin: '0 0 10px' }}>Are you sure you want a hint?</p>
             <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 24px' }}>Using a hint removes points for this problem.</p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-              <button onClick={() => { sessionHintsUsed.current += 1; setHintUsed(true); setFormulaVisible(true); setShowHintConfirm(false); }}
+              <button onClick={() => { setHintUsed(true); setFormulaVisible(true); setShowHintConfirm(false); }}
                 style={{ padding: '10px 24px', fontWeight: 700, background: '#f59e0b', border: 'none', borderRadius: 8, cursor: 'pointer', color: '#fff' }}>
                 Yes, show hint
               </button>
