@@ -70,6 +70,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [checkButtonReady, setCheckButtonReady] = useState(false);
   const [showNSparkle, setShowNSparkle] = useState(false);
   const [enemyFlashing, setEnemyFlashing] = useState(false);
+  const [playerFlashing, setPlayerFlashing] = useState(false);
   const bubble2Ref = useRef(null);
   const arcAnimRef  = useRef(null);
   const actionLocked = useRef(false);
@@ -96,7 +97,6 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       const dLeft = cRect.left + cRect.width * 0.5 - SIZE / 2;
       const dTop  = cRect.top  + 255 * rectScaleRef.current - SIZE / 2;
 
-      // Random Bezier control points — random arc direction, always land at D
       const rndCtrl = (sx, sy) => ({
         x: (sx + dLeft) / 2 + (Math.random() - 0.5) * 400,
         y: (sy + dTop)  / 2 - 80 - Math.random() * 200,
@@ -107,7 +107,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       // Show invisible bubbles at start positions
       setBubbles({ b1: { ...s1, opacity: 0 }, b2: { ...s2, opacity: 0 } });
 
-      // Appear at 0.5 s — burst sparkles + sound
+      // Appear at 0.5 s
       setTimeout(() => {
         setBubbles({ b1: { ...s1, opacity: 1 }, b2: { ...s2, opacity: 1 } });
         new Audio('/SoundEffects/sparkleSound.wav').play().catch(() => {});
@@ -322,7 +322,10 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     const newEnemyHealth = Math.max(0, enemyHealth - (isCorrect ? 33 : 0));
     const newStreak = isCorrect ? streak + 1 : 0;
     const newMultiplier = Math.min(2.0, 1.0 + newStreak * 0.2);
-    const pointsEarned = isCorrect && !hintUsed && !phase2HintUsed ? Math.floor(10 * newMultiplier) : 0;
+    const rawPoints = isCorrect ? Math.floor(10 * newMultiplier) : 0;
+    const pointsEarned = (hintUsed && phase2HintUsed) ? 0
+      : (hintUsed || phase2HintUsed) ? Math.floor(rawPoints / 2)
+      : rawPoints;
     const newScore = score + pointsEarned;
     const newLives = isCorrect ? lives : lives - 1;
 
@@ -361,6 +364,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     if (!isCorrect) {
       setEnemyAttacking(true);
       setTimeout(() => setEnemyAttacking(false), 1000);
+      setPlayerFlashing(true);
+      setTimeout(() => setPlayerFlashing(false), 500);
     }
 
     if (newLives <= 0) {
@@ -531,11 +536,11 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         height: '100svh',
         overflow: 'hidden',
         padding: '20px 20px 0',
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '11px',
         display: 'flex',
         flexDirection: 'column',
         gap: '10px',
-        maxWidth: '1200px',
-        margin: '0 auto',
         boxSizing: 'border-box',
       }}
     >
@@ -570,19 +575,6 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         </div>
       </div>
 
-      <div
-        className="wireframe-problem-header"
-        style={{
-          background: '#ddd',
-          padding: '8px',
-          textAlign: 'center',
-          border: '2px solid #888',
-        }}
-      >
-        <span style={{ fontSize: '14px' }}>
-          {currentHint ? `Hint: ${currentHint}` : 'Hint: Answer each step correctly to cast your spell!'}
-        </span>
-      </div>
 
       <div
         className="wireframe-battle-area"
@@ -604,19 +596,19 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             paddingTop: '32px',
           }}
         >
-          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>Problem</div>
         </div>
 
         <div
           className="wireframe-main-battle"
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
             alignItems: 'stretch',
             flex: 1,
             minHeight: 0,
-            padding: '20px 20px 0',
-            gap: '10px',
+            padding: '20px 0 0',
+            gap: '0',
+            overflow: 'hidden',
           }}
         >
           <div
@@ -627,14 +619,18 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               flexDirection: 'column',
               alignItems: 'center',
               gap: '6px',
+              marginRight: circleDetected && interactableVisible ? '120px' : '16px',
+              transition: 'margin 0.5s ease',
+              zIndex: 2,
+              flexShrink: 0,
             }}
           >
             <div style={{ display: 'flex', gap: '4px' }}>{renderHearts(lives, 3)}</div>
             <div
               ref={playerBoxRef}
               style={{
-                width: '240px',
-                height: '240px',
+                width: '320px',
+                height: '320px',
                 border: 'none',
                 display: 'flex',
                 justifyContent: 'center',
@@ -651,7 +647,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               <img
                 src={selectedCharacter?.name?.toLowerCase().includes('girl') ? '/Female.png' : '/Male.png'}
                 alt="Player"
-                style={{ position: 'relative', zIndex: 1, width: '170px', height: '170px', objectFit: 'contain' }}
+                style={{ position: 'relative', zIndex: 1, width: '170px', height: '170px', objectFit: 'contain',
+                  animation: playerFlashing ? 'enemyFlash 0.5s ease-out' : 'none' }}
               />
             </div>
             <h3 style={{ margin: 0, fontSize: '20px' }}>Player</h3>
@@ -663,107 +660,94 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '20px',
+              gap: '8px',
               paddingTop: '32px',
-              flex: 1,
               minHeight: 0,
-              width: 0,
               overflow: 'hidden',
+              zIndex: 1,
             }}
           >
+            {/* Fraction display — outer controls visibility, inner animates in */}
+            <div style={{ opacity: interactableVisible ? 1 : 0, transition: 'opacity 0.4s ease', animation: 'magicFloat 3s ease-in-out infinite', position: 'relative' }}>
             <div
               key={currentProblem}
-              className="wireframe-fraction-display problem-fade-in"
+              className="problem-fade-in"
               style={{
+                position: 'relative',
+                background: '#e8d5b4',
+                border: '4px solid #703737',
+                borderRadius: 0,
+                boxShadow: 'none',
+                padding: '22px 28px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '20px',
+                gap: '16px',
               }}
             >
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <input
-                  type="text"
-                  style={{
-                    width: '60px',
-                    height: '40px',
-                    border: '2px solid #888',
-                    background: '#fff',
-                    fontSize: '24px',
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    color: '#000',
-                  }}
-                  value={displayNum1}
-                  readOnly
-                />
-                <div style={{ width: '80px', height: '4px', background: '#888' }}></div>
-                <input
-                  type="text"
-                  style={{
-                    width: '60px',
-                    height: '40px',
-                    border: '2px solid #888',
-                    background: '#fff',
-                    fontSize: '24px',
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    color: '#000',
-                  }}
-                  ref={den1Ref}
-                  value={displayDen1}
-                  readOnly
-                />
+              {/* Inner thin border — square */}
+              <div style={{ position: 'absolute', inset: 5, border: '1px solid #703737', borderRadius: 0, pointerEvents: 'none' }} />
+              {/* Outer corner squares */}
+              {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i) => (
+                <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:12, height:12, background:'#703737',
+                  ...(t!==null?{top:t}:{bottom:-6}), ...(l!==null?{left:l}:{right:-6}) }}/>
+              ))}
+              {/* Inner corner squares */}
+              {[[4,4],[null,4],[4,null],[null,null]].map(([t,l],i) => (
+                <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:6, height:6, background:'#703737',
+                  ...(t!==null?{top:t}:{bottom:4}), ...(l!==null?{left:l}:{right:4}) }}/>
+              ))}
+
+              {/* Fraction 1 */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                <span style={{ fontSize: 28, fontWeight: 800, color: '#222', minWidth: 40, textAlign: 'center' }}>{displayNum1}</span>
+                <div style={{ width: 50, height: 3, background: '#703737', borderRadius: 2, margin: '3px 0' }} />
+                <span ref={den1Ref} style={{ fontSize: 28, fontWeight: 800, color: '#222', minWidth: 40, textAlign: 'center' }}>{displayDen1}</span>
               </div>
-              <input
-                type="text"
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  border: '2px solid #888',
-                  background: '#fff',
-                  fontSize: '32px',
-                  fontWeight: 'bold',
-                  textAlign: 'center',
-                  color: '#000',
-                }}
-                value={displayOp}
-                readOnly
-              />
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <input
-                  type="text"
-                  style={{
-                    width: '60px',
-                    height: '40px',
-                    border: '2px solid #888',
-                    background: '#fff',
-                    fontSize: '24px',
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    color: '#000',
-                  }}
-                  value={displayNum2}
-                  readOnly
-                />
-                <div style={{ width: '80px', height: '4px', background: '#888' }}></div>
-                <input
-                  type="text"
-                  style={{
-                    width: '60px',
-                    height: '40px',
-                    border: '2px solid #888',
-                    background: '#fff',
-                    fontSize: '24px',
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    color: '#000',
-                  }}
-                  ref={den2Ref}
-                  value={displayDen2}
-                  readOnly
-                />
+
+              {/* Operator */}
+              <span style={{ fontSize: 32, fontWeight: 800, color: '#222' }}>{displayOp}</span>
+
+              {/* Fraction 2 */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                <span style={{ fontSize: 28, fontWeight: 800, color: '#222', minWidth: 40, textAlign: 'center' }}>{displayNum2}</span>
+                <div style={{ width: 50, height: 3, background: '#703737', borderRadius: 2, margin: '3px 0' }} />
+                <span ref={den2Ref} style={{ fontSize: 28, fontWeight: 800, color: '#222', minWidth: 40, textAlign: 'center' }}>{displayDen2}</span>
               </div>
+
+              {/* = ? */}
+              <span style={{ fontSize: 28, fontWeight: 800, color: '#555' }}>= ?</span>
             </div>
+
+            {/* Square particles emitting from the bottom */}
+            {[
+              { left: '5%',  size: 8,  dur: '2.2s', delay: '0s'    },
+              { left: '12%', size: 5,  dur: '1.6s', delay: '-0.4s' },
+              { left: '20%', size: 10, dur: '2.6s', delay: '-1.2s' },
+              { left: '28%', size: 6,  dur: '1.8s', delay: '-0.7s' },
+              { left: '36%', size: 9,  dur: '2.4s', delay: '-1.8s' },
+              { left: '44%', size: 4,  dur: '1.5s', delay: '-0.3s' },
+              { left: '52%', size: 11, dur: '2.8s', delay: '-2.1s' },
+              { left: '60%', size: 5,  dur: '1.7s', delay: '-0.9s' },
+              { left: '68%', size: 8,  dur: '2.3s', delay: '-1.5s' },
+              { left: '76%', size: 6,  dur: '1.9s', delay: '-0.6s' },
+              { left: '84%', size: 10, dur: '2.5s', delay: '-2.4s' },
+              { left: '92%', size: 4,  dur: '1.6s', delay: '-0.2s' },
+              { left: '16%', size: 7,  dur: '2.1s', delay: '-1.1s' },
+              { left: '48%', size: 5,  dur: '1.8s', delay: '-0.8s' },
+              { left: '72%', size: 9,  dur: '2.7s', delay: '-1.6s' },
+              { left: '88%', size: 6,  dur: '2.0s', delay: '-2.0s' },
+            ].map((p, i) => (
+              <div key={i} style={{
+                position: 'absolute',
+                bottom: -4,
+                left: p.left,
+                width: p.size, height: p.size,
+                background: '#703737',
+                pointerEvents: 'none',
+                animation: `particleFall ${p.dur} ease-out ${p.delay} infinite`,
+              }} />
+            ))}
+            </div>{/* outer visibility wrapper */}
 
             <div
               ref={rectWrapperRef}
@@ -778,9 +762,9 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 transform: `scale(${rectScale})`,
                 transformOrigin: 'bottom center',
                 background: 'none',
-                border: '4px solid #f6b825',
-                borderRadius: 12,
-                boxShadow: '0 0 0 2px #18113c',
+                border: '4px solid #703737',
+                borderRadius: 0,
+                boxShadow: 'none',
                 display: 'flex',
                 justifyContent: 'center',
                 opacity: interactableVisible ? 1 : 0,
@@ -791,22 +775,39 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 marginBottom: '50px',
               }}
             >
-              {/* Gradient layer — behind everything */}
+              {/* Solid background — no gradient */}
               <div style={{
                 position: 'absolute', inset: 0,
-                background: 'linear-gradient(to bottom, rgba(37,30,89,0) 0%, rgba(37,30,89,0.96) 100%)',
-                borderRadius: 8,
+                background: '#e8d5b4',
                 zIndex: 0,
                 pointerEvents: 'none',
               }} />
-              {/* Inner thin border (matches button double-border style) */}
+              {/* Inner thin border — square corners */}
               <div style={{
                 position: 'absolute', inset: 8,
-                border: '1px solid #f6b825',
-                borderRadius: 6,
+                border: '1px solid #703737',
+                borderRadius: 0,
                 zIndex: 0,
                 pointerEvents: 'none',
               }} />
+              {/* Outer corner squares (big) */}
+              {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i) => (
+                <div key={i} style={{
+                  position:'absolute', zIndex:10, pointerEvents:'none',
+                  width:12, height:12, background:'#703737',
+                  ...(t!==null?{top:t}:{bottom:-6}),
+                  ...(l!==null?{left:l}:{right:-6}),
+                }}/>
+              ))}
+              {/* Inner corner squares (small) */}
+              {[[4,4],[null,4],[4,null],[null,null]].map(([t,l],i) => (
+                <div key={i} style={{
+                  position:'absolute', zIndex:10, pointerEvents:'none',
+                  width:6, height:6, background:'#703737',
+                  ...(t!==null?{top:t}:{bottom:4}),
+                  ...(l!==null?{left:l}:{right:4}),
+                }}/>
+              ))}
 
               {/* Book — above gradient, below magic circle */}
               <style>{`
@@ -820,7 +821,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 alt="book"
                 style={{
                   position: 'absolute',
-                  bottom: 0,
+                  bottom: 14,
                   left: '50%',
                   width: '140%',
                   objectFit: 'contain',
@@ -843,17 +844,17 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   /* Phase 1 — Cast Spell */
                   <button
                     style={{
-                      padding: '8px 56px',
-                      background: '#251e59',
-                      border: '4px solid #f6b825',
-                      borderRadius: 12,
-                      boxShadow: '0 0 0 2px #18113c',
-                      outline: '1px solid #f6b825',
-                      outlineOffset: '-10px',
-                      fontSize: 15, fontWeight: 700,
+                      padding: '4px 56px',
+                      background: '#e8d5b4',
+                      border: '4px solid #703737',
+                      borderRadius: 0,
+                      boxShadow: 'none',
+                      position: 'relative',
+                      fontSize: 11, fontWeight: 700,
+                      fontFamily: '"Press Start 2P", monospace',
                       whiteSpace: 'nowrap',
                       cursor: circleDetected && magicN ? 'pointer' : 'not-allowed',
-                      color: '#f6b825',
+                      color: '#222',
                       opacity: circleDetected && magicN ? 1 : 0.45,
                       backdropFilter: 'blur(6px)',
                     }}
@@ -909,23 +910,33 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       const wrongAnswer = `${magicN}/${displayDen1}`;
                       setMagicN('');
                       setInteractableVisible(false);
-                      handleAnswerSubmit(wrongAnswer);
+                      setTimeout(() => handleAnswerSubmit(wrongAnswer), 500);
                     }}
-                  >Cast Spell</button>
+                  >
+                    <div style={{position:'absolute',top:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',top:-6,right:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',bottom:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',bottom:-6,right:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',top:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',top:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',bottom:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',bottom:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                    Cast Spell
+                  </button>
                   ) : finalAnswerVisible ? (
                   /* Phase 2 — Check (validates simplified fraction) */
                   <button
                     style={{
-                      padding: '8px 56px',
-                      background: '#251e59',
-                      border: '4px solid #f6b825',
-                      borderRadius: 12,
-                      boxShadow: '0 0 0 2px #18113c',
-                      outline: '1px solid #f6b825',
-                      outlineOffset: '-10px',
-                      fontSize: 15, fontWeight: 700,
+                      padding: '4px 56px',
+                      background: '#e8d5b4',
+                      border: '4px solid #703737',
+                      borderRadius: 0,
+                      boxShadow: 'none',
+                      position: 'relative',
+                      fontSize: 11, fontWeight: 700,
+                      fontFamily: '"Press Start 2P", monospace',
                       cursor: checkButtonReady && (simplifiedResultIsWhole ? simplifiedInput : simplifiedInput && simplifiedDenInput) ? 'pointer' : 'not-allowed',
-                      color: '#f6b825',
+                      color: '#222',
                       opacity: checkButtonReady ? ((simplifiedResultIsWhole ? simplifiedInput : simplifiedInput && simplifiedDenInput) ? 1 : 0.45) : undefined,
                       pointerEvents: checkButtonReady ? 'auto' : 'none',
                       backdropFilter: 'blur(6px)',
@@ -953,12 +964,22 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         correct = answer === `${sn}/${sd}` || (answer === `${sn}` && sd === 1);
                       }
                       if (correct) {
-                        launchFireball(() => handleAnswerSubmit(answer));
+                        setTimeout(() => launchFireball(() => handleAnswerSubmit(answer)), 500);
                       } else {
-                        handleAnswerSubmit(answer);
+                        setTimeout(() => handleAnswerSubmit(answer), 500);
                       }
                     }}
-                  >Check</button>
+                  >
+                    <div style={{position:'absolute',top:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',top:-6,right:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',bottom:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',bottom:-6,right:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',top:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',top:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',bottom:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',bottom:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                    Check
+                  </button>
                   ) : null}
                   {((!hintUsed && !checkPhase) || (!phase2HintUsed && finalAnswerVisible)) && (
                     <button
@@ -967,20 +988,30 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         : setShowHintConfirm(true)
                       }
                       style={{
-                        padding: '8px 16px',
-                        fontSize: 13, fontWeight: 700,
-                        background: '#251e59',
-                        border: '4px solid #f6b825',
-                        borderRadius: 12,
-                        boxShadow: '0 0 0 2px #18113c',
-                        outline: '1px solid #f6b825',
-                        outlineOffset: '-10px',
-                        color: '#f6b825',
+                        padding: '4px 16px',
+                        fontSize: 10, fontWeight: 700,
+                        fontFamily: '"Press Start 2P", monospace',
+                        background: '#e8d5b4',
+                        border: '4px solid #703737',
+                        borderRadius: 0,
+                        boxShadow: 'none',
+                        position: 'relative',
+                        color: '#222',
                         cursor: 'pointer',
                         backdropFilter: 'blur(6px)',
                         animation: 'problemFadeIn 0.4s ease-out',
                       }}
-                    >Hint</button>
+                    >
+                      <div style={{position:'absolute',top:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                      <div style={{position:'absolute',top:-6,right:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                      <div style={{position:'absolute',bottom:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                      <div style={{position:'absolute',bottom:-6,right:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                      <div style={{position:'absolute',top:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                      <div style={{position:'absolute',top:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                      <div style={{position:'absolute',bottom:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                      <div style={{position:'absolute',bottom:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                      Hint
+                    </button>
                   )}
                 </div>
               )}
@@ -992,7 +1023,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   transform: 'translateX(-50%)',
                   margin: 0,
                   color: '#fff',
-                  fontSize: '20px',
+                  fontSize: '13px',
                   fontWeight: 700,
                   whiteSpace: 'nowrap',
                   textShadow: '0 0 10px rgba(0,0,0,0.9), 2px 2px 6px rgba(0,0,0,0.8)',
@@ -1048,7 +1079,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                     {/* Numerator / Simplified fraction area — fades in, fades out when D moves */}
                     {nVisible && <div style={{
                       position: 'absolute',
-                      left: '50%', top: finalAnswerVisible ? (simplifiedResultIsWhole ? '62px' : '46px') : '78px',
+                      left: '50%', top: finalAnswerVisible ? (simplifiedResultIsWhole ? '62px' : '36px') : '78px',
                       zIndex: 2,
                       opacity: dBubble ? 0 : 1,
                       transition: 'opacity 0.3s ease',
@@ -1059,8 +1090,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       animation: 'nAreaFadeIn 0.5s ease-out forwards',
                     }}>
                       <span style={{
-                        fontSize: 18, fontWeight: 800, color: '#fff',
-                        textShadow: '0 0 8px rgba(0,0,0,0.9)',
+                        fontSize: 18, fontWeight: 800, color: '#222',
                         whiteSpace: 'nowrap',
                         visibility: formulaVisible ? 'visible' : 'hidden',
                       }}>
@@ -1079,18 +1109,16 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                           style={{
                             width: 90, height: 64,
                             fontSize: 32, fontWeight: 800, textAlign: 'center',
-                            border: '3px dashed #ffffff', borderRadius: 10,
-                            background: 'transparent', color: '#fff',
+                            border: '3px dashed #222', borderRadius: 0,
+                            background: 'transparent', color: '#222',
                             outline: 'none', appearance: 'none',
                             WebkitAppearance: 'none', MozAppearance: 'none',
-                            boxShadow: '0 4px 16px rgba(0,0,0,0.7)',
-                            textShadow: '0 0 8px rgba(0,0,0,0.9)',
                           }}
                         />
                       ) : (
                         /* Phase 2 — simplified fraction input */
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animation: 'problemFadeIn 0.4s ease-out' }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.8)', textShadow: '0 0 6px rgba(0,0,0,0.9)' }}>Final Answer:</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace' }}>Final Answer:</span>
                           {simplifiedResultIsWhole ? (
                             /* Whole number — single field */
                             <input
@@ -1102,8 +1130,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                               style={{
                                 width: 90, height: 64,
                                 fontSize: 28, fontWeight: 800, textAlign: 'center',
-                                border: '3px dashed #f6b825', borderRadius: 10,
-                                background: 'transparent', color: '#f6b825',
+                                border: '3px dashed #222', borderRadius: 0,
+                                background: 'transparent', color: '#703737',
                                 outline: 'none', appearance: 'none',
                                 WebkitAppearance: 'none', MozAppearance: 'none',
                                 boxShadow: '0 4px 16px rgba(0,0,0,0.7)',
@@ -1122,15 +1150,15 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 style={{
                                   width: 90, height: 54,
                                   fontSize: 28, fontWeight: 800, textAlign: 'center',
-                                  border: '3px dashed #f6b825', borderRadius: 10,
-                                  background: 'transparent', color: '#f6b825',
+                                  border: '3px dashed #222', borderRadius: 0,
+                                  background: 'transparent', color: '#703737',
                                   outline: 'none', appearance: 'none',
                                   WebkitAppearance: 'none', MozAppearance: 'none',
                                   boxShadow: '0 4px 16px rgba(0,0,0,0.7)',
                                   textShadow: '0 0 8px rgba(0,0,0,0.9)',
                                 }}
                               />
-                              <div style={{ width: 90, height: 3, background: '#f6b825', borderRadius: 2 }} />
+                              <div style={{ width: 90, height: 3, background: '#703737', borderRadius: 2 }} />
                               <input
                                 type="text"
                                 inputMode="numeric"
@@ -1139,8 +1167,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 style={{
                                   width: 90, height: 54,
                                   fontSize: 28, fontWeight: 800, textAlign: 'center',
-                                  border: '3px dashed #f6b825', borderRadius: 10,
-                                  background: 'transparent', color: '#f6b825',
+                                  border: '3px dashed #222', borderRadius: 0,
+                                  background: 'transparent', color: '#703737',
                                   outline: 'none', appearance: 'none',
                                   WebkitAppearance: 'none', MozAppearance: 'none',
                                   boxShadow: '0 4px 16px rgba(0,0,0,0.7)',
@@ -1174,9 +1202,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       left: '50%', top: '231px',
                       transform: 'translateX(-50%)',
                       width: 40, height: 36,
-                      fontSize: 20, fontWeight: 900, textAlign: 'center',
-                      background: 'transparent', color: '#fff',
-                      textShadow: '0 0 8px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.8)',
+                      fontSize: 14, fontWeight: 900, textAlign: 'center',
+                      background: 'transparent', color: '#222',
                       zIndex: 2,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       opacity: denVisible && !checkPhase && !dBubble ? 1 : 0,
@@ -1199,14 +1226,18 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               flexDirection: 'column',
               alignItems: 'center',
               gap: '6px',
+              marginLeft: circleDetected && interactableVisible ? '120px' : '16px',
+              transition: 'margin 0.5s ease',
+              zIndex: 2,
+              flexShrink: 0,
             }}
           >
             <div style={{ display: 'flex', gap: '4px' }}>{renderHearts(enemyLives, 3)}</div>
             <div
               ref={enemyBoxRef}
               style={{
-                width: '240px',
-                height: '240px',
+                width: '320px',
+                height: '320px',
                 border: 'none',
                 display: 'flex',
                 justifyContent: 'center',
@@ -1272,12 +1303,12 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
           fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
         }}>
           <div style={{
-            position: 'relative', background: '#251e59',
-            border: '4px solid #f6b825', borderRadius: '12px',
-            boxShadow: '0 0 0 2px #18113c, 0 20px 40px rgba(0,0,0,0.6)',
+            position: 'relative', background: '#e8d5b4',
+            border: '4px solid #703737', borderRadius: '12px',
+            boxShadow: 'none, 0 20px 40px rgba(0,0,0,0.6)',
             padding: '36px 56px 28px', textAlign: 'center',
           }}>
-            <div style={{ position: 'absolute', top: 8, right: 8, bottom: 8, left: 8, border: '1px solid #f6b825', borderRadius: '6px', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: 8, right: 8, bottom: 8, left: 8, border: '1px solid #703737', borderRadius: '6px', pointerEvents: 'none' }} />
             <h1 style={{ fontSize: 'clamp(2.5em, 6vw, 5em)', fontWeight: 900, margin: 0, color: '#ef4444', textShadow: '0 0 20px rgba(0,0,0,0.6), 2px 2px 6px rgba(0,0,0,0.8)', letterSpacing: '6px', textTransform: 'uppercase' }}>DEFEAT!</h1>
             <p style={{ fontSize: 'clamp(1em, 2vw, 1.3em)', color: '#fff', margin: '36px 0 0', fontWeight: 500 }}>You ran out of hearts!</p>
             <p style={{ fontSize: 'clamp(1.1em, 2vw, 1.6em)', color: '#fff', margin: '12px 0 0', fontWeight: 700 }}>Score: {score}</p>
