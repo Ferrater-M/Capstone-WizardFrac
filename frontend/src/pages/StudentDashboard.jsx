@@ -15,7 +15,10 @@ const StudentDashboard = ({ studentId, onBack }) => {
         const data = await response.json();
         setDiagnostics(data);
       } catch (err) {
-        setError(err.message);
+        const message = err.message === 'Failed to fetch'
+          ? 'Cannot reach the server. Make sure the backend is running on http://localhost:8080.'
+          : err.message;
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -40,7 +43,7 @@ const StudentDashboard = ({ studentId, onBack }) => {
     );
   }
 
-  const { summary, competencies } = diagnostics;
+  const { summary, competencies, gameHistory } = diagnostics;
   const hasData = summary.totalSessions > 0;
   const accuracy = summary.totalCorrect + summary.totalIncorrect > 0
     ? Math.round((summary.totalCorrect / (summary.totalCorrect + summary.totalIncorrect)) * 100)
@@ -108,6 +111,41 @@ const StudentDashboard = ({ studentId, onBack }) => {
               </div>
             </div>
           )}
+
+          {/* Gameplay history */}
+          <div className="history-section">
+            <h3 className="section-title">History Game Played</h3>
+            {gameHistory?.length > 0 ? (
+              <div className="history-table-wrap">
+                <table className="history-table">
+                  <thead>
+                    <tr>
+                      <th>Nickname</th>
+                      <th>Island</th>
+                      <th>Lvl</th>
+                      <th>Hint</th>
+                      <th>Points</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {gameHistory.map((entry, index) => (
+                      <tr key={`${entry.island}-${entry.level}-${index}`}>
+                        <td>{entry.nickname || '—'}</td>
+                        <td>{entry.island}</td>
+                        <td>{entry.level}</td>
+                        <td className={entry.hintsUsed > 0 ? 'hint-used' : 'hint-none'}>
+                          {entry.hintLabel}
+                        </td>
+                        <td>{entry.points}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="history-empty">No completed games yet. Finish a level to see your history here.</p>
+            )}
+          </div>
 
         </div>
       )}

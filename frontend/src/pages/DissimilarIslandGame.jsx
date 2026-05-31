@@ -96,7 +96,7 @@ const DissimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, g
     try {
       const res = await fetch(
         `http://localhost:8080/api/game-progress/end-session/${gameSession.sessionId}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: isWon ? 'COMPLETED' : 'FAILED', isWon }) }
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: isWon ? 'COMPLETED' : 'FAILED', isWon, hintsUsed: 0 }) }
       );
       if (!res.ok) {
         const body = await res.text();

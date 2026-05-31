@@ -175,6 +175,7 @@ const Game = ({ studentId, gameSession, onGameEnd }) => {
           body: JSON.stringify({
             status: status,
             isWon: isWon,
+            hintsUsed: 0,
           }),
         }
       );

@@ -41,6 +41,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [appearSparkles, setAppearSparkles] = useState([]);
   const [bubbles, setBubbles] = useState(null);
   const bubble1Ref = useRef(null);
+  const sessionHintsUsed = useRef(0);
   const rectWrapperRef = useRef(null);
   const rectScaleRef  = useRef(1);
   const [rectScale, setRectScale] = useState(1);
@@ -229,7 +230,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status, isWon }),
+          body: JSON.stringify({ status, isWon, hintsUsed: sessionHintsUsed.current }),
         }
       );
       if (!res.ok) {
@@ -984,7 +985,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   {((!hintUsed && !checkPhase) || (!phase2HintUsed && finalAnswerVisible)) && (
                     <button
                       onClick={() => finalAnswerVisible
-                        ? (setPhase2HintUsed(true), setFormulaVisible(true))
+                        ? (sessionHintsUsed.current += 1, setPhase2HintUsed(true), setFormulaVisible(true))
                         : setShowHintConfirm(true)
                       }
                       style={{
@@ -1378,7 +1379,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             <p style={{ fontSize: 20, fontWeight: 700, margin: '0 0 10px' }}>Are you sure you want a hint?</p>
             <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 24px' }}>Using a hint removes points for this problem.</p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-              <button onClick={() => { setHintUsed(true); setFormulaVisible(true); setShowHintConfirm(false); }}
+              <button onClick={() => { sessionHintsUsed.current += 1; setHintUsed(true); setFormulaVisible(true); setShowHintConfirm(false); }}
                 style={{ padding: '10px 24px', fontWeight: 700, background: '#f59e0b', border: 'none', borderRadius: 8, cursor: 'pointer', color: '#fff' }}>
                 Yes, show hint
               </button>
