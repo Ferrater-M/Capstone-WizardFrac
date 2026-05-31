@@ -997,11 +997,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   {((!hintUsed && !checkPhase) || (!phase2HintUsed && finalAnswerVisible)) && (
                     <button
                       onClick={() => finalAnswerVisible
-<<<<<<< HEAD
                         ? (recordHintUsed(), setPhase2HintUsed(true), setFormulaVisible(true))
-=======
-                        ? (setPhase2HintUsed(true), setFormulaVisible(true))
->>>>>>> bddaaa5d80112d454032733c46b66ab3bf77b6e5
                         : setShowHintConfirm(true)
                       }
                       style={{
@@ -1395,11 +1391,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             <p style={{ fontSize: 20, fontWeight: 700, margin: '0 0 10px' }}>Are you sure you want a hint?</p>
             <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 24px' }}>Using a hint removes points for this problem.</p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-<<<<<<< HEAD
               <button onClick={() => { recordHintUsed(); setHintUsed(true); setFormulaVisible(true); setShowHintConfirm(false); }}
-=======
-              <button onClick={() => { setHintUsed(true); setFormulaVisible(true); setShowHintConfirm(false); }}
->>>>>>> bddaaa5d80112d454032733c46b66ab3bf77b6e5
                 style={{ padding: '10px 24px', fontWeight: 700, background: '#f59e0b', border: 'none', borderRadius: 8, cursor: 'pointer', color: '#fff' }}>
                 Yes, show hint
               </button>
