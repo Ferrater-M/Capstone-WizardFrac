@@ -7,11 +7,3 @@ level:1
 hp:10
 +++
 
-===
-similarIsland
----
-type:normal
-name:Marilou
-level:2
-hp:15
-+++

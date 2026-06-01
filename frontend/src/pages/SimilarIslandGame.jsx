@@ -72,6 +72,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [showNSparkle, setShowNSparkle] = useState(false);
   const [enemyFlashing, setEnemyFlashing] = useState(false);
   const [enemyName, setEnemyName] = useState('Enemy');
+  const [totalLevels, setTotalLevels] = useState(null);
+  const [particleDigits] = useState(() => Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)));
   const [enemyData, setEnemyData] = useState(null); // { type, level, name, hp }
   const [playerFlashing, setPlayerFlashing] = useState(false);
   const bubble2Ref = useRef(null);
@@ -105,15 +107,18 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       .then(r => r.text())
       .then(text => {
         const sections = text.split('===').filter(s => s.trim());
+        let levelCount = 0;
         for (const section of sections) {
           const lines = section.trim().split('\n').map(l => l.trim()).filter(l => l);
           if (lines[0] !== 'similarIsland') continue;
           const blocks = section.split('---').slice(1);
           for (const rawBlock of blocks) {
-            // trim at +++ terminator
             const blockContent = rawBlock.split('+++')[0];
+            const content = blockContent.trim();
+            if (!content) continue;
+            levelCount++;
             const enemy = {};
-            blockContent.trim().split('\n').forEach(line => {
+            content.split('\n').forEach(line => {
               const idx = line.indexOf(':');
               if (idx !== -1) enemy[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
             });
@@ -130,6 +135,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             }
           }
         }
+        if (levelCount > 0) setTotalLevels(levelCount);
       })
       .catch(() => {});
   };
@@ -644,7 +650,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             <span>HP: {renderHearts(lives, 3)}</span>
             <span>Streak: x{multiplier.toFixed(1)}</span>
             <span>Score: {score}</span>
-            <span>Level: {gameSession.level}/7</span>
+            <span>Level: {gameSession.level}/{totalLevels ?? '...'}</span>
           </div>
           <button
             style={{ padding: '8px 20px', background: '#bbb', border: '2px solid #888' }}
@@ -755,13 +761,20 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                     { left: '72%', delay: '-0.7s', dur: '2.3s', size: 23 },
                     { left: '35%', delay: '-2.4s', dur: '2.8s', size: 29 },
                   ].map((p, i) => (
-                    <div key={i} style={{
+                    <span key={i} style={{
                       position: 'absolute', bottom: 0, left: p.left,
-                      width: p.size, height: p.size,
-                      background: 'rgba(255,255,255,0.88)',
+                      fontSize: p.size,
+                      fontFamily: '"Press Start 2P", monospace',
+                      fontWeight: 900,
+                      color: 'rgba(255,255,255,0.88)',
+                      lineHeight: 1,
+                      textShadow: '2px 2px 4px rgba(0,0,0,0.45)',
                       pointerEvents: 'none', zIndex: 3,
                       animation: `riseAndFade ${p.dur} ease-out ${p.delay} infinite`,
-                    }} />
+                      userSelect: 'none',
+                    }}>
+                      {particleDigits[i] ?? 0}
+                    </span>
                   ))}
                 </>
               )}
