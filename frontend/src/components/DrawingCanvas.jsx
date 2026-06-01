@@ -1,6 +1,15 @@
 import React, { useRef, useState, useEffect } from 'react';
 
-const DrawingCanvas = ({ onCircleDetected }) => {
+// Checks if two line segments (p1→p2) and (p3→p4) intersect
+const segDir = (a, b, c) => (c.x - a.x) * (b.y - a.y) - (b.x - a.x) * (c.y - a.y);
+const segmentsIntersect = (p1, p2, p3, p4) => {
+  const d1 = segDir(p3, p4, p1), d2 = segDir(p3, p4, p2);
+  const d3 = segDir(p1, p2, p3), d4 = segDir(p1, p2, p4);
+  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+         ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+};
+
+const DrawingCanvas = ({ onCircleDetected, mode = 'circle' }) => {
   const canvasRef        = useRef(null);
   const particleCanvasRef = useRef(null);
   const particlesRef     = useRef([]);
@@ -112,7 +121,11 @@ const DrawingCanvas = ({ onCircleDetected }) => {
   };
 
   const stopDrawing = () => {
-    if (isDrawing) { setIsDrawing(false); checkForCircle(); }
+    if (isDrawing) {
+      setIsDrawing(false);
+      if (mode === 'infinity') checkForInfinity();
+      else checkForCircle();
+    }
   };
 
   const handleContextMenu = (e) => {
@@ -146,6 +159,42 @@ const DrawingCanvas = ({ onCircleDetected }) => {
       setTimeout(() => {
         setMagicCircle(null);
         onCircleDetected({ centerX: cx, centerY: cy, radius: avg });
+      }, 900);
+      return;
+    }
+    clearCanvas();
+  };
+
+  // ── infinity (∞) detection — lenient: just needs a self-crossing + wider-than-tall ──
+  const checkForInfinity = () => {
+    if (points.length < 25) { clearCanvas(); return; }
+
+    const xs = points.map(p => p.x), ys = points.map(p => p.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const w = maxX - minX, h = maxY - minY;
+
+    // Must be wider than tall and have a minimum size
+    if (w < 40 || h < 15 || w < h * 1.1) { clearCanvas(); return; }
+
+    // Sample points and look for at least one self-intersection
+    const step = Math.max(1, Math.floor(points.length / 40));
+    const s = points.filter((_, i) => i % step === 0);
+    let found = false;
+    outer: for (let i = 0; i < s.length - 1 && !found; i++) {
+      for (let j = i + 4; j < s.length - 1; j++) {
+        if (segmentsIntersect(s[i], s[i + 1], s[j], s[j + 1])) { found = true; break outer; }
+      }
+    }
+
+    if (found) {
+      clearCanvas();
+      new Audio('/SoundEffects/confirmDrawing.wav').play().catch(() => {});
+      const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+      setMagicCircle({ x: cx, y: cy, r: w / 2 });
+      setTimeout(() => {
+        setMagicCircle(null);
+        onCircleDetected({ centerX: cx, centerY: cy });
       }, 900);
       return;
     }
@@ -192,7 +241,7 @@ const DrawingCanvas = ({ onCircleDetected }) => {
 
         {magicCircle && (
           <img
-            src="/InteractableUI/SimilarMagicCircle.png"
+            src={mode === 'infinity' ? '/InteractableUI/DissimilarMagicCircle.png' : '/InteractableUI/SimilarMagicCircle.png'}
             alt="magic circle"
             style={{
               position: 'absolute',
