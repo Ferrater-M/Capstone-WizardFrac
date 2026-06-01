@@ -112,8 +112,7 @@ const StudentDashboard = ({ studentId, onBack }) => {
 
           {/* Gameplay history */}
           <div className="history-section">
-            <h3 className="section-title">Game History</h3>
-            {gameHistory?.length > 0 ? (
+            <h3 className="section-title">History Game</h3>            {gameHistory?.length > 0 ? (
               <div className="history-table-wrap">
                 <table className="history-table">
                   <thead>
@@ -123,6 +122,7 @@ const StudentDashboard = ({ studentId, onBack }) => {
                       <th>Lvl</th>
                       <th>Hint</th>
                       <th>Points</th>
+                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -135,6 +135,9 @@ const StudentDashboard = ({ studentId, onBack }) => {
                           {entry.hintLabel}
                         </td>
                         <td>{entry.points}</td>
+                        <td className={entry.status === 'COMPLETED' ? 'status-completed' : 'status-not-completed'}>
+                          {entry.status === 'COMPLETED' ? 'Completed' : 'Not Completed'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

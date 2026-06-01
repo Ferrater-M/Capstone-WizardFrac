@@ -340,6 +340,26 @@
   font-style: italic;
 }
 
+.history-table .status-completed {
+  color: #86efac;
+  font-weight: 700;
+}
+
+.history-table .status-not-completed {
+  color: #fca5a5;
+  font-weight: 700;
+}
+
+.history-table .status-completed {
+  color: #86efac;
+  font-weight: 700;
+}
+
+.history-table .status-not-completed {
+  color: #fca5a5;
+  font-weight: 700;
+}
+
 .history-empty {
   margin: 0;
   color: var(--wizard-text-muted);
