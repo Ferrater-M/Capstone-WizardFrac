@@ -14,8 +14,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [lives, setLives] = useState(gameSession.lives);
   const [streak, setStreak] = useState(0);
   const [multiplier, setMultiplier] = useState(1.0);
-  const [enemyHealth, setEnemyHealth] = useState(gameSession.enemyHealth);
-  const [enemyLives, setEnemyLives] = useState(3);
+  const [enemyHealth, setEnemyHealth] = useState(100);
+  const [enemyLives, setEnemyLives] = useState(null); // set dynamically from enemyData
   const [score, setScore] = useState(0);
   const [problemCount, setProblemCount] = useState(0);
   const [feedbackType, setFeedbackType] = useState('');
@@ -71,6 +71,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [checkButtonReady, setCheckButtonReady] = useState(false);
   const [showNSparkle, setShowNSparkle] = useState(false);
   const [enemyFlashing, setEnemyFlashing] = useState(false);
+  const [enemyName, setEnemyName] = useState('Enemy');
+  const [enemyData, setEnemyData] = useState(null); // { type, level, name, hp }
   const [playerFlashing, setPlayerFlashing] = useState(false);
   const bubble2Ref = useRef(null);
   const arcAnimRef  = useRef(null);
@@ -95,6 +97,45 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     audio.play().catch(() => {});
     ostRef.current = audio;
     return () => { audio.pause(); audio.src = ''; };
+  }, []);
+
+  // Parse enemyData.txt and apply matching enemy for this level
+  const loadEnemyData = () => {
+    fetch(`/enemyData.txt?t=${Date.now()}`)
+      .then(r => r.text())
+      .then(text => {
+        const sections = text.split('===').filter(s => s.trim());
+        for (const section of sections) {
+          const lines = section.trim().split('\n').map(l => l.trim()).filter(l => l);
+          if (lines[0] !== 'similarIsland') continue;
+          const blocks = section.split('---').slice(1);
+          for (const rawBlock of blocks) {
+            // trim at +++ terminator
+            const blockContent = rawBlock.split('+++')[0];
+            const enemy = {};
+            blockContent.trim().split('\n').forEach(line => {
+              const idx = line.indexOf(':');
+              if (idx !== -1) enemy[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+            });
+            if (parseInt(enemy.level) === gameSession.level) {
+              const parsed = {
+                type:  ['normal', 'miniboss', 'boss'].includes(enemy.type) ? enemy.type : 'normal',
+                level: parseInt(enemy.level),
+                name:  enemy.name || 'Enemy',
+                hp:    parseInt(enemy.hp) || 3,
+              };
+              setEnemyData(parsed);
+              setEnemyLives(parsed.hp);
+              setEnemyName(parsed.name);
+            }
+          }
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadEnemyData();
   }, []);
 
   const handleCircleDetected = () => {
@@ -344,8 +385,10 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                    (submittedAnswer === `${simplifiedNum}` && simplifiedDen === 1);
     }
     
+    const totalHp = enemyData?.hp || enemyLives || 1;
+    const hpPerHit = Math.floor(100 / totalHp);
     const newEnemyLives = isCorrect ? Math.max(0, enemyLives - 1) : enemyLives;
-    const newEnemyHealth = Math.max(0, enemyHealth - (isCorrect ? 33 : 0));
+    const newEnemyHealth = Math.max(0, enemyHealth - (isCorrect ? hpPerHit : 0));
     const newStreak = isCorrect ? streak + 1 : 0;
     const newMultiplier = Math.min(2.0, 1.0 + newStreak * 0.2);
     const rawPoints = isCorrect ? Math.floor(10 * newMultiplier) : 0;
@@ -544,9 +587,17 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     const hearts = [];
     for (let i = 0; i < max; i++) {
       hearts.push(
-        <span key={i} style={{ fontSize: '24px', color: i < count ? '#ff6b6b' : '#ddd' }}>
-          {i < count ? '❤️' : '🤍'}
-        </span>
+        <img
+          key={i}
+          src="/InteractableUI/HeartSprite.png"
+          alt="heart"
+          style={{
+            width: 28, height: 28,
+            objectFit: 'contain',
+            opacity: i < count ? 1 : 0.25,
+            filter: i < count ? 'none' : 'grayscale(1)',
+          }}
+        />
       );
     }
     return hearts;
@@ -655,7 +706,6 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               position: 'relative',
             }}
           >
-            <div style={{ display: 'flex', gap: '4px' }}>{renderHearts(lives, 3)}</div>
             <div
               ref={playerBoxRef}
               style={{
@@ -686,28 +736,29 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 <>
                   <style>{`
                     @keyframes riseAndFade {
-                      0%   { transform: translateY(0)    rotate(0deg)   scale(1);   opacity: 0.9; }
-                      1000%  { transform: translateY(-20px) rotate(120deg) scale(0.85); opacity: 0.85; }
-                      30% { transform: translateY(-140px) rotate(360deg) scale(0.15); opacity: 0; }
+                      0%   { transform: translateY(0)     scale(1);    opacity: 0.9; }
+                      40%  { transform: translateY(-20px)  scale(0.85); opacity: 0.85; }
+                      100% { transform: translateY(-140px) scale(0.15); opacity: 0; }
                     }
                   `}</style>
                   {[
-                    { left: '5%',  delay: '0s',    dur: '2.6s', size: 22 },
-                    { left: '18%', delay: '-0.6s', dur: '3.0s', size: 18 },
-                    { left: '30%', delay: '-1.1s', dur: '2.4s', size: 26 },
-                    { left: '42%', delay: '-0.3s', dur: '2.8s', size: 20 },
-                    { left: '55%', delay: '-1.5s', dur: '2.7s', size: 16 },
-                    { left: '67%', delay: '-0.9s', dur: '3.1s', size: 14 },
-                    { left: '78%', delay: '-1.8s', dur: '2.5s', size: 24 },
-                    { left: '90%', delay: '-0.4s', dur: '2.9s', size: 19 },
-                    { left: '12%', delay: '-2.1s', dur: '2.6s', size: 15 },
-                    { left: '48%', delay: '-1.3s', dur: '3.2s', size: 21 },
-                    { left: '72%', delay: '-0.7s', dur: '2.3s', size: 17 },
-                    { left: '35%', delay: '-2.4s', dur: '2.8s', size: 23 },
+                    { left: '5%',  delay: '0s',    dur: '2.6s', size: 28 },
+                    { left: '18%', delay: '-0.6s', dur: '3.0s', size: 24 },
+                    { left: '30%', delay: '-1.1s', dur: '2.4s', size: 32 },
+                    { left: '42%', delay: '-0.3s', dur: '2.8s', size: 26 },
+                    { left: '55%', delay: '-1.5s', dur: '2.7s', size: 22 },
+                    { left: '67%', delay: '-0.9s', dur: '3.1s', size: 20 },
+                    { left: '78%', delay: '-1.8s', dur: '2.5s', size: 30 },
+                    { left: '90%', delay: '-0.4s', dur: '2.9s', size: 25 },
+                    { left: '12%', delay: '-2.1s', dur: '2.6s', size: 21 },
+                    { left: '48%', delay: '-1.3s', dur: '3.2s', size: 27 },
+                    { left: '72%', delay: '-0.7s', dur: '2.3s', size: 23 },
+                    { left: '35%', delay: '-2.4s', dur: '2.8s', size: 29 },
                   ].map((p, i) => (
-                    <img key={i} src="/BlueSparkle.png" alt="" style={{
+                    <div key={i} style={{
                       position: 'absolute', bottom: 0, left: p.left,
                       width: p.size, height: p.size,
+                      background: 'rgba(255,255,255,0.88)',
                       pointerEvents: 'none', zIndex: 3,
                       animation: `riseAndFade ${p.dur} ease-out ${p.delay} infinite`,
                     }} />
@@ -726,17 +777,33 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 }}
               />
             </div>
-            <div style={{ position: 'relative', marginTop: '40px', border: '4px solid #fff', background: 'transparent', padding: '6px 18px', color: '#fff', fontSize: '14px', fontWeight: 700, background: '#000' }}>
-              <div style={{ position: 'absolute', inset: 5, border: '1px solid #fff', pointerEvents: 'none' }} />
-              <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
-              <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
-              <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
-              <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
-              <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
-              <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
-              <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
-              <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
-              {studentNickname || 'Player'}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '40px' }}>
+              {/* Name label */}
+              <div style={{ position: 'relative', border: '4px solid #fff', background: '#000', padding: '6px 18px', color: '#fff', fontSize: '14px', fontWeight: 700 }}>
+                <div style={{ position: 'absolute', inset: 5, border: '1px solid #fff', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+                <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+                {studentNickname || 'Player'}
+              </div>
+              {/* Hearts with same border style */}
+              <div style={{ position: 'relative', border: '4px solid #fff', background: '#000', padding: '6px 10px', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                <div style={{ position: 'absolute', inset: 5, border: '1px solid #fff', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+                <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+                {renderHearts(lives, 3)}
+              </div>
             </div>
           </div>
 
@@ -976,7 +1043,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       opacity: circleDetected && magicN ? 1 : 0.45,
                       backdropFilter: 'blur(6px)',
                     }}
-                    disabled={!circleDetected || !magicN}
+                    disabled={!circleDetected || !magicN || enemyLives === null}
                     onClick={() => {
                       if (actionLocked.current) return;
                       actionLocked.current = true;
@@ -1085,9 +1152,6 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       if (correct) {
                         new Audio('/VoiceLines/castSuccess.wav').play().catch(() => {});
                         setTimeout(() => launchFireball(() => {
-                          if (!hintUsed && !phase2HintUsed) {
-                            new Audio('/VoiceLines/directHit.wav').play().catch(() => {});
-                          }
                           handleAnswerSubmit(answer);
                         }), 500);
                       } else {
@@ -1311,14 +1375,14 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                     </div></div>}
                     {/* Burst sparkle when D value appears */}
                     {showDenSparkle && (
-                      <img src="/BlueSparkle.png" alt="" style={{
+                      <img src="/OtherEffects/BlueSparkle.png" alt="" style={{
                         position: 'absolute', left: '50%', top: '249px',
                         width: 72, height: 72, pointerEvents: 'none',
                         zIndex: 3, animation: 'sparkBurst 0.8s ease-out forwards',
                       }} />
                     )}
                     {showNSparkle && (
-                      <img src="/BlueSparkle.png" alt="" style={{
+                      <img src="/OtherEffects/BlueSparkle.png" alt="" style={{
                         position: 'absolute', left: '50%', top: '129px',
                         width: 72, height: 72, pointerEvents: 'none',
                         zIndex: 3, animation: 'sparkBurst 0.8s ease-out forwards',
@@ -1361,7 +1425,6 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               flexShrink: 0,
             }}
           >
-            <div style={{ display: 'flex', gap: '4px' }}>{renderHearts(enemyLives, 3)}</div>
             <div
               ref={enemyBoxRef}
               style={{
@@ -1412,17 +1475,34 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 }}
               />
             </div>
-            <div style={{ position: 'relative', marginTop: '40px', border: '4px solid #fff', background: 'transparent', padding: '6px 18px', color: '#fff', fontSize: '14px', fontWeight: 700, background: '#000' }}>
-              <div style={{ position: 'absolute', inset: 5, border: '1px solid #fff', pointerEvents: 'none' }} />
-              <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
-              <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
-              <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
-              <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
-              <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
-              <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
-              <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
-              <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
-              Enemy
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '40px' }}>
+              {/* Name label */}
+              <div style={{ position: 'relative', border: '4px solid #fff', background: '#000', padding: '6px 18px', color: '#fff', fontSize: '14px', fontWeight: 700 }}>
+                <div style={{ position: 'absolute', inset: 5, border: '1px solid #fff', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+                <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+                {enemyName}
+              </div>
+              {/* Hearts with same border style */}
+              <div style={{ position: 'relative', border: '4px solid #fff', background: '#000', padding: '6px 10px', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                <div style={{ position: 'absolute', inset: 5, border: '1px solid #fff', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+                <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+                <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+                <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+                <img src="/InteractableUI/HeartSprite.png" alt="hp" style={{ width: 24, height: 24, objectFit: 'contain' }} />
+                <span style={{ color: '#fff', fontWeight: 700, fontSize: '13px' }}>x{enemyLives}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1501,7 +1581,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 9999, pointerEvents: 'none',
         }}>
-          <img src="/BlueSparkle.png" alt="" style={{
+          <img src="/OtherEffects/BlueSparkle.png" alt="" style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
             animation: 'sparkleSpin 1.2s linear infinite',
           }} />
@@ -1577,7 +1657,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             }}>
               {/* Spinning sparkle behind */}
               <img
-                src="/BlueSparkle.png"
+                src="/OtherEffects/BlueSparkle.png"
                 alt=""
                 style={{
                   position: 'absolute', inset: 0,

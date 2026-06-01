@@ -16,11 +16,17 @@ const walkableSrc = (name) => {
   }
 };
 
-const makeEnemies = () => {
+const ISLAND_KEY_MAP = {
+  Similar:    'similarIsland',
+  Dissimilar: 'dissimilarIsland',
+  Hybrid:     'hybridIsland',
+};
+
+const makeEnemies = (count = 6) => {
   const margin = E_RAD + 16;
   const range  = SQUARE - margin * 2;
   const positions = [];
-  for (let level = 1; level <= 6; level++) {
+  for (let level = 1; level <= count; level++) {
     let pos, tries = 0;
     do {
       pos = { x: margin + Math.random() * range, y: margin + Math.random() * range };
@@ -40,7 +46,30 @@ const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
 
   const [playerPos,  setPlayerPos]  = useState({ x: SQUARE / 2, y: SQUARE / 2 });
   const [nearEnemy,  setNearEnemy]  = useState(null);
-  const [enemies]                   = useState(makeEnemies);
+  const [enemies, setEnemies] = useState([]); // populated from enemyData.txt
+
+  // Load level count from enemyData.txt for any island
+  useEffect(() => {
+    const key = ISLAND_KEY_MAP[island.name];
+    if (!key) return;
+    fetch(`/enemyData.txt?t=${Date.now()}`)
+      .then(r => r.text())
+      .then(text => {
+        const sections = text.split('===').filter(s => s.trim());
+        let total = 0;
+        for (const section of sections) {
+          const lines = section.trim().split('\n').map(l => l.trim()).filter(l => l);
+          if (lines[0] !== key) continue;
+          const blocks = section.split('---').slice(1);
+          for (const rawBlock of blocks) {
+            const content = rawBlock.split('+++')[0].trim();
+            if (content) total++;
+          }
+        }
+        setEnemies(total > 0 ? makeEnemies(total) : []);
+      })
+      .catch(() => setEnemies([]));
+  }, [island.name]);
 
   const posRef   = useRef({ x: SQUARE / 2, y: SQUARE / 2 });
   const keysRef  = useRef({});
