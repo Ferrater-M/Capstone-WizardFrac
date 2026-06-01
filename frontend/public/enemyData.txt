@@ -15,3 +15,12 @@ name:Elai
 level:2
 hp:12
 +++
+
+===
+dissimilarIsland
+---
+type:normal
+name:Skeleblade
+level:1
+hp:10
++++

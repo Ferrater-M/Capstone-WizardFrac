@@ -1,42 +1,30 @@
-import React, { useState, useRef } from 'react';
-import ButterflyDiagramCanvas from '../components/ButterflyDiagramCanvas';
-import ButterflyStepPanel from '../components/ButterflyStepPanel';
+import React, { useState, useEffect, useRef } from 'react';
+import DrawingCanvas from '../components/DrawingCanvas';
+// ButterflyDiagramCanvas and ButterflyStepPanel disabled — new solving method coming
+// import ButterflyDiagramCanvas from '../components/ButterflyDiagramCanvas';
+// import ButterflyStepPanel from '../components/ButterflyStepPanel';
 import ButterflyTutorial from '../components/ButterflyTutorial';
 import MixedButterflyTutorial from '../components/MixedButterflyTutorial';
 import GameMenuModal from '../components/GameMenuModal';
 import './game.css';
+import '../components/components.css';
 
-const FractionBox = ({ whole, num, den }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-    {whole > 0 && (
-      <span style={{ fontSize: 28, fontWeight: 800, color: '#fff', textShadow: '1px 1px 4px #000' }}>{whole}</span>
-    )}
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ width: 50, height: 36, border: '2px solid rgba(255,255,255,0.8)', background: 'rgba(255,255,255,0.15)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: '#fff', textShadow: '1px 1px 3px #000' }}>{num}</div>
-      <div style={{ width: 62, height: 3, background: '#fff', margin: '3px 0', borderRadius: 2 }} />
-      <div style={{ width: 50, height: 36, border: '2px solid rgba(255,255,255,0.8)', background: 'rgba(255,255,255,0.15)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: '#fff', textShadow: '1px 1px 3px #000' }}>{den}</div>
-    </div>
-  </div>
-);
+const detectFrameCount = (width, height) => {
+  if (width % height === 0) return width / height;
+  for (const n of [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16]) {
+    if (width % n === 0) {
+      const ratio = (width / n) / height;
+      if (ratio >= 0.5 && ratio <= 2) return n;
+    }
+  }
+  return Math.max(1, Math.round(width / height));
+};
 
-const DissimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, gameSession, onGameEnd, onExitToLobby }) => {
-  const [playerHealth, setPlayerHealth] = useState(gameSession.lives);
-  const [enemyLives, setEnemyLives] = useState(3);
-  const [score, setScore] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [multiplier, setMultiplier] = useState(1.0);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [feedback, setFeedback] = useState('');
-  const [feedbackType, setFeedbackType] = useState('');
-  const [currentHint, setCurrentHint] = useState('');
-  const [enemyAttacking, setEnemyAttacking] = useState(false);
-  const [gameOver, setGameOver] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(true);
-  const [hasSeenMixedTutorial, setHasSeenMixedTutorial] = useState(false);
-  const [showExitModal, setShowExitModal] = useState(false);
+const DissimilarIslandGame = ({
+  studentId, studentNickname, selectedCharacter, gameSession, onGameEnd, onExitToLobby,
+}) => {
 
-  const butterflyPanelRef = useRef(null);
-
+  // ── Problem generation ─────────────────────────────────────────────────────
   const generateProblem = () => {
     const isMixed = gameSession.isBoss ? Math.random() > 0.4 : false;
     const operator = Math.random() > 0.5 ? '+' : '-';
@@ -47,353 +35,818 @@ const DissimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, g
     const n2 = Math.floor(Math.random() * (d2 - 1)) + 1;
     const w1 = isMixed ? Math.floor(Math.random() * 3) + 1 : 0;
     const w2 = isMixed ? Math.floor(Math.random() * 3) + 1 : 0;
-
-    // For subtraction ensure left side is larger to keep result positive
     if (operator === '-') {
-      const leftVal = w1 + n1 / d1;
-      const rightVal = w2 + n2 / d2;
-      if (leftVal < rightVal) {
+      if (w1 + n1 / d1 < w2 + n2 / d2)
         return { whole1: w2, numerator1: n2, denominator1: d2, whole2: w1, numerator2: n1, denominator2: d1, operator, isMixed };
-      }
     }
     return { whole1: w1, numerator1: n1, denominator1: d1, whole2: w2, numerator2: n2, denominator2: d2, operator, isMixed };
   };
 
   const [problem, setProblem] = useState(generateProblem);
-
-  // Derived — must be after problem is declared
+  const [currentStep, setCurrentStep] = useState(1);
+  const [showTutorial, setShowTutorial] = useState(true);
+  const [hasSeenMixedTutorial, setHasSeenMixedTutorial] = useState(false);
+  const butterflyPanelRef = useRef(null);
   const showMixedTutorial = !showTutorial && problem.isMixed && !hasSeenMixedTutorial;
 
+  // ── Game state ─────────────────────────────────────────────────────────────
+  const [lives, setLives] = useState(gameSession.lives ?? 3);
+  const [score, setScore] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [multiplier, setMultiplier] = useState(1.0);
+  const [enemyHealth, setEnemyHealth] = useState(100);
+  const [enemyLives, setEnemyLives] = useState(null);
+  const [feedback, setFeedback] = useState('');
+  const [feedbackType, setFeedbackType] = useState('');
+  const [enemyAttacking, setEnemyAttacking] = useState(false);
+  const [enemyFlashing, setEnemyFlashing] = useState(false);
+  const [playerFlashing, setPlayerFlashing] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [bgShift, setBgShift] = useState(null);
+  const lastBgShiftRef = useRef(null);
+  const [pulse, setPulse] = useState(0);
+
+  // ── Interactable panel (infinity drawing) ──────────────────────────────────
+  const [circleDetected, setCircleDetected] = useState(false);
+  const [interactableVisible, setInteractableVisible] = useState(true);
+  const [rectScale, setRectScale] = useState(1);
+  const rectWrapperRef   = useRef(null);
+  const rectScaleRef     = useRef(1);
+  const circleContainerRef = useRef(null);
+
+  // ── Enemy data ─────────────────────────────────────────────────────────────
+  const [enemyData, setEnemyData] = useState(null);
+  const [enemyName, setEnemyName] = useState('Enemy');
+  const [totalLevels, setTotalLevels] = useState(null);
+
+  // ── Defeat animation ───────────────────────────────────────────────────────
+  const [defeatTarget, setDefeatTarget] = useState(null);
+  const [defeatFading, setDefeatFading] = useState(false);
+  const [defeatParticles, setDefeatParticles] = useState([]);
+  const defeatPidRef = useRef(0);
+  const beforeDefeatRef = useRef(null);
+
+  // ── Fireball ───────────────────────────────────────────────────────────────
+  const [fireball, setFireball] = useState(null);
+  const onHitRef = useRef(null);
+
+  // ── DOM refs ───────────────────────────────────────────────────────────────
+  const playerRef   = useRef(null);
+  const playerBoxRef = useRef(null);
+  const enemyRef    = useRef(null);
+  const enemyBoxRef = useRef(null);
+
+  // ── Player sprite ──────────────────────────────────────────────────────────
+  const [wizardAnim, setWizardAnim] = useState('idle');
+  const wizardAnimTimerRef = useRef(null);
+
+  // ── Enemy sprite ───────────────────────────────────────────────────────────
+  const [enemyAnim, setEnemyAnim] = useState('idle');
+  const enemyAnimTimerRef = useRef(null);
+  const [enemySpriteInfo, setEnemySpriteInfo] = useState({
+    idle:   { frames: 4, frameW: 420, frameH: 420, missing: false },
+    attack: { frames: 4, frameW: 420, frameH: 420, missing: false },
+    hit:    { frames: 4, frameW: 420, frameH: 420, missing: false },
+  });
+  const enemySpriteInfoRef = useRef({
+    idle:   { frames: 4, frameW: 420, frameH: 420, missing: false },
+    attack: { frames: 4, frameW: 420, frameH: 420, missing: false },
+    hit:    { frames: 4, frameW: 420, frameH: 420, missing: false },
+  });
+
+  // ── Environmental particles ────────────────────────────────────────────────
+  const [envParticles, setEnvParticles] = useState([]);
+  const envPidRef = useRef(0);
+
+  // ── OST ───────────────────────────────────────────────────────────────────
+  const ostRef      = useRef(null);
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const pulseRafRef = useRef(null);
+
+  const playOST = (src) => {
+    if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; }
+    const audio = new Audio(src);
+    audio.loop = true; audio.volume = 0.8; audio.crossOrigin = 'anonymous'; audio.currentTime = 0;
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        analyserRef.current = audioCtxRef.current.createAnalyser();
+        analyserRef.current.fftSize = 512;
+        analyserRef.current.smoothingTimeConstant = 0.85;
+        analyserRef.current.connect(audioCtxRef.current.destination);
+      }
+      audioCtxRef.current.createMediaElementSource(audio).connect(analyserRef.current);
+    } catch (_) {}
+    audio.play().then(() => audioCtxRef.current?.resume()).catch(() => {});
+    ostRef.current = audio;
+  };
+
+  useEffect(() => {
+    const tick = () => {
+      if (analyserRef.current) {
+        const data = new Uint8Array(analyserRef.current.frequencyBinCount);
+        analyserRef.current.getByteFrequencyData(data);
+        setPulse(data.slice(0, 8).reduce((a, b) => a + b, 0) / 8 / 255);
+      }
+      pulseRafRef.current = requestAnimationFrame(tick);
+    };
+    pulseRafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(pulseRafRef.current);
+  }, []);
+
+  useEffect(() => {
+    const track = Math.floor(Math.random() * 3) + 1;
+    playOST(`/OSTFiles/dissimilarcombatOST${track}.mp3`);
+    return () => { if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; } };
+  }, [gameSession.level]);
+
+  useEffect(() => {
+    if (enemyData?.type === 'boss') {
+      const track = Math.floor(Math.random() * 2) + 1;
+      playOST(`/OSTFiles/bossOST${track}.mp3`);
+    }
+  }, [enemyData?.type]);
+
+  // ── Environmental particle spawner ────────────────────────────────────────
+  useEffect(() => {
+    const spawn = () => {
+      const type = Math.random() < 0.5 ? 'autumnleaf' : 'dust';
+      const size = 20 + Math.random() * 24;
+      const dur  = 5 + Math.random() * 5;
+      const id   = envPidRef.current++;
+      setEnvParticles(prev => [...prev, {
+        id, type, size, dur,
+        startX: 30 + Math.random() * 70,
+        startY: -(size + Math.random() * 10),
+        dx: `${-(50 + Math.random() * 30)}vw`,
+        dy: `${85 + Math.random() * 20}vh`,
+        r1: `${(Math.random() - 0.5) * 40}deg`,
+        r2: `${(Math.random() - 0.5) * 80}deg`,
+        jx1: `${(Math.random() - 0.5) * 6}vw`, jy1: `${(Math.random() - 0.5) * 4}vh`,
+        jx2: `${(Math.random() - 0.5) * 8}vw`, jy2: `${(Math.random() - 0.5) * 6}vh`,
+      }]);
+      setTimeout(() => setEnvParticles(prev => prev.filter(x => x.id !== id)), dur * 1000 + 500);
+    };
+    spawn(); spawn(); spawn();
+    const iv = setInterval(() => { spawn(); if (Math.random() < 0.5) spawn(); }, 400 + Math.random() * 400);
+    return () => clearInterval(iv);
+  }, []);
+
+  // ── Enemy data loading ────────────────────────────────────────────────────
+  const loadEnemyData = () => {
+    fetch(`/enemyData.txt?t=${Date.now()}`)
+      .then(r => r.text())
+      .then(text => {
+        const sections = text.split('===').filter(s => s.trim());
+        let levelCount = 0;
+        for (const section of sections) {
+          const lines = section.trim().split('\n').map(l => l.trim()).filter(l => l);
+          if (lines[0] !== 'dissimilarIsland') continue;
+          const blocks = section.split('---').slice(1);
+          for (const rawBlock of blocks) {
+            const content = rawBlock.split('+++')[0].trim();
+            if (!content) continue;
+            levelCount++;
+            const enemy = {};
+            content.split('\n').forEach(line => {
+              const idx = line.indexOf(':');
+              if (idx !== -1) enemy[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+            });
+            if (parseInt(enemy.level) === gameSession.level) {
+              const parsed = {
+                type:  ['normal', 'miniboss', 'boss'].includes(enemy.type) ? enemy.type : 'normal',
+                level: parseInt(enemy.level),
+                name:  enemy.name || 'Enemy',
+                hp:    parseInt(enemy.hp) || 3,
+              };
+              setEnemyData(parsed);
+              setEnemyLives(parsed.hp);
+              setEnemyName(parsed.name);
+            }
+          }
+        }
+        if (levelCount > 0) setTotalLevels(levelCount);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => { loadEnemyData(); }, [gameSession.level]);
+
+  // ── Enemy sprite loading ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!enemyData) return;
+    const MAX = 420;
+    const reset = {
+      idle:   { frames: 4, frameW: MAX, frameH: MAX, missing: false },
+      attack: { frames: 4, frameW: MAX, frameH: MAX, missing: false },
+      hit:    { frames: 4, frameW: MAX, frameH: MAX, missing: false },
+    };
+    enemySpriteInfoRef.current = reset;
+    setEnemySpriteInfo(reset);
+    ['idle', 'attack', 'hit'].forEach(anim => {
+      const img = new Image();
+      img.onload = () => {
+        const frames    = detectFrameCount(img.naturalWidth, img.naturalHeight);
+        const natFrameW = img.naturalWidth / frames;
+        const natFrameH = img.naturalHeight;
+        const scale  = Math.min(MAX / natFrameW, MAX / natFrameH);
+        const frameW = Math.round(natFrameW * scale);
+        const frameH = Math.round(natFrameH * scale);
+        const info = { frames, frameW, frameH, missing: false };
+        enemySpriteInfoRef.current = { ...enemySpriteInfoRef.current, [anim]: info };
+        setEnemySpriteInfo(prev => ({ ...prev, [anim]: info }));
+      };
+      img.onerror = () => {
+        const info = { frames: 4, frameW: MAX, frameH: MAX, missing: true };
+        enemySpriteInfoRef.current = { ...enemySpriteInfoRef.current, [anim]: info };
+        setEnemySpriteInfo(prev => ({ ...prev, [anim]: info }));
+      };
+      img.src = `/enemyAssets/dissimilarIsland/${enemyData.name}/${anim}.png`;
+    });
+  }, [enemyData?.name]);
+
+  // ── Sprite animation helpers ──────────────────────────────────────────────
+  const playWizardAnim = (anim) => {
+    const isWitch = selectedCharacter?.name?.toLowerCase().includes('girl');
+    const fc = isWitch ? { attack1: 10, attack2: 4, hurt: 3 } : { attack1: 7, attack2: 9, hurt: 4 };
+    if (wizardAnimTimerRef.current) clearTimeout(wizardAnimTimerRef.current);
+    setWizardAnim(anim);
+    wizardAnimTimerRef.current = setTimeout(() => setWizardAnim('idle'), (fc[anim] / 10) * 1000);
+  };
+
+  const playEnemyAnim = (anim) => {
+    if (enemyAnimTimerRef.current) clearTimeout(enemyAnimTimerRef.current);
+    setEnemyAnim(anim);
+    const frames = enemySpriteInfoRef.current[anim]?.frames || 4;
+    enemyAnimTimerRef.current = setTimeout(() => setEnemyAnim('idle'), (frames / 10) * 1000);
+  };
+
+  useEffect(() => { if (enemyAttacking) playEnemyAnim('attack'); }, [enemyAttacking]);
+  useEffect(() => { if (enemyFlashing)  playEnemyAnim('hit');    }, [enemyFlashing]);
+  useEffect(() => { if (playerFlashing) playWizardAnim('hurt');  }, [playerFlashing]);
+
+  // ── Interactable box resize observer (same scale logic as Similar Island) ──
+  useEffect(() => {
+    if (!rectWrapperRef.current) return;
+    const obs = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect;
+      const s = Math.max(0.1, Math.min(1, width / 400, (height - 50) / 440));
+      rectScaleRef.current = s;
+      setRectScale(s);
+    });
+    obs.observe(rectWrapperRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const handleInfinityDetected = () => {
+    setCircleDetected(true);
+  };
+
+  // ── Defeat trigger ────────────────────────────────────────────────────────
+  const triggerDefeat = (target, onComplete) => {
+    setDefeatTarget(target);
+    const audio = new Audio('/SoundEffects/beforeDefeat.wav');
+    audio.loop = true; audio.play().catch(() => {});
+    beforeDefeatRef.current = audio;
+    let elapsed = 0;
+    const iv = setInterval(() => {
+      elapsed += 80;
+      if (beforeDefeatRef.current) beforeDefeatRef.current.playbackRate = Math.min(1.0 + (elapsed / 5000) * 3.5, 4.5);
+      if (elapsed >= 5000) {
+        clearInterval(iv);
+        if (beforeDefeatRef.current) { beforeDefeatRef.current.pause(); beforeDefeatRef.current.src = ''; }
+        setDefeatFading(true);
+        new Audio('/SoundEffects/defeat.wav').play().catch(() => {});
+        const boxRef = target === 'enemy' ? enemyBoxRef.current : playerBoxRef.current;
+        const el = boxRef || (target === 'enemy' ? enemyRef.current : playerRef.current);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+          setDefeatParticles(Array.from({ length: 24 }, (_, i) => {
+            const angle = (i / 24) * Math.PI * 2, dist = 60 + Math.random() * 80;
+            return { id: defeatPidRef.current++, x: cx, y: cy, px: `${Math.cos(angle)*dist}px`, py: `${Math.sin(angle)*dist}px`, size: 4 + Math.random() * 8 };
+          }));
+          setTimeout(() => setDefeatParticles([]), 1400);
+        }
+        setTimeout(onComplete, 1200);
+      }
+    }, 80);
+  };
+
+  // ── Fireball ──────────────────────────────────────────────────────────────
+  const launchFireball = (onHit) => {
+    const pBox = playerBoxRef.current || playerRef.current;
+    const eBox = enemyBoxRef.current  || enemyRef.current;
+    const SIZE = 120, vw = window.innerWidth, vh = window.innerHeight;
+    const pr = pBox ? pBox.getBoundingClientRect() : { left: vw*0.1, right: vw*0.28, top: vh*0.35, height: vh*0.3, width: vw*0.18 };
+    const er = eBox ? eBox.getBoundingClientRect() : { left: vw*0.72, right: vw*0.9, top: vh*0.35, height: vh*0.3, width: vw*0.18 };
+    const sx = pr.right - SIZE / 2, sy = pr.top + pr.height / 2 - SIZE / 2;
+    const ex = er.left + er.width / 2 - SIZE / 2, ey = er.top + er.height / 2 - SIZE / 2;
+    onHitRef.current = onHit;
+    setFireball({ sx, sy, ex, ey, flying: false });
+    setTimeout(() => setFireball({ sx, sy, ex, ey, flying: true }), 800);
+  };
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
 
   const getCorrectAnswerStr = (p = problem) => {
     const imp1 = p.whole1 * p.denominator1 + p.numerator1;
     const imp2 = p.whole2 * p.denominator2 + p.numerator2;
-    const cross1 = imp1 * p.denominator2;
-    const cross2 = imp2 * p.denominator1;
-    const commonDenom = p.denominator1 * p.denominator2;
-    const sumDiff = p.operator === '+' ? cross1 + cross2 : cross1 - cross2;
-    const divisor = gcd(Math.abs(sumDiff), commonDenom);
-    return `${sumDiff / divisor}/${commonDenom / divisor}`;
+    const cd = p.denominator1 * p.denominator2;
+    const sd = p.operator === '+' ? imp1 * p.denominator2 + imp2 * p.denominator1 : imp1 * p.denominator2 - imp2 * p.denominator1;
+    const div = gcd(Math.abs(sd), cd);
+    return `${sd / div}/${cd / div}`;
   };
 
-  const getProblemStatement = (p = problem) => {
-    if (p.isMixed) {
-      return `${p.whole1} ${p.numerator1}/${p.denominator1} ${p.operator} ${p.whole2} ${p.numerator2}/${p.denominator2}`;
-    }
-    return `${p.numerator1}/${p.denominator1} ${p.operator} ${p.numerator2}/${p.denominator2}`;
-  };
+  const getProblemStatement = (p = problem) => p.isMixed
+    ? `${p.whole1} ${p.numerator1}/${p.denominator1} ${p.operator} ${p.whole2} ${p.numerator2}/${p.denominator2}`
+    : `${p.numerator1}/${p.denominator1} ${p.operator} ${p.numerator2}/${p.denominator2}`;
 
+  // ── API ───────────────────────────────────────────────────────────────────
   const saveSpellAttempt = async (attempt) => {
     try {
-      const res = await fetch(
-        `http://localhost:8080/api/game-progress/spell-attempt/${gameSession.sessionId}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(attempt) }
-      );
+      const res = await fetch(`http://localhost:8080/api/game-progress/spell-attempt/${gameSession.sessionId}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(attempt),
+      });
       if (!res.ok) console.error('Failed to save spell attempt');
-    } catch (err) { console.error('Error saving spell attempt:', err); }
+    } catch (err) { console.error(err); }
   };
 
   const saveGameEnd = async (status, isWon) => {
     try {
-      const res = await fetch(
-        `http://localhost:8080/api/game-progress/end-session/${gameSession.sessionId}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, isWon, hintsUsed: 0 }) }
-      );
-      if (!res.ok) {
-        const body = await res.text();
-        console.error('saveGameEnd failed:', res.status, body);
-      }
-    } catch (err) { console.error('Error saving game end:', err); }
+      const res = await fetch(`http://localhost:8080/api/game-progress/end-session/${gameSession.sessionId}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, isWon }),
+      });
+      if (!res.ok) console.error('saveGameEnd failed:', res.status);
+    } catch (err) { console.error(err); }
+  };
+
+  const handleGameEnd = async (status, isWon) => {
+    await saveGameEnd(status, isWon);
+    onGameEnd({ status, isWon, score });
   };
 
   const handleExitGame = () => setShowExitModal(true);
+  const confirmExit = async () => { setShowExitModal(false); await saveGameEnd('PAUSED', false); onExitToLobby(); };
 
-  const confirmExit = async () => {
-    setShowExitModal(false);
-    await saveGameEnd('PAUSED', false);
-    onExitToLobby();
-  };
-
+  // ── Answer handlers ───────────────────────────────────────────────────────
   const handleAnswerSubmit = async ({ numerator, denominator }) => {
+    const totalHp   = enemyData?.hp || enemyLives || 1;
+    const hpPerHit  = Math.floor(100 / totalHp);
+    const newELives = Math.max(0, (enemyLives ?? 1) - 1);
+    const newEHp    = Math.max(0, enemyHealth - hpPerHit);
     const newStreak = streak + 1;
-    const newMultiplier = Math.min(2.0, 1.0 + Math.max(0, newStreak - 3) * 0.2);
-    const pointsEarned = Math.floor(100 * newMultiplier);
-    const newScore = score + pointsEarned;
-    const newEnemyLives = Math.max(0, enemyLives - 1);
+    const newMult   = Math.min(2.0, 1.0 + newStreak * 0.2);
+    const pts       = Math.floor(10 * newMult);
+    const newScore  = score + pts;
 
-    setStreak(newStreak);
-    setMultiplier(newMultiplier);
-    setScore(newScore);
-    setEnemyLives(newEnemyLives);
-    setCurrentHint('');
-    setFeedback(`✓ Correct! +${pointsEarned} points`);
-    setFeedbackType('correct');
+    setEnemyHealth(newEHp); setEnemyLives(newELives);
+    setStreak(newStreak); setMultiplier(newMult); setScore(newScore);
+    setFeedback(`Correct! +${pts} points`); setFeedbackType('correct');
 
     saveSpellAttempt({
       gameSessionId: gameSession.sessionId,
-      mechanicType: gameSession.mechanicType || 'DISSIMILAR',
+      mechanicType: 'ButterflyMethod',
       problemStatement: getProblemStatement(),
       answerSubmitted: `${numerator}/${denominator}`,
       correctAnswer: getCorrectAnswerStr(),
-      isCorrect: true,
-      errorType: null,
-      remainingLives: playerHealth,
-      streakCount: newStreak,
-      multiplierValue: newMultiplier,
-      enemyHealthBefore: enemyLives * 33,
-      enemyHealthAfter: newEnemyLives * 33,
-      pointsEarned,
+      isCorrect: true, errorType: null,
+      remainingLives: lives, streakCount: newStreak, multiplierValue: newMult,
+      enemyHealthBefore: enemyHealth, enemyHealthAfter: newEHp, pointsEarned: pts,
     });
 
-    if (newEnemyLives <= 0) {
-      await saveGameEnd('COMPLETED', true);
-      setTimeout(() => onGameEnd({ isWon: true, score: newScore }), 1500);
-      return;
-    }
+    playWizardAnim(Math.random() < 0.5 ? 'attack1' : 'attack2');
+    setBgShift('right'); lastBgShiftRef.current = 'right';
 
     setTimeout(() => {
-      const next = generateProblem();
-      setProblem(next);
-      setFeedback('');
-      setFeedbackType('');
-      setCurrentStep(1);
-    }, 1500);
+      launchFireball(() => {
+        if (newELives <= 0) {
+          triggerDefeat('enemy', () => handleGameEnd('COMPLETED', true));
+        } else {
+          setTimeout(() => {
+            setFeedback(''); setFeedbackType('');
+            setProblem(generateProblem()); setCurrentStep(1);
+            setBgShift('return-right'); lastBgShiftRef.current = null;
+            setTimeout(() => setBgShift(null), 700);
+          }, 1500);
+        }
+      });
+    }, 500);
   };
 
   const handleWrongAnswer = async (hint, submittedValue, errorType) => {
-    const newLives = playerHealth - 1;
-    setPlayerHealth(newLives);
-    setStreak(0);
-    setMultiplier(1.0);
-    setEnemyAttacking(true);
-    if (hint) setCurrentHint(hint);
-    setFeedback(`✗ Wrong! ${hint || 'Try again.'}`);
-    setFeedbackType('incorrect');
+    const newLives = lives - 1;
+    setLives(newLives); setStreak(0); setMultiplier(1.0);
+    setEnemyAttacking(true); setTimeout(() => setEnemyAttacking(false), 1000);
+    setPlayerFlashing(true); setTimeout(() => setPlayerFlashing(false), 500);
+    setFeedback(hint ? `Wrong! ${hint}` : 'Wrong answer!'); setFeedbackType('incorrect');
+    setBgShift('left'); lastBgShiftRef.current = 'left';
+    setTimeout(() => { setBgShift('return-left'); lastBgShiftRef.current = null; setTimeout(() => setBgShift(null), 700); }, 700);
 
     saveSpellAttempt({
       gameSessionId: gameSession.sessionId,
-      mechanicType: gameSession.mechanicType || 'DISSIMILAR',
+      mechanicType: 'ButterflyMethod',
       problemStatement: getProblemStatement(),
       answerSubmitted: String(submittedValue ?? ''),
       correctAnswer: getCorrectAnswerStr(),
-      isCorrect: false,
-      errorType: errorType || 'INCORRECT_ANSWER',
-      remainingLives: newLives,
-      streakCount: 0,
-      multiplierValue: 1.0,
-      enemyHealthBefore: enemyLives * 33,
-      enemyHealthAfter: enemyLives * 33,
-      pointsEarned: 0,
+      isCorrect: false, errorType: errorType || 'INCORRECT_ANSWER',
+      remainingLives: newLives, streakCount: 0, multiplierValue: 1.0,
+      enemyHealthBefore: enemyHealth, enemyHealthAfter: enemyHealth, pointsEarned: 0,
     });
 
     if (newLives <= 0) {
-      await saveGameEnd('FAILED', false);
-      setTimeout(() => setGameOver(true), 800);
+      triggerDefeat('player', () => handleGameEnd('FAILED', false));
     } else {
-      setTimeout(() => {
-        setEnemyAttacking(false);
-        setFeedback('');
-        setFeedbackType('');
-      }, 4000);
+      setTimeout(() => { setFeedback(''); setFeedbackType(''); }, 4000);
     }
   };
 
-  const renderHearts = (count, max) => {
-    const hearts = [];
-    for (let i = 0; i < max; i++) {
-      hearts.push(<span key={i} style={{ fontSize: '22px' }}>{i < count ? '❤️' : '🤍'}</span>);
-    }
-    return hearts;
-  };
+  // ── Heart renderer ────────────────────────────────────────────────────────
+  const renderHearts = (count, max) => Array.from({ length: max }, (_, i) => (
+    <img key={i} src="/InteractableUI/HeartSprite.png" alt="heart" style={{
+      width: 28, height: 28, objectFit: 'contain',
+      opacity: i < count ? 1 : 0.25, filter: i < count ? 'none' : 'grayscale(1)',
+    }} />
+  ));
 
-  const characterSrc = selectedCharacter?.name?.toLowerCase().includes('girl') ? '/Female.png' : '/Male.png';
+  // ── Corner decoration helper ──────────────────────────────────────────────
+  const corners = (color) => (
+    <>
+      <div style={{ position: 'absolute', inset: 5, border: `1px solid ${color}`, pointerEvents: 'none' }} />
+      {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i) => (
+        <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:10, height:10, background:color, ...(t!==null?{top:t}:{bottom:-6}), ...(l!==null?{left:l}:{right:-6}) }}/>
+      ))}
+      {[[3,3],[null,3],[3,null],[null,null]].map(([t,l],i) => (
+        <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:5, height:5, background:color, ...(t!==null?{top:t}:{bottom:3}), ...(l!==null?{left:l}:{right:3}) }}/>
+      ))}
+    </>
+  );
 
-  const problemDisplay = problem.isMixed
-    ? `${problem.whole1} ${problem.numerator1}/${problem.denominator1} ${problem.operator} ${problem.whole2} ${problem.numerator2}/${problem.denominator2}`
-    : `${problem.numerator1}/${problem.denominator1} ${problem.operator} ${problem.numerator2}/${problem.denominator2}`;
-
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div
-      className="game-container dissimilar-island"
-      style={{ minHeight: '100vh', padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '1200px', margin: '0 auto' }}
+      className="wireframe-game-container"
+      style={{
+        position: 'relative', height: '100svh', overflow: 'hidden',
+        padding: '20px 20px 0', fontFamily: '"Press Start 2P", monospace',
+        fontSize: '11px', display: 'flex', flexDirection: 'column',
+        gap: '10px', boxSizing: 'border-box',
+      }}
     >
-      {/* Header */}
-      <div style={{
-        display: 'flex', flexDirection: 'column', gap: '6px',
-        background: 'rgba(0,0,0,0.55)', padding: '10px 16px',
-        borderRadius: '10px', border: '2px solid rgba(255,255,255,0.3)',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button style={{ padding: '8px 20px', background: '#bbb', border: '2px solid #888', borderRadius: '6px' }}>
-            Game Logo
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', color: '#fff', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 'bold' }}>{studentNickname || 'Player'}</span>
-            <span>HP: {renderHearts(playerHealth, 3)}</span>
-            <span>Streak: x{multiplier.toFixed(1)}</span>
-            <span>Score: {score}</span>
-            <span>Level: {gameSession.level || 1}/7</span>
-          </div>
-          <button
-            style={{ padding: '8px 20px', background: '#bbb', border: '2px solid #888', borderRadius: '6px', cursor: 'pointer' }}
-            onClick={handleExitGame}
-          >
-            Menu
-          </button>
-        </div>
-        <div style={{ fontSize: '13px', color: '#fef3c7', minHeight: '18px' }}>
-          💡 {currentHint || 'Solve using the butterfly method!'}
-        </div>
+      {/* Bobbing background */}
+      <div style={{ position: 'absolute', inset: '-20px', animation: 'bgBob 12s ease-in-out infinite', zIndex: 0, pointerEvents: 'none' }}>
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'url(/InMatchUIElements/DissimilarIsland/AutumnCombatBackground.png)',
+          backgroundSize: 'cover', backgroundPosition: 'center',
+          animation: bgShift === 'right'        ? 'bgShiftRight  0.6s ease-out forwards'
+                   : bgShift === 'left'         ? 'bgShiftLeft   0.6s ease-out forwards'
+                   : bgShift === 'return-right' ? 'bgReturnRight 0.7s ease-in-out forwards'
+                   : bgShift === 'return-left'  ? 'bgReturnLeft  0.7s ease-in-out forwards'
+                   : 'none',
+        }} />
       </div>
 
-      {/* Hearts + problem row */}
-      <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: '4px' }}>{renderHearts(playerHealth, 3)}</div>
-        <div key={`${problem.numerator1}-${problem.denominator1}-${problem.numerator2}-${problem.denominator2}`} className="problem-fade-in" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <FractionBox whole={problem.whole1} num={problem.numerator1} den={problem.denominator1} />
-          <span style={{ fontSize: 28, fontWeight: 800, color: '#fff', textShadow: '1px 1px 4px #000' }}>{problem.operator}</span>
-          <FractionBox whole={problem.whole2} num={problem.numerator2} den={problem.denominator2} />
-          <span style={{ fontSize: 22, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>= ?</span>
+      {/* Stats bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '8px 0', gap: '10px', position: 'relative', zIndex: 1 }}>
+        <div style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+          {corners('#703737')}
+          <span style={{ color: '#222', fontSize: '10px' }}>Streak: x{multiplier.toFixed(1)}</span>
+          <span style={{ color: '#222', fontSize: '10px' }}>Score: {score}</span>
+          <span style={{ color: '#222', fontSize: '10px' }}>Level: {gameSession.level}/{totalLevels ?? '...'}</span>
         </div>
-        <div style={{ display: 'flex', gap: '4px' }}>{renderHearts(enemyLives, 3)}</div>
+        <button
+          onClick={handleExitGame}
+          style={{
+            padding: '8px 16px', fontSize: 10, fontWeight: 700,
+            fontFamily: '"Press Start 2P", monospace',
+            background: '#e8d5b4', border: '4px solid #703737',
+            borderRadius: 0, color: '#222', cursor: 'pointer', position: 'relative',
+          }}
+        >
+          {corners('#703737')}
+          Menu
+        </button>
       </div>
 
       {/* Battle area */}
-      <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', flex: 1 }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '10px', position: 'relative', zIndex: 1 }}>
+        <div style={{
+          display: 'flex', justifyContent: 'center', alignItems: 'stretch',
+          flex: 1, minHeight: 0, padding: '10px 0 0', overflow: 'hidden',
+        }}>
 
-        {/* Player */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '150px', height: '150px', border: '2px solid rgba(255,255,255,0.5)',
-            borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center',
-            background: 'rgba(255,255,255,0.15)',
-          }}>
-            <img src={characterSrc} alt="Player" style={{ width: '120px', height: '120px', objectFit: 'contain' }} />
+          {/* ── Player ── */}
+          <div ref={playerRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginRight: circleDetected && interactableVisible ? '160px' : '36px', transition: 'margin 0.5s ease', zIndex: 2, flexShrink: 0, position: 'relative' }}>
+            <div ref={playerBoxRef} style={{ width: 320, height: 320, display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+              {(() => {
+                const isWitch = selectedCharacter?.name?.toLowerCase().includes('girl');
+                const charKey = isWitch ? 'witch' : 'wizard';
+                const FRAMES  = isWitch ? { idle: 7, attack1: 10, attack2: 4, hurt: 3 } : { idle: 8, attack1: 7, attack2: 9, hurt: 4 };
+                const n = FRAMES[wizardAnim], DISP = 420;
+                const kf = `${charKey}_${wizardAnim}`;
+                const sprAnim = `${kf} ${(n/10).toFixed(2)}s steps(${n}) ${wizardAnim==='idle'?'infinite':'1 forwards'}`;
+                const combined = defeatTarget==='player'&&!defeatFading
+                  ? `${sprAnim}, defeatFlash 0.25s ease-in-out infinite`
+                  : playerFlashing ? `${sprAnim}, enemyFlash 0.5s ease-out, damageShake 0.5s ease-out` : sprAnim;
+                const capAnim = wizardAnim[0].toUpperCase() + wizardAnim.slice(1);
+                return (
+                  <>
+                    <style>{`@keyframes ${kf}{to{background-position-x:-${n*DISP}px}}`}</style>
+                    <div style={{
+                      position:'absolute', bottom:40,
+                      left:`calc(50% - ${DISP/2}px + ${isWitch?30:0}px)`,
+                      zIndex:1, width:DISP, height:DISP,
+                      backgroundImage:`url(/PlayerAssets/${charKey}/${charKey}${capAnim}.png)`,
+                      backgroundSize:`${n*DISP}px ${DISP}px`,
+                      backgroundRepeat:'no-repeat', backgroundPosition:'0px 0px',
+                      animation:combined, imageRendering:'pixelated',
+                      opacity: defeatTarget==='player'&&defeatFading ? 0 : 1,
+                      transition: defeatTarget==='player'&&defeatFading ? 'opacity 1.1s ease-out' : 'none',
+                    }} />
+                  </>
+                );
+              })()}
+              <img src="/InMatchUIElements/DissimilarIsland/DissimilarIslandPlatform.png" alt="platform"
+                style={{ position:'absolute', bottom:'-50px', left:'50%', transform:'translateX(-50%)', width:'120%', objectFit:'contain', pointerEvents:'none', zIndex:0 }} />
+            </div>
+            <div style={{ display:'flex', gap:'8px', alignItems:'center', marginTop:'40px' }}>
+              <div style={{ position:'relative', border:'4px solid #fff', background:'#000', padding:'6px 18px', color:'#fff', fontSize:'14px', fontWeight:700 }}>
+                {corners('#fff')}{studentNickname || 'Player'}
+              </div>
+              <div style={{ position:'relative', border:'4px solid #fff', background:'#000', padding:'6px 10px', display:'flex', gap:'4px', alignItems:'center' }}>
+                {corners('#fff')}{renderHearts(lives, 3)}
+              </div>
+            </div>
           </div>
-          <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '18px', textShadow: '1px 1px 3px #000' }}>Player</span>
-        </div>
 
-        {/* Center panel */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-          <div style={{
-            width: '500px',
-            background: 'rgba(255,255,255,0.92)',
-            border: '4px dashed rgba(255,255,255,0.8)',
-            borderRadius: '20px',
-            padding: '16px',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px',
-          }}>
-            <ButterflyDiagramCanvas problem={problem} currentStep={currentStep} />
-            <ButterflyStepPanel
-              ref={butterflyPanelRef}
-              problem={problem}
-              onAnswerSubmit={handleAnswerSubmit}
-              onWrongAnswer={handleWrongAnswer}
-              onStepCorrect={() => setCurrentHint('')}
-              onStepChange={(step) => setCurrentStep(step)}
-            />
+          {/* ── Center: Problem + Butterfly panel ── */}
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'8px', paddingTop:'32px', minHeight:0, overflow:'hidden', zIndex:1 }}>
+
+            {/* Problem display */}
+            <div style={{
+              animation:'magicFloat 3s ease-in-out infinite', position:'relative',
+              filter: pulse>0.15 ? `drop-shadow(0 0 ${(pulse*32).toFixed(1)}px rgba(112,55,55,${Math.min(pulse*1.2,1).toFixed(2)}))` : 'none',
+              transform:`scale(${(1+pulse*0.07).toFixed(4)})`,
+            }}>
+              <div key={getProblemStatement()} className="problem-fade-in" style={{
+                position:'relative', background:'#e8d5b4', border:'4px solid #703737',
+                borderRadius:0, padding:'22px 28px', display:'flex', alignItems:'center', gap:'16px',
+              }}>
+                {corners('#703737')}
+                {problem.whole1 > 0 && <span style={{ fontSize:28, fontWeight:800, color:'#222' }}>{problem.whole1}</span>}
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
+                  <span style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.numerator1}</span>
+                  <div style={{ width:50, height:3, background:'#222', borderRadius:2, margin:'3px 0' }} />
+                  <span style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.denominator1}</span>
+                </div>
+                <span style={{ fontSize:32, fontWeight:800, color:'#222' }}>{problem.operator}</span>
+                {problem.whole2 > 0 && <span style={{ fontSize:28, fontWeight:800, color:'#222' }}>{problem.whole2}</span>}
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
+                  <span style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.numerator2}</span>
+                  <div style={{ width:50, height:3, background:'#222', borderRadius:2, margin:'3px 0' }} />
+                  <span style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.denominator2}</span>
+                </div>
+                <span style={{ fontSize:28, fontWeight:800, color:'#555' }}>= ?</span>
+              </div>
+
+              {/* Square particles emitting from the bottom — same as Similar Island */}
+              {[
+                { left: '5%',  size: 8,  dur: '2.2s', delay: '0s'    },
+                { left: '12%', size: 5,  dur: '1.6s', delay: '-0.4s' },
+                { left: '20%', size: 10, dur: '2.6s', delay: '-1.2s' },
+                { left: '28%', size: 6,  dur: '1.8s', delay: '-0.7s' },
+                { left: '36%', size: 9,  dur: '2.4s', delay: '-1.8s' },
+                { left: '44%', size: 4,  dur: '1.5s', delay: '-0.3s' },
+                { left: '52%', size: 11, dur: '2.8s', delay: '-2.1s' },
+                { left: '60%', size: 5,  dur: '1.7s', delay: '-0.9s' },
+                { left: '68%', size: 8,  dur: '2.3s', delay: '-1.5s' },
+                { left: '76%', size: 6,  dur: '1.9s', delay: '-0.6s' },
+                { left: '84%', size: 10, dur: '2.5s', delay: '-2.4s' },
+                { left: '92%', size: 4,  dur: '1.6s', delay: '-0.2s' },
+                { left: '16%', size: 7,  dur: '2.1s', delay: '-1.1s' },
+                { left: '48%', size: 5,  dur: '1.8s', delay: '-0.8s' },
+                { left: '72%', size: 9,  dur: '2.7s', delay: '-1.6s' },
+                { left: '88%', size: 6,  dur: '2.0s', delay: '-2.0s' },
+              ].map((p, i) => (
+                <div key={i} style={{
+                  position: 'absolute', bottom: -4, left: p.left,
+                  width: p.size, height: p.size,
+                  background: '#703737', pointerEvents: 'none',
+                  animation: `particleFall ${p.dur} ease-out ${p.delay} infinite`,
+                }} />
+              ))}
+            </div>
+
+            {/* Interactable drawing panel — same structure as Similar Island */}
+            <div ref={rectWrapperRef} style={{ flex:1, minHeight:0, overflow:'hidden', display:'flex', alignItems:'flex-end', justifyContent:'center', width:'100%' }}>
+              <div ref={circleContainerRef} style={{
+                width:'400px', height:'440px', flexShrink:0,
+                transform:`scale(${rectScale})`, transformOrigin:'bottom center',
+                background:'none', border:'4px solid #703737', borderRadius:0, boxShadow:'none',
+                display:'flex', justifyContent:'center',
+                opacity: interactableVisible ? 1 : 0,
+                pointerEvents: interactableVisible ? 'auto' : 'none',
+                transition:'opacity 0.4s ease', alignItems:'center',
+                position:'relative', marginBottom:'50px',
+              }}>
+                {/* Rising particles */}
+                {[
+                  { left:'3%', size:8, dur:'2.2s', delay:'0s'    }, { left:'10%', size:5, dur:'1.7s', delay:'-0.5s' },
+                  { left:'17%', size:10, dur:'2.5s', delay:'-1.2s' }, { left:'24%', size:6, dur:'1.9s', delay:'-0.8s' },
+                  { left:'31%', size:9, dur:'2.3s', delay:'-1.6s' }, { left:'38%', size:5, dur:'2.0s', delay:'-0.3s' },
+                  { left:'45%', size:11, dur:'2.6s', delay:'-2.0s' }, { left:'52%', size:6, dur:'1.8s', delay:'-0.9s' },
+                  { left:'59%', size:8, dur:'2.4s', delay:'-1.5s' }, { left:'66%', size:4, dur:'1.6s', delay:'-2.3s' },
+                  { left:'73%', size:7, dur:'2.1s', delay:'-0.6s' }, { left:'80%', size:5, dur:'1.9s', delay:'-1.8s' },
+                  { left:'87%', size:9, dur:'2.3s', delay:'-1.1s' }, { left:'93%', size:6, dur:'2.0s', delay:'-2.5s' },
+                ].map((p,i) => (
+                  <div key={i} style={{ position:'absolute', bottom:4, left:p.left, width:p.size, height:p.size, background:'#703737', pointerEvents:'none', zIndex:1, animation:`particleRise ${p.dur} ease-out ${p.delay} infinite` }} />
+                ))}
+
+                {/* Solid background */}
+                <div style={{ position:'absolute', inset:0, background:'#e8d5b4', zIndex:0, pointerEvents:'none' }} />
+                {/* Inner thin border */}
+                <div style={{ position:'absolute', inset:8, border:'1px solid #703737', borderRadius:0, zIndex:0, pointerEvents:'none' }} />
+                {/* Corner squares */}
+                {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i) => (
+                  <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:12, height:12, background:'#703737', ...(t!==null?{top:t}:{bottom:-6}), ...(l!==null?{left:l}:{right:-6}) }}/>
+                ))}
+                {[[4,4],[null,4],[4,null],[null,null]].map(([t,l],i) => (
+                  <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:6, height:6, background:'#703737', ...(t!==null?{top:t}:{bottom:4}), ...(l!==null?{left:l}:{right:4}) }}/>
+                ))}
+
+                {/* Book */}
+                <img src="/InteractableUI/BookUI.png" alt="book" style={{
+                  position:'absolute', bottom:14, left:'50%', width:'140%',
+                  transform:'translateX(-50%)',
+                  objectFit:'contain', pointerEvents:'none', zIndex:1,
+                  animation:'bookFloat 6s ease-in-out infinite',
+                }} />
+
+                {/* Draw ∞ prompt */}
+                {!circleDetected && (
+                  <p style={{
+                    position:'absolute', top:16, left:'50%', transform:'translateX(-50%)',
+                    margin:0, color:'#fff', fontSize:'13px', fontWeight:700, whiteSpace:'nowrap',
+                    textShadow:'0 0 10px rgba(0,0,0,0.9), 2px 2px 6px rgba(0,0,0,0.8)',
+                    zIndex:3, pointerEvents:'none',
+                  }}>Draw <span style={{ fontSize: '38px', verticalAlign: 'top', lineHeight: 0.6, position: 'relative', top: '-9px' }}>∞</span> to continue!</p>
+                )}
+
+                {/* Drawing canvas or magic circle */}
+                {!circleDetected ? (
+                  <div style={{ position:'absolute', inset:0, zIndex:3 }}>
+                    <DrawingCanvas mode="infinity" onCircleDetected={handleInfinityDetected} />
+                  </div>
+                ) : (
+                  <>
+                    <style>{`
+                      @keyframes dimFadeIn { from{opacity:0;transform:translateY(-10px)} to{opacity:0.3;transform:translateY(0)} }
+                    `}</style>
+                    <div style={{ position:'absolute', top:32, left:0, right:0, height:'300px', animation:'magicFloat 4s ease-in-out infinite', zIndex:2 }}>
+                      <img src="/InteractableUI/DissimilarMagicCircle.png" alt="magic circle" style={{
+                        position:'absolute', top:0, left:0, right:0, width:'100%', height:'100%',
+                        objectFit:'contain', pointerEvents:'none',
+                        animation:'problemFadeIn 0.5s ease-out',
+                      }} />
+                      {/* ── Answer inputs will be placed here when the new solving method is implemented ── */}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Enemy ── */}
+          <div ref={enemyRef} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', marginLeft: circleDetected && interactableVisible ? '160px' : '36px', transition: 'margin 0.5s ease', zIndex:2, flexShrink:0 }}>
+            <div ref={enemyBoxRef} style={{ width:320, height:320, display:'flex', justifyContent:'center', alignItems:'center', position:'relative' }}>
+              {(() => {
+                const info = enemySpriteInfo[enemyAnim];
+                const { frames, frameW, frameH } = info;
+                const BOX = 420;
+                const safeName = (enemyData?.name||'unknown').replace(/\s+/g,'_');
+                const kf = `enemy_${safeName}_${enemyAnim}`;
+                const sprAnim = `${kf} ${(frames/10).toFixed(2)}s steps(${frames}) ${enemyAnim==='idle'?'infinite':'1 forwards'}`;
+                const combined = defeatTarget==='enemy'&&!defeatFading
+                  ? `${sprAnim}, defeatFlash 0.25s ease-in-out infinite`
+                  : enemyFlashing ? `${sprAnim}, enemyFlash 0.5s ease-out` : sprAnim;
+                if (info.missing) return (
+                  <div style={{ position:'absolute', bottom:0, left:`calc(50% - ${BOX/2}px)`, zIndex:1, width:BOX, height:BOX, border:'3px dashed #f87171', background:'rgba(0,0,0,0.75)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10, fontFamily:'"Press Start 2P", monospace', color:'#f87171', transform:'scaleX(-1)' }}>
+                    <span style={{ fontSize:36 }}>???</span>
+                    <span style={{ fontSize:9, textAlign:'center', lineHeight:1.6 }}>Missing<br/>Sprite</span>
+                  </div>
+                );
+                return (
+                  <>
+                    <style>{`@keyframes ${kf}{to{background-position-x:-${frames*frameW}px}}`}</style>
+                    <div style={{
+                      position:'absolute', bottom:40, left:`calc(50% - ${frameW/2}px)`,
+                      zIndex:1, width:frameW, height:frameH, transform:'scaleX(-1)',
+                      backgroundImage:`url(/enemyAssets/dissimilarIsland/${enemyData?.name}/${enemyAnim}.png)`,
+                      backgroundSize:`${frames*frameW}px ${frameH}px`,
+                      backgroundRepeat:'no-repeat', backgroundPosition:'0px 0px',
+                      animation:combined, imageRendering:'pixelated',
+                      opacity: defeatTarget==='enemy'&&defeatFading ? 0 : 1,
+                      transition: defeatTarget==='enemy'&&defeatFading ? 'opacity 1.1s ease-out' : 'none',
+                    }} />
+                  </>
+                );
+              })()}
+              <img src="/InMatchUIElements/DissimilarIsland/DissimilarIslandPlatform.png" alt="platform"
+                style={{ position:'absolute', bottom:'-50px', left:'50%', transform:'translateX(-50%)', width:'120%', objectFit:'contain', pointerEvents:'none', zIndex:0 }} />
+            </div>
+            <div style={{ display:'flex', gap:'8px', alignItems:'center', marginTop:'40px' }}>
+              <div style={{ position:'relative', border:'4px solid #fff', background:'#000', padding:'6px 18px', color:'#fff', fontSize:'14px', fontWeight:700 }}>
+                {corners('#fff')}{enemyName}
+              </div>
+              <div style={{ position:'relative', border:'4px solid #fff', background:'#000', padding:'6px 10px', display:'flex', gap:'4px', alignItems:'center' }}>
+                {corners('#fff')}
+                <img src="/InteractableUI/HeartSprite.png" alt="hp" style={{ width:24, height:24, objectFit:'contain' }} />
+                <span style={{ color:'#fff', fontWeight:700, fontSize:'13px' }}>x{enemyLives}</span>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Enemy */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '150px', height: '150px', border: '2px solid rgba(255,255,255,0.5)',
-            borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center',
-            background: 'rgba(255,255,255,0.15)',
-          }}>
-            <img
-              src="/enemy1.png"
-              alt="Enemy"
-              style={{
-                width: '120px', height: '120px', objectFit: 'contain',
-                filter: enemyAttacking ? 'hue-rotate(180deg) brightness(1.5)' : 'none',
-                transition: 'filter 0.2s',
-              }}
-            />
-          </div>
-          <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '18px', textShadow: '1px 1px 3px #000' }}>Enemy</span>
-        </div>
-      </div>
-
-      {/* Cast Spell button */}
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <button
-          onClick={() => butterflyPanelRef.current?.submitCurrentStep()}
-          style={{
-            padding: '10px 40px', fontSize: '18px', fontWeight: 'bold',
-            background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer',
-          }}
-        >
-          Cast Spell
-        </button>
       </div>
 
       {/* Feedback */}
       {feedback && (
         <div style={{
-          textAlign: 'center', padding: '16px', borderRadius: '8px',
-          border: '2px solid #888',
-          background: feedbackType === 'correct' ? '#d4edda' : '#f8d7da',
-          color: feedbackType === 'correct' ? '#155724' : '#721c24',
-          fontWeight: 'bold',
+          position:'fixed', left:'50%', zIndex:5000,
+          textAlign:'center', padding:'10px 24px',
+          border:'4px solid #fff', background:'#000',
+          color: feedbackType==='correct' ? '#4ade80' : '#f87171',
+          fontSize:'11px', fontWeight:700, whiteSpace:'nowrap',
+          animation:'feedbackSlideToCenter 0.6s ease-out forwards',
         }}>
-          {feedback}
+          {corners('#fff')}{feedback}
         </div>
       )}
 
-      {/* Tutorial overlays — sequenced: butterfly → mixed → game starts */}
-      {showTutorial && (
-        <ButterflyTutorial onComplete={() => setShowTutorial(false)} />
-      )}
-      {showMixedTutorial && (
-        <MixedButterflyTutorial onComplete={() => setHasSeenMixedTutorial(true)} />
-      )}
-
-      {/* Game Over */}
+      {/* Game over */}
       {gameOver && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          backgroundImage: 'url(/PostMatchBackground.jpg)',
-          backgroundSize: 'cover', backgroundPosition: 'center',
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: '12px',
-          fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        }}>
-          <div style={{
-            position: 'relative', background: '#251e59',
-            border: '4px solid #f6b825', borderRadius: '12px',
-            boxShadow: '0 0 0 2px #18113c, 0 20px 40px rgba(0,0,0,0.6)',
-            padding: '36px 56px 28px', textAlign: 'center',
-          }}>
-            <div style={{ position: 'absolute', top: 8, right: 8, bottom: 8, left: 8, border: '1px solid #f6b825', borderRadius: '6px', pointerEvents: 'none' }} />
-            <h1 style={{ fontSize: 'clamp(2.5em, 6vw, 5em)', fontWeight: 900, margin: 0, color: '#ef4444', textShadow: '0 0 20px rgba(0,0,0,0.6), 2px 2px 6px rgba(0,0,0,0.8)', letterSpacing: '6px', textTransform: 'uppercase' }}>DEFEAT!</h1>
-            <p style={{ fontSize: 'clamp(1em, 2vw, 1.3em)', color: '#fff', margin: '36px 0 0', fontWeight: 500 }}>You ran out of hearts!</p>
-            <p style={{ fontSize: 'clamp(1.1em, 2vw, 1.6em)', color: '#fff', margin: '12px 0 0', fontWeight: 700 }}>Score: {score}</p>
+        <div style={{ position:'fixed', inset:0, zIndex:1000, backgroundImage:'url(/PostMatchBackground.jpg)', backgroundSize:'cover', backgroundPosition:'center', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'12px' }}>
+          <div style={{ position:'relative', background:'#e8d5b4', border:'4px solid #703737', borderRadius:'12px', padding:'36px 56px 28px', textAlign:'center' }}>
+            <div style={{ position:'absolute', top:8, right:8, bottom:8, left:8, border:'1px solid #703737', borderRadius:'6px', pointerEvents:'none' }} />
+            <h1 style={{ fontSize:'clamp(2.5em,6vw,5em)', fontWeight:900, margin:0, color:'#ef4444', letterSpacing:'6px', textTransform:'uppercase' }}>DEFEAT!</h1>
+            <p style={{ color:'#333', margin:'36px 0 0', fontWeight:500 }}>You ran out of hearts!</p>
+            <p style={{ color:'#333', margin:'12px 0 0', fontWeight:700 }}>Score: {score}</p>
           </div>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-            <button onClick={onExitToLobby} style={{ padding: '12px 28px', fontSize: '15px', fontWeight: 700, background: 'rgba(40,40,40,0.8)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '10px', cursor: 'pointer', backdropFilter: 'blur(10px)' }}>
-              Return to Island Selection
-            </button>
-          </div>
+          <button onClick={onExitToLobby} style={{ padding:'12px 28px', fontSize:'15px', fontWeight:700, background:'rgba(40,40,40,0.8)', color:'#fff', border:'1px solid rgba(255,255,255,0.3)', borderRadius:'10px', cursor:'pointer' }}>
+            Return to Island Selection
+          </button>
         </div>
       )}
 
+      {/* Defeat particles */}
+      {defeatParticles.map(p => (
+        <div key={p.id} style={{ position:'fixed', left:p.x-p.size/2, top:p.y-p.size/2, width:p.size, height:p.size, background:'#fff', pointerEvents:'none', zIndex:10000, '--px':p.px, '--py':p.py, animation:'defeatParticleBurst 1.4s ease-out forwards' }} />
+      ))}
+
+      {/* Environmental particles */}
+      {envParticles.map(p => (
+        <img key={p.id} src={`/InMatchUIElements/DissimilarIsland/${p.type}.png`} alt=""
+          style={{ position:'fixed', left:`${p.startX}%`, top:p.startY, width:p.size, height:p.size, objectFit:'contain', pointerEvents:'none', zIndex:9998, '--dx':p.dx,'--dy':p.dy,'--r1':p.r1,'--r2':p.r2,'--jx1':p.jx1,'--jy1':p.jy1,'--jx2':p.jx2,'--jy2':p.jy2, animation: p.type==='leaf' ? `leafDrift ${p.dur}s ease-in forwards` : `flowerDrift ${p.dur}s ease-in forwards` }}
+        />
+      ))}
+
+      {/* Fireball */}
+      {fireball && (
+        <img
+          key={fireball.flying ? 'flying' : 'idle'}
+          src="/CombatGraphics/fireballAnimation.gif" alt="fireball"
+          style={{
+            position:'fixed',
+            left: fireball.flying ? 0 : fireball.sx,
+            top:  fireball.flying ? 0 : fireball.sy,
+            width:120, height:120, pointerEvents:'none', zIndex:9999,
+            '--sx':`${fireball.sx}px`,'--sy':`${fireball.sy}px`,
+            '--ex':`${fireball.ex}px`,'--ey':`${fireball.ey}px`,
+            animation: fireball.flying ? 'fireballArc 0.65s ease-in-out forwards' : 'none',
+            opacity: fireball.flying ? undefined : 1,
+          }}
+          onAnimationEnd={() => {
+            setFireball(null);
+            setEnemyFlashing(true);
+            setTimeout(() => setEnemyFlashing(false), 500);
+            onHitRef.current?.();
+          }}
+        />
+      )}
+
+      {/* Tutorials */}
+      {showTutorial && <ButterflyTutorial onComplete={() => setShowTutorial(false)} />}
+      {showMixedTutorial && <MixedButterflyTutorial onComplete={() => setHasSeenMixedTutorial(true)} />}
+
+      {/* Exit modal */}
       {showExitModal && (
-        <GameMenuModal
-          title="Exit Game?"
-          message="Your progress will be saved."
-          icon="⚠️"
-          onClose={() => setShowExitModal(false)}
-        >
+        <GameMenuModal title="Exit Game?" message="Your progress will be saved." icon="⚠️" onClose={() => setShowExitModal(false)}>
           <div className="wizard-menu-actions">
-            <button type="button" className="wizard-menu-btn wizard-menu-btn-primary" onClick={confirmExit}>
-              Yes, Exit
-            </button>
-            <button type="button" className="wizard-menu-btn wizard-menu-btn-secondary" onClick={() => setShowExitModal(false)}>
-              Cancel
-            </button>
+            <button type="button" className="wizard-menu-btn wizard-menu-btn-primary" onClick={confirmExit}>Yes, Exit</button>
+            <button type="button" className="wizard-menu-btn wizard-menu-btn-secondary" onClick={() => setShowExitModal(false)}>Cancel</button>
           </div>
         </GameMenuModal>
       )}
