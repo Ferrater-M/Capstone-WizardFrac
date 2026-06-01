@@ -22,11 +22,12 @@ const ISLAND_KEY_MAP = {
   Hybrid:     'hybridIsland',
 };
 
-const makeEnemies = (count = 6) => {
+// levels: array of level numbers to generate nodes for
+const makeEnemies = (levels = []) => {
   const margin = E_RAD + 16;
   const range  = SQUARE - margin * 2;
   const positions = [];
-  for (let level = 1; level <= count; level++) {
+  for (const level of levels) {
     let pos, tries = 0;
     do {
       pos = { x: margin + Math.random() * range, y: margin + Math.random() * range };
@@ -48,7 +49,7 @@ const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
   const [nearEnemy,  setNearEnemy]  = useState(null);
   const [enemies, setEnemies] = useState([]); // populated from enemyData.txt
 
-  // Load level count from enemyData.txt for any island
+  // Load actual level values from enemyData.txt
   useEffect(() => {
     const key = ISLAND_KEY_MAP[island.name];
     if (!key) return;
@@ -56,17 +57,23 @@ const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
       .then(r => r.text())
       .then(text => {
         const sections = text.split('===').filter(s => s.trim());
-        let total = 0;
+        const levels = [];
         for (const section of sections) {
           const lines = section.trim().split('\n').map(l => l.trim()).filter(l => l);
           if (lines[0] !== key) continue;
           const blocks = section.split('---').slice(1);
           for (const rawBlock of blocks) {
             const content = rawBlock.split('+++')[0].trim();
-            if (content) total++;
+            if (!content) continue;
+            const enemy = {};
+            content.split('\n').forEach(line => {
+              const idx = line.indexOf(':');
+              if (idx !== -1) enemy[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+            });
+            if (enemy.level) levels.push(parseInt(enemy.level));
           }
         }
-        setEnemies(total > 0 ? makeEnemies(total) : []);
+        setEnemies(levels.length > 0 ? makeEnemies(levels) : []);
       })
       .catch(() => setEnemies([]));
   }, [island.name]);

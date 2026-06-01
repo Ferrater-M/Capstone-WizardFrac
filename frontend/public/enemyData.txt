@@ -10,8 +10,8 @@ hp:10
 ===
 similarIsland
 ---
-type:normal
-name:Marilou
+type:boss
+name:Elai
 level:2
-hp:15
+hp:12
 +++

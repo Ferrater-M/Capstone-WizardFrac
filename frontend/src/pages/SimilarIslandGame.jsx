@@ -6,8 +6,59 @@ import SimilarFractionTutorial from '../components/SimilarFractionTutorial';
 import GameMenuModal from '../components/GameMenuModal';
 import '../components/components.css';
 
+// ── Similar Island: same denominator ──────────────────────────────────────
+const buildProblem = (level = 1) => {
+  const minDen = Math.min(2 + Math.floor((level - 1) / 2), 6);
+  const maxDen = Math.min(2 + level * 2, 16);
+  const den = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
+  let n1 = Math.floor(Math.random() * (den - 1)) + 1;
+  let n2 = Math.floor(Math.random() * (den - 1)) + 1;
+  const subChance = Math.min(0.1 + (level - 1) * 0.1, 0.6);
+  const op = Math.random() < subChance ? '-' : '+';
+  if (op === '-' && n1 < n2) [n1, n2] = [n2, n1];
+  return `${n1}/${den} ${op} ${n2}/${den} = ?`;
+};
+
+// ── Dissimilar Island: different denominators (butterfly method) ───────────
+// eslint-disable-next-line no-unused-vars
+const buildProblemDissimilar = (level = 1) => {
+  const minDen = Math.min(2 + Math.floor((level - 1) / 2), 4);
+  const maxDen = Math.min(3 + level * 2, 14);
+  let d1 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
+  let d2 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
+  while (d2 === d1) d2 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
+  const n1 = Math.floor(Math.random() * (d1 - 1)) + 1;
+  const n2 = Math.floor(Math.random() * (d2 - 1)) + 1;
+  const subChance = Math.min(0.1 + (level - 1) * 0.1, 0.6);
+  const op = Math.random() < subChance ? '-' : '+';
+  // Ensure subtraction result is positive: compare n1/d1 vs n2/d2
+  if (op === '-' && n1 * d2 < n2 * d1) return `${n2}/${d2} ${op} ${n1}/${d1} = ?`;
+  return `${n1}/${d1} ${op} ${n2}/${d2} = ?`;
+};
+
+// ── Hybrid Island: mixed numbers with different denominators ───────────────
+// eslint-disable-next-line no-unused-vars
+const buildProblemHybrid = (level = 1) => {
+  const minDen = Math.min(2 + Math.floor((level - 1) / 2), 4);
+  const maxDen = Math.min(3 + level * 2, 12);
+  const maxWhole = Math.min(1 + Math.floor(level / 2), 5);
+  let d1 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
+  let d2 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
+  while (d2 === d1) d2 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
+  const w1 = Math.floor(Math.random() * maxWhole) + 1;
+  const w2 = Math.floor(Math.random() * maxWhole) + 1;
+  const n1 = Math.floor(Math.random() * (d1 - 1)) + 1;
+  const n2 = Math.floor(Math.random() * (d2 - 1)) + 1;
+  const subChance = Math.min(0.1 + (level - 1) * 0.1, 0.55);
+  const op = Math.random() < subChance ? '-' : '+';
+  // Ensure left side >= right side for subtraction
+  if (op === '-' && w1 + n1 / d1 < w2 + n2 / d2)
+    return `${w2} ${n2}/${d2} ${op} ${w1} ${n1}/${d1} = ?`;
+  return `${w1} ${n1}/${d1} ${op} ${w2} ${n2}/${d2} = ?`;
+};
+
 const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, gameSession, onGameEnd, onExitToLobby }) => {
-  const [currentProblem, setCurrentProblem] = useState('2/3 + 1/3 = ?');
+  const [currentProblem, setCurrentProblem] = useState(() => buildProblem(gameSession.level));
   const [mechanicType, setMechanicType] = useState(gameSession.mechanicType);
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState('');
@@ -90,16 +141,30 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const circleContainerRef = useRef(null);
   const ostRef = useRef(null);
 
-  useEffect(() => {
-    const track = Math.floor(Math.random() * 3) + 1;
-    const audio = new Audio(`/OSTFiles/similarcombatOST${track}.mp3`);
+  const playOST = (src) => {
+    if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; }
+    const audio = new Audio(src);
     audio.loop = true;
     audio.volume = 0.8;
     audio.currentTime = 0;
     audio.play().catch(() => {});
     ostRef.current = audio;
-    return () => { audio.pause(); audio.src = ''; };
-  }, []);
+  };
+
+  // Start combat OST on mount
+  useEffect(() => {
+    const track = Math.floor(Math.random() * 3) + 1;
+    playOST(`/OSTFiles/similarcombatOST${track}.mp3`);
+    return () => { if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; } };
+  }, [gameSession.level]);
+
+  // Switch to boss OST if enemy type is "boss"
+  useEffect(() => {
+    if (enemyData?.type === 'boss') {
+      const track = Math.floor(Math.random() * 2) + 1;
+      playOST(`/OSTFiles/bossOST${track}.mp3`);
+    }
+  }, [enemyData?.type]);
 
   // Parse enemyData.txt and apply matching enemy for this level
   const loadEnemyData = () => {
@@ -142,7 +207,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
 
   useEffect(() => {
     loadEnemyData();
-  }, []);
+  }, [gameSession.level]);
 
   const handleCircleDetected = () => {
     new Audio('/SoundEffects/circleAppear.wav').play().catch(() => {});
@@ -395,7 +460,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     const hpPerHit = Math.floor(100 / totalHp);
     const newEnemyLives = isCorrect ? Math.max(0, enemyLives - 1) : enemyLives;
     const newEnemyHealth = Math.max(0, enemyHealth - (isCorrect ? hpPerHit : 0));
-    const newStreak = isCorrect ? streak + 1 : 0;
+    const hintWasUsed = hintUsed || phase2HintUsed;
+    const newStreak = isCorrect && !hintWasUsed ? streak + 1 : 0;
     const newMultiplier = Math.min(2.0, 1.0 + newStreak * 0.2);
     const rawPoints = isCorrect ? Math.floor(10 * newMultiplier) : 0;
     const pointsEarned = (hintUsed && phase2HintUsed) ? 0
@@ -432,7 +498,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     setFeedbackType(isCorrect ? 'correct' : 'incorrect');
     setFeedback(
       isCorrect
-        ? `Correct! +${pointsEarned} points`
+        ? `Correct! +${pointsEarned} points${hintWasUsed ? ' | Hint used!' : ''}`
         : `Incorrect. The answer is ${correctAnswerStr}`
     );
     if (!isCorrect) {
@@ -551,11 +617,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     setAppearSparkles([]);
     setBubbles(null);
     if (arcAnimRef.current) { cancelAnimationFrame(arcAnimRef.current); arcAnimRef.current = null; }
-    const denominator = Math.floor(Math.random() * 8) + 2;
-    const numerator1 = Math.floor(Math.random() * (denominator - 1)) + 1;
-    const numerator2 = Math.floor(Math.random() * (denominator - 1)) + 1;
-    const operator = Math.random() > 0.5 ? '+' : '-';
-    setCurrentProblem(`${numerator1}/${denominator} ${operator} ${numerator2}/${denominator} = ?`);
+    setCurrentProblem(buildProblem(gameSession.level));
   };
 
   const handleGameEnd = async (status, isWon) => {
@@ -630,35 +692,84 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         boxSizing: 'border-box',
       }}
     >
-      <div
-        className="wireframe-header"
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '6px',
-          background: '#ddd',
-          padding: '10px',
-          border: '2px solid #888',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-          <button style={{ padding: '8px 20px', background: '#bbb', border: '2px solid #888' }}>
-            Game logo
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 'bold' }}>{studentNickname || 'Player'}</span>
-            <span>HP: {renderHearts(lives, 3)}</span>
-            <span>Streak: x{multiplier.toFixed(1)}</span>
-            <span>Score: {score}</span>
-            <span>Level: {gameSession.level}/{totalLevels ?? '...'}</span>
-          </div>
-          <button
-            style={{ padding: '8px 20px', background: '#bbb', border: '2px solid #888' }}
-            onClick={handleExitGame}
-          >
-            Menu
-          </button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '8px 0', gap: '10px' }}>
+
+        {/* Stats — top left, same border as problem display */}
+        <div style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <div style={{ position: 'absolute', inset: 5, border: '1px solid #703737', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#703737' }} />
+          <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#703737' }} />
+          <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#703737' }} />
+          <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#703737' }} />
+          <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#703737' }} />
+          <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#703737' }} />
+          <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#703737' }} />
+          <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#703737' }} />
+          <span style={{ color: '#222', fontSize: '10px' }}>Streak: x{multiplier.toFixed(1)}</span>
+          <span style={{ color: '#222', fontSize: '10px' }}>Score: {score}</span>
+          <span style={{ color: '#222', fontSize: '10px' }}>Level: {gameSession.level}/{totalLevels ?? '...'}</span>
         </div>
+
+        {/* Hint display in header — glows white then settles to white-border + black */}
+        {formulaVisible && (
+          <div
+            key={`hint-${hintUsed}-${phase2HintUsed}`}
+            style={{
+              position: 'relative',
+              border: '4px solid #fff',
+              background: '#000',
+              color: '#fff',
+              fontSize: '10px', fontWeight: 700,
+              fontFamily: '"Press Start 2P", monospace',
+              display: 'flex', alignItems: 'center', padding: '0 12px', margin: '0 88px',
+              animation: 'hintReveal 0.8s ease-out forwards',
+              whiteSpace: 'nowrap',
+              flex: 1,
+              justifyContent: 'center',
+            }}
+          >
+            <div style={{ position: 'absolute', inset: 5, border: '1px solid #fff', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+            <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+            <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
+            <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
+            <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+            <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+            <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
+            <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+            {finalAnswerVisible
+              ? `Simplify: ${parseInt(displayNum1) + (displayOp === '+' ? parseInt(displayNum2) : -parseInt(displayNum2))}/${displayDen1}`
+              : `${displayNum1} ${displayOp} ${displayNum2} =`}
+          </div>
+        )}
+
+        {/* Menu button — same style as Hint button */}
+        <button
+          onClick={handleExitGame}
+          style={{
+            padding: '8px 16px',
+            fontSize: 10, fontWeight: 700,
+            fontFamily: '"Press Start 2P", monospace',
+            background: '#e8d5b4',
+            border: '4px solid #703737',
+            borderRadius: 0,
+            boxShadow: 'none',
+            color: '#222',
+            cursor: 'pointer',
+            position: 'relative',
+          }}
+        >
+          <div style={{ position: 'absolute', inset: 5, border: '1px solid #703737', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#703737' }} />
+          <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#703737' }} />
+          <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#703737' }} />
+          <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#703737' }} />
+          <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#703737' }} />
+          <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#703737' }} />
+          <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#703737' }} />
+          <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#703737' }} />
+          Menu
+        </button>
       </div>
 
 
@@ -734,7 +845,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 src={selectedCharacter?.name?.toLowerCase().includes('girl') ? '/Female.png' : '/Male.png'}
                 alt="Player"
                 style={{ position: 'relative', zIndex: 1, width: '170px', height: '170px', objectFit: 'contain',
-                  animation: playerFlashing ? 'enemyFlash 0.5s ease-out' : 'none' }}
+                  animation: playerFlashing ? 'enemyFlash 0.5s ease-out, damageShake 0.5s ease-out' : 'none' }}
               />
 
               {/* Sparkle particles at bottom of character box */}
@@ -1294,7 +1405,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       <span style={{
                         fontSize: 18, fontWeight: 800, color: '#222',
                         whiteSpace: 'nowrap',
-                        visibility: formulaVisible ? 'visible' : 'hidden',
+                        visibility: 'hidden', /* hint now shown in header */
                       }}>
                         {finalAnswerVisible
                           ? `Simplify: ${parseInt(displayNum1) + (displayOp === '+' ? parseInt(displayNum2) : -parseInt(displayNum2))}/${displayDen1}`
@@ -1473,7 +1584,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   width: '88%',
                   height: '88%',
                   objectFit: 'contain',
-                  animation: enemyFlashing ? 'enemyFlash 0.5s ease-out' : 'none',
+                  animation: enemyFlashing ? 'enemyFlash 0.5s ease-out, damageShake 0.5s ease-out' : 'none',
                 }}
               />
               {/* Platform at bottom of enemy box, above Enemy label */}
