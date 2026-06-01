@@ -457,7 +457,6 @@
 @keyframes fireballArc {
   0%   { left: var(--sx); top: var(--sy); opacity: 0; transform: scale(0.5); }
   8%   { opacity: 1; transform: scale(1); }
-  50%  { left: var(--cpx); top: var(--cpy); }
   100% { left: var(--ex); top: var(--ey); transform: scale(1); opacity: 1; }
 }
 

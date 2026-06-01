@@ -610,18 +610,16 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     const sy  = pr.top   + pr.height / 2 - SIZE / 2;
     const ex  = er.left  + er.width  / 2 - SIZE / 2;
     const ey  = er.top   + er.height / 2 - SIZE / 2;
-    const cpx = (sx + ex) / 2;
-    const cpy = Math.min(sy, ey) - 80;
 
     onHitRef.current = onHit;
     new Audio('/SoundEffects/spellCast.wav').play().catch(() => {});
 
     // Hold at player for 800ms, then fly via CSS animation
-    setFireball({ sx, sy, ex, ey, cpx, cpy, flying: false });
+    setFireball({ sx, sy, ex, ey, flying: false });
 
     setTimeout(() => {
       new Audio('/SoundEffects/spellThrow.wav').play().catch(() => {});
-      setFireball({ sx, sy, ex, ey, cpx, cpy, flying: true });
+      setFireball({ sx, sy, ex, ey, flying: true });
     }, 800);
   };
 
@@ -2048,9 +2046,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             width: 120, height: 120,
             pointerEvents: 'none',
             zIndex: 9999,
-            '--sx':  `${fireball.sx}px`,  '--sy':  `${fireball.sy}px`,
-            '--ex':  `${fireball.ex}px`,  '--ey':  `${fireball.ey}px`,
-            '--cpx': `${fireball.cpx}px`, '--cpy': `${fireball.cpy}px`,
+            '--sx': `${fireball.sx}px`, '--sy': `${fireball.sy}px`,
+            '--ex': `${fireball.ex}px`, '--ey': `${fireball.ey}px`,
             animation: fireball.flying
               ? 'fireballArc 0.65s ease-in-out forwards'
               : 'none',
