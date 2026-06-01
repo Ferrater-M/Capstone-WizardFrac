@@ -203,7 +203,8 @@ public class GameProgressService {
             hints,
             hints > 0 ? String.valueOf(hints) : "Not using hint",
             session.getScore(),
-            correctAnswers
+            correctAnswers,
+            session.getStatus()
         );
     }
 

@@ -8,12 +8,13 @@ public class GameplayHistoryDTO {
     private String hintLabel;
     private Integer points;
     private Integer correctAnswers;
+    private String status;
 
     public GameplayHistoryDTO() {}
 
     public GameplayHistoryDTO(String nickname, String island, Integer level,
                               Integer hintsUsed, String hintLabel,
-                              Integer points, Integer correctAnswers) {
+                              Integer points, Integer correctAnswers, String status) {
         this.nickname = nickname;
         this.island = island;
         this.level = level;
@@ -21,6 +22,7 @@ public class GameplayHistoryDTO {
         this.hintLabel = hintLabel;
         this.points = points;
         this.correctAnswers = correctAnswers;
+        this.status = status;
     }
 
     public String getNickname() {
@@ -77,5 +79,13 @@ public class GameplayHistoryDTO {
 
     public void setCorrectAnswers(Integer correctAnswers) {
         this.correctAnswers = correctAnswers;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }
