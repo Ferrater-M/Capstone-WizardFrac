@@ -384,6 +384,38 @@
   100% { box-shadow: none; background: #000; color: #fff; border-color: #fff; }
 }
 
+/* Leaf — drifts diagonally bottom-left, sways side to side */
+@keyframes leafDrift {
+  0%   { transform: translate(0, 0)           rotate(0deg);   opacity: 0; }
+  8%   { opacity: 0.9; }
+  50%  { transform: translate(calc(var(--dx)*0.5), calc(var(--dy)*0.5)) rotate(var(--r1)); }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--r2)); opacity: 0; }
+}
+
+/* Flower — drifts diagonally bottom-left, random jitter */
+@keyframes flowerDrift {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  8%   { opacity: 0.85; }
+  30%  { transform: translate(calc(var(--dx)*0.25 + var(--jx1)), calc(var(--dy)*0.3 + var(--jy1))) rotate(15deg); }
+  60%  { transform: translate(calc(var(--dx)*0.6  + var(--jx2)), calc(var(--dy)*0.6 + var(--jy2))) rotate(-10deg); }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(20deg); opacity: 0; }
+}
+
+@keyframes defeatFlash {
+  0%, 100% { filter: brightness(1); }
+  25%       { filter: brightness(4) saturate(0); }
+  50%       { filter: brightness(1); }
+  75%       { filter: brightness(4) saturate(0); }
+}
+@keyframes defeatFade {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes defeatParticleBurst {
+  0%   { transform: translate(0,0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--px), var(--py)) scale(0); opacity: 0; }
+}
+
 @keyframes damageShake {
   0%, 100% { transform: translateX(0); }
   10%       { transform: translateX(-16px); }
@@ -392,6 +424,23 @@
   55%       { transform: translateX(12px); }
   70%       { transform: translateX(-8px); }
   85%       { transform: translateX(8px); }
+}
+
+@keyframes bgShiftRight {
+  0%   { background-position: center; }
+  100% { background-position: 70% center; }
+}
+@keyframes bgShiftLeft {
+  0%   { background-position: center; }
+  100% { background-position: 30% center; }
+}
+@keyframes bgReturnRight {
+  0%   { background-position: 70% center; }
+  100% { background-position: center; }
+}
+@keyframes bgReturnLeft {
+  0%   { background-position: 30% center; }
+  100% { background-position: center; }
 }
 
 @keyframes particleFall {
@@ -403,6 +452,13 @@
   0%   { top: 88%; opacity: 0; transform: translate(-50%, 0); }
   15%  { opacity: 1; }
   100% { top: 50%; opacity: 1; transform: translate(-50%, -50%); }
+}
+
+@keyframes fireballArc {
+  0%   { left: var(--sx); top: var(--sy); opacity: 0; transform: scale(0.5); }
+  8%   { opacity: 1; transform: scale(1); }
+  50%  { left: var(--cpx); top: var(--cpy); }
+  100% { left: var(--ex); top: var(--ey); transform: scale(1); opacity: 1; }
 }
 
 @keyframes particleRise {

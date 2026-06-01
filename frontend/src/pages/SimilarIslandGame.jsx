@@ -8,14 +8,22 @@ import '../components/components.css';
 
 // ── Similar Island: same denominator ──────────────────────────────────────
 const buildProblem = (level = 1) => {
-  const minDen = Math.min(2 + Math.floor((level - 1) / 2), 6);
-  const maxDen = Math.min(2 + level * 2, 16);
-  const den = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
-  let n1 = Math.floor(Math.random() * (den - 1)) + 1;
-  let n2 = Math.floor(Math.random() * (den - 1)) + 1;
+  const minDen   = Math.min(2 + Math.floor((level - 1) / 2), 6);
+  const maxDen   = Math.min(2 + level * 2, 16);
   const subChance = Math.min(0.1 + (level - 1) * 0.1, 0.6);
-  const op = Math.random() < subChance ? '-' : '+';
-  if (op === '-' && n1 < n2) [n1, n2] = [n2, n1];
+
+  let den, n1, n2, op, resNum, attempts = 0;
+  do {
+    den = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
+    n1  = Math.floor(Math.random() * (den - 1)) + 1;
+    n2  = Math.floor(Math.random() * (den - 1)) + 1;
+    op  = Math.random() < subChance ? '-' : '+';
+    if (op === '-' && n1 < n2) [n1, n2] = [n2, n1];
+    resNum = op === '+' ? n1 + n2 : n1 - n2;
+    attempts++;
+  } while (resNum % den === 0 && attempts < 20);
+  // Loop rejects whole-number results; accepts after 20 tries to avoid infinite loop
+
   return `${n1}/${den} ${op} ${n2}/${den} = ?`;
 };
 
@@ -62,6 +70,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [mechanicType, setMechanicType] = useState(gameSession.mechanicType);
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [bgShift, setBgShift] = useState(null);
+  const lastBgShiftRef = useRef(null);
   const [lives, setLives] = useState(gameSession.lives);
   const [streak, setStreak] = useState(0);
   const [multiplier, setMultiplier] = useState(1.0);
@@ -114,6 +124,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const enemyBoxRef  = useRef(null);
   const fireballRef = useRef(null);
   const fireballAnimRef = useRef(null);
+  const onHitRef = useRef(null);
   const [fireball, setFireball] = useState(null);
   const [dBubble, setDBubble] = useState(null);
   const dBubbleRef     = useRef(null);
@@ -125,8 +136,15 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [enemyName, setEnemyName] = useState('Enemy');
   const [totalLevels, setTotalLevels] = useState(null);
   const [particleDigits] = useState(() => Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)));
+  const [envParticles, setEnvParticles] = useState([]);
+  const envPidRef = useRef(0);
   const [enemyData, setEnemyData] = useState(null); // { type, level, name, hp }
   const [playerFlashing, setPlayerFlashing] = useState(false);
+  const [defeatTarget, setDefeatTarget] = useState(null);
+  const [defeatFading, setDefeatFading] = useState(false);
+  const [defeatParticles, setDefeatParticles] = useState([]);
+  const beforeDefeatRef = useRef(null);
+  const defeatPidRef = useRef(0);
   const bubble2Ref = useRef(null);
   const arcAnimRef  = useRef(null);
   const actionLocked = useRef(false);
@@ -139,17 +157,50 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const den1Ref = useRef(null);
   const den2Ref = useRef(null);
   const circleContainerRef = useRef(null);
-  const ostRef = useRef(null);
+  const ostRef       = useRef(null);
+  const audioCtxRef  = useRef(null);
+  const analyserRef  = useRef(null);
+  const pulseRafRef  = useRef(null);
+  const [pulse, setPulse] = useState(0); // 0-1 bass intensity
 
   const playOST = (src) => {
     if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; }
     const audio = new Audio(src);
     audio.loop = true;
     audio.volume = 0.8;
+    audio.crossOrigin = 'anonymous';
     audio.currentTime = 0;
-    audio.play().catch(() => {});
+
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        analyserRef.current = audioCtxRef.current.createAnalyser();
+        analyserRef.current.fftSize = 512;
+        analyserRef.current.smoothingTimeConstant = 0.85;
+        analyserRef.current.connect(audioCtxRef.current.destination);
+      }
+      const src_ = audioCtxRef.current.createMediaElementSource(audio);
+      src_.connect(analyserRef.current);
+    } catch (_) {}
+
+    audio.play().then(() => audioCtxRef.current?.resume()).catch(() => {});
     ostRef.current = audio;
   };
+
+  // Bass-pulse RAF loop
+  useEffect(() => {
+    const tick = () => {
+      if (analyserRef.current) {
+        const data = new Uint8Array(analyserRef.current.frequencyBinCount);
+        analyserRef.current.getByteFrequencyData(data);
+        const bassAvg = data.slice(0, 8).reduce((a, b) => a + b, 0) / 8;
+        setPulse(bassAvg / 255);
+      }
+      pulseRafRef.current = requestAnimationFrame(tick);
+    };
+    pulseRafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(pulseRafRef.current);
+  }, []);
 
   // Start combat OST on mount
   useEffect(() => {
@@ -165,6 +216,36 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       playOST(`/OSTFiles/bossOST${track}.mp3`);
     }
   }, [enemyData?.type]);
+
+  // Leaf & flower environmental particles — rain from top-right to bottom-left
+  useEffect(() => {
+    const spawn = () => {
+      const type = Math.random() < 0.5 ? 'leaf' : 'flower';
+      const size = 20 + Math.random() * 24;
+      const dur  = 5 + Math.random() * 5;
+      const id   = envPidRef.current++;
+      const p = {
+        id, type, size, dur,
+        startX: 30 + Math.random() * 70,   // % from left (wide top-right zone)
+        startY: -(size + Math.random() * 10),
+        dx: `${-(50 + Math.random() * 30)}vw`,
+        dy: `${85 + Math.random() * 20}vh`,
+        r1: `${(Math.random() - 0.5) * 40}deg`,
+        r2: `${(Math.random() - 0.5) * 80}deg`,
+        jx1: `${(Math.random() - 0.5) * 6}vw`,  jy1: `${(Math.random() - 0.5) * 4}vh`,
+        jx2: `${(Math.random() - 0.5) * 8}vw`,  jy2: `${(Math.random() - 0.5) * 6}vh`,
+      };
+      setEnvParticles(prev => [...prev, p]);
+      setTimeout(() => setEnvParticles(prev => prev.filter(x => x.id !== id)), dur * 1000 + 500);
+    };
+    // Spawn 3 at startup for immediate density
+    spawn(); spawn(); spawn();
+    const iv = setInterval(() => {
+      spawn();
+      if (Math.random() < 0.5) spawn(); // 50% chance of a second particle per tick
+    }, 400 + Math.random() * 400);
+    return () => clearInterval(iv);
+  }, []);
 
   // Parse enemyData.txt and apply matching enemy for this level
   const loadEnemyData = () => {
@@ -208,6 +289,57 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   useEffect(() => {
     loadEnemyData();
   }, [gameSession.level]);
+
+  const triggerDefeat = (target, onComplete) => {
+    setDefeatTarget(target);
+
+    // beforeDefeat.wav with escalating playback rate over 5 seconds
+    const audio = new Audio('/SoundEffects/beforeDefeat.wav');
+    audio.loop = true;
+    audio.play().catch(() => {});
+    beforeDefeatRef.current = audio;
+
+    let elapsed = 0;
+    const rampInterval = setInterval(() => {
+      elapsed += 80;
+      if (beforeDefeatRef.current) {
+        beforeDefeatRef.current.playbackRate = Math.min(1.0 + (elapsed / 5000) * 3.5, 4.5);
+      }
+      if (elapsed >= 5000) {
+        clearInterval(rampInterval);
+        if (beforeDefeatRef.current) { beforeDefeatRef.current.pause(); beforeDefeatRef.current.src = ''; }
+
+        // Phase 2: fade + defeat sound + white particle burst
+        setDefeatFading(true);
+        new Audio('/SoundEffects/defeat.wav').play().catch(() => {});
+
+        const boxRef = target === 'enemy' ? enemyBoxRef.current : playerBoxRef.current;
+        const el     = boxRef || (target === 'enemy' ? enemyRef.current : playerRef.current);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top  + rect.height / 2;
+          const particles = Array.from({ length: 24 }, (_, i) => {
+            const angle = (i / 24) * Math.PI * 2;
+            const dist  = 60 + Math.random() * 80;
+            return {
+              id:   defeatPidRef.current++,
+              x: cx, y: cy,
+              px: `${Math.cos(angle) * dist}px`,
+              py: `${Math.sin(angle) * dist}px`,
+              size: 4 + Math.random() * 8,
+            };
+          });
+          setDefeatParticles(particles);
+          setTimeout(() => setDefeatParticles([]), 1400);
+        }
+
+        setTimeout(() => {
+          onComplete();
+        }, 1200);
+      }
+    }, 80);
+  };
 
   const handleCircleDetected = () => {
     new Audio('/SoundEffects/circleAppear.wav').play().catch(() => {});
@@ -384,47 +516,28 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const launchFireball = (onHit) => {
     const pBox = playerBoxRef.current || playerRef.current;
     const eBox = enemyBoxRef.current  || enemyRef.current;
-    if (!pBox || !eBox) return;
-    const pr = pBox.getBoundingClientRect();
-    const er = eBox.getBoundingClientRect();
     const SIZE = 120;
-    const sx = pr.right - SIZE / 2;          // right edge of player box
-    const sy = pr.top + pr.height / 2 - SIZE / 2; // vertical center of player box
-    const ex = er.left + er.width  / 2 - SIZE / 2;
-    const ey = er.top  + er.height / 2 - SIZE / 2;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const pr = pBox ? pBox.getBoundingClientRect()
+      : { left: vw*0.1, right: vw*0.28, top: vh*0.35, height: vh*0.3, width: vw*0.18 };
+    const er = eBox ? eBox.getBoundingClientRect()
+      : { left: vw*0.72, right: vw*0.9, top: vh*0.35, height: vh*0.3, width: vw*0.18 };
+    const sx  = pr.right - SIZE / 2;
+    const sy  = pr.top   + pr.height / 2 - SIZE / 2;
+    const ex  = er.left  + er.width  / 2 - SIZE / 2;
+    const ey  = er.top   + er.height / 2 - SIZE / 2;
     const cpx = (sx + ex) / 2;
     const cpy = Math.min(sy, ey) - 80;
 
-    // Phase 1 — appear at player, play spellCast
-    setFireball({ x: sx, y: sy });
+    onHitRef.current = onHit;
     new Audio('/SoundEffects/spellCast.wav').play().catch(() => {});
 
-    // Phase 2 — after hold, start flying and play spellThrow
+    // Hold at player for 800ms, then fly via CSS animation
+    setFireball({ sx, sy, ex, ey, cpx, cpy, flying: false });
+
     setTimeout(() => {
       new Audio('/SoundEffects/spellThrow.wav').play().catch(() => {});
-      const duration = 600;
-      const start = performance.now();
-      const bezier = (t, p0, cp, p1) => (1-t)**2*p0 + 2*(1-t)*t*cp + t**2*p1;
-      const ease = t => t < 0.5 ? 2*t*t : 1-((-2*t+2)**2)/2;
-      const frame = (now) => {
-        const raw = Math.min((now - start) / duration, 1);
-        const t = ease(raw);
-        if (fireballRef.current) {
-          fireballRef.current.style.left = bezier(t, sx, cpx, ex) + 'px';
-          fireballRef.current.style.top  = bezier(t, sy, cpy, ey) + 'px';
-        }
-        if (raw < 1) {
-          fireballAnimRef.current = requestAnimationFrame(frame);
-        } else {
-          // Phase 3 — immediately on landing
-          new Audio('/SoundEffects/spellHit.wav').play().catch(() => {});
-          setFireball(null);
-          setEnemyFlashing(true);
-          onHit?.();
-          setTimeout(() => setEnemyFlashing(false), 500);
-        }
-      };
-      fireballAnimRef.current = requestAnimationFrame(frame);
+      setFireball({ sx, sy, ex, ey, cpx, cpy, flying: true });
     }, 800);
   };
 
@@ -513,12 +626,12 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     }
 
     if (newLives <= 0) {
-      handleGameEnd('FAILED', false);
+      triggerDefeat('player', () => handleGameEnd('FAILED', false));
       return;
     }
 
     if (newEnemyLives <= 0) {
-      handleGameEnd('COMPLETED', true);
+      triggerDefeat('enemy', () => handleGameEnd('COMPLETED', true));
       return;
     }
 
@@ -610,6 +723,11 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     setShowNSparkle(false);
     if (dBubbleAnimRef.current) cancelAnimationFrame(dBubbleAnimRef.current);
     setInteractableVisible(true);
+    if (lastBgShiftRef.current) {
+      setBgShift(`return-${lastBgShiftRef.current}`);
+      lastBgShiftRef.current = null;
+      setTimeout(() => setBgShift(null), 700);
+    }
     setMagicN('');
     actionLocked.current = false;
     setDenAnimating(false);
@@ -681,6 +799,11 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         backgroundSize: 'contain',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
+        animation: bgShift === 'right'         ? 'bgShiftRight  0.6s ease-out forwards'
+                 : bgShift === 'left'          ? 'bgShiftLeft   0.6s ease-out forwards'
+                 : bgShift === 'return-right'  ? 'bgReturnRight 0.7s ease-in-out forwards'
+                 : bgShift === 'return-left'   ? 'bgReturnLeft  0.7s ease-in-out forwards'
+                 : 'none',
         height: '100svh',
         overflow: 'hidden',
         padding: '20px 20px 0',
@@ -844,8 +967,12 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               <img
                 src={selectedCharacter?.name?.toLowerCase().includes('girl') ? '/Female.png' : '/Male.png'}
                 alt="Player"
-                style={{ position: 'relative', zIndex: 1, width: '170px', height: '170px', objectFit: 'contain',
-                  animation: playerFlashing ? 'enemyFlash 0.5s ease-out, damageShake 0.5s ease-out' : 'none' }}
+                style={{ position: 'relative', zIndex: 1, width: '88%', height: '88%', objectFit: 'contain',
+                  animation: defeatTarget === 'player' && !defeatFading
+                    ? 'defeatFlash 0.25s ease-in-out infinite'
+                    : playerFlashing ? 'enemyFlash 0.5s ease-out, damageShake 0.5s ease-out' : 'none',
+                  opacity: defeatTarget === 'player' && defeatFading ? 0 : 1,
+                  transition: defeatTarget === 'player' && defeatFading ? 'opacity 1.1s ease-out' : 'none' }}
               />
 
               {/* Sparkle particles at bottom of character box */}
@@ -945,7 +1072,14 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             }}
           >
             {/* Fraction display — outer controls visibility, inner animates in */}
-            <div style={{ opacity: interactableVisible ? 1 : 0, transition: 'opacity 0.4s ease', animation: 'magicFloat 3s ease-in-out infinite', position: 'relative' }}>
+            <div style={{
+              opacity: interactableVisible ? 1 : 0,
+              transition: 'opacity 0.4s ease',
+              animation: 'magicFloat 3s ease-in-out infinite',
+              position: 'relative',
+              filter: pulse > 0.15 ? `drop-shadow(0 0 ${(pulse * 32).toFixed(1)}px rgba(112,55,55,${Math.min(pulse * 1.2, 1).toFixed(2)}))` : 'none',
+              transform: `scale(${(1 + pulse * 0.07).toFixed(4)})`,
+            }}>
             <div
               key={currentProblem}
               className="problem-fade-in"
@@ -1220,6 +1354,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       const wrongAnswer = `${magicN}/${displayDen1}`;
                       setMagicN('');
                       setInteractableVisible(false);
+                      setBgShift('left'); lastBgShiftRef.current = 'left';
                       setTimeout(() => handleAnswerSubmit(wrongAnswer), 500);
                     }}
                   >
@@ -1273,6 +1408,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         const sn = rn / div, sd = d / div;
                         correct = answer === `${sn}/${sd}` || (answer === `${sn}` && sd === 1);
                       }
+                      const dir = correct ? 'right' : 'left';
+                      setBgShift(dir); lastBgShiftRef.current = dir;
                       if (correct) {
                         new Audio('/VoiceLines/castSuccess.wav').play().catch(() => {});
                         setTimeout(() => launchFireball(() => {
@@ -1584,7 +1721,11 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   width: '88%',
                   height: '88%',
                   objectFit: 'contain',
-                  animation: enemyFlashing ? 'enemyFlash 0.5s ease-out, damageShake 0.5s ease-out' : 'none',
+                  animation: defeatTarget === 'enemy' && !defeatFading
+                    ? 'defeatFlash 0.25s ease-in-out infinite'
+                    : enemyFlashing ? 'enemyFlash 0.5s ease-out, damageShake 0.5s ease-out' : 'none',
+                  opacity: defeatTarget === 'enemy' && defeatFading ? 0 : 1,
+                  transition: defeatTarget === 'enemy' && defeatFading ? 'opacity 1.1s ease-out' : 'none',
                 }}
               />
               {/* Platform at bottom of enemy box, above Enemy label */}
@@ -1690,6 +1831,43 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         </div>
       )}
 
+      {/* Defeat burst particles */}
+      {defeatParticles.map(p => (
+        <div key={p.id} style={{
+          position: 'fixed', left: p.x - p.size/2, top: p.y - p.size/2,
+          width: p.size, height: p.size,
+          background: '#fff',
+          pointerEvents: 'none', zIndex: 10000,
+          '--px': p.px, '--py': p.py,
+          animation: 'defeatParticleBurst 1.4s ease-out forwards',
+        }} />
+      ))}
+
+      {/* Environmental particles — leaf & flower raining top-right to bottom-left */}
+      {envParticles.map(p => (
+        <img
+          key={p.id}
+          src={`/InMatchUIElements/SimilarIsland/${p.type}.png`}
+          alt=""
+          style={{
+            position: 'fixed',
+            left: `${p.startX}%`,
+            top: p.startY,
+            width: p.size, height: p.size,
+            objectFit: 'contain',
+            pointerEvents: 'none',
+            zIndex: 9998,
+            '--dx': p.dx, '--dy': p.dy,
+            '--r1': p.r1, '--r2': p.r2,
+            '--jx1': p.jx1, '--jy1': p.jy1,
+            '--jx2': p.jx2, '--jy2': p.jy2,
+            animation: p.type === 'leaf'
+              ? `leafDrift ${p.dur}s ease-in forwards`
+              : `flowerDrift ${p.dur}s ease-in forwards`,
+          }}
+        />
+      ))}
+
       {showTutorial && (
         <SimilarFractionTutorial onComplete={() => setShowTutorial(false)} />
       )}
@@ -1717,28 +1895,33 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       )}
 
       {fireball && (
-        <>
-          <style>{`
-            @keyframes fireballFadeIn {
-              from { opacity: 0; transform: scale(0.5); }
-              to   { opacity: 1; transform: scale(1); }
-            }
-          `}</style>
-          <img
-            ref={fireballRef}
-            src="/CombatGraphics/fireballAnimation.gif"
-            alt="fireball"
-            style={{
-              position: 'fixed',
-              left: fireball.x,
-              top: fireball.y,
-              width: 120, height: 120,
-              pointerEvents: 'none',
-              zIndex: 9999,
-              animation: 'fireballFadeIn 0.3s ease-out',
-            }}
-          />
-        </>
+        <img
+          key={fireball.flying ? 'flying' : 'idle'}
+          src="/CombatGraphics/fireballAnimation.gif"
+          alt="fireball"
+          style={{
+            position: 'fixed',
+            left: fireball.flying ? 0 : fireball.sx,
+            top:  fireball.flying ? 0 : fireball.sy,
+            width: 120, height: 120,
+            pointerEvents: 'none',
+            zIndex: 9999,
+            '--sx':  `${fireball.sx}px`,  '--sy':  `${fireball.sy}px`,
+            '--ex':  `${fireball.ex}px`,  '--ey':  `${fireball.ey}px`,
+            '--cpx': `${fireball.cpx}px`, '--cpy': `${fireball.cpy}px`,
+            animation: fireball.flying
+              ? 'fireballArc 0.65s ease-in-out forwards'
+              : 'none',
+            opacity: fireball.flying ? undefined : 1,
+          }}
+          onAnimationEnd={() => {
+            new Audio('/SoundEffects/spellHit.wav').play().catch(() => {});
+            setFireball(null);
+            setEnemyFlashing(true);
+            setTimeout(() => setEnemyFlashing(false), 500);
+            onHitRef.current?.();
+          }}
+        />
       )}
 
       {showHintConfirm && (
