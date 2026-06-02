@@ -71,9 +71,23 @@ const DissimilarIslandGame = ({
   const [circleDetected, setCircleDetected] = useState(false);
   const [interactableVisible, setInteractableVisible] = useState(true);
   const [rectScale, setRectScale] = useState(1);
-  const rectWrapperRef   = useRef(null);
-  const rectScaleRef     = useRef(1);
+  const rectWrapperRef     = useRef(null);
+  const rectScaleRef       = useRef(1);
   const circleContainerRef = useRef(null);
+
+  // ── Number fly-in animation ────────────────────────────────────────────────
+  const [n1Visible, setN1Visible] = useState(false);
+  const [d1Visible, setD1Visible] = useState(false);
+  const [n2Visible, setN2Visible] = useState(false);
+  const [d2Visible, setD2Visible] = useState(false);
+  const [flyBubbles, setFlyBubbles] = useState(null);
+  const [explodeSparkles, setExplodeSparkles] = useState([]);
+  const sparklePidRef = useRef(0);
+  const num1Ref = useRef(null); const den1Ref = useRef(null);
+  const num2Ref = useRef(null); const den2Ref = useRef(null);
+  const bRef1 = useRef(null); const bRef2 = useRef(null);
+  const bRef3 = useRef(null); const bRef4 = useRef(null);
+  const flyArcRef = useRef(null);
 
   // ── Enemy data ─────────────────────────────────────────────────────────────
   const [enemyData, setEnemyData] = useState(null);
@@ -301,8 +315,129 @@ const DissimilarIslandGame = ({
   }, []);
 
   const handleInfinityDetected = () => {
+    new Audio('/SoundEffects/circleAppear.wav').play().catch(() => {});
     setCircleDetected(true);
   };
+
+  // Label positions within the floating div (top:32 inside circleContainerRef)
+  // These must match the left/top values in the overlay array exactly.
+  const LABEL_OVERLAY = {
+    n1: { left: 105, top: 80  },
+    d1: { left: 110, top: 170 },
+    n2: { left: 249, top: 80  },
+    d2: { left: 246, top: 170 },
+  };
+
+  // Flying-bubble destinations: centre of each label in circleContainerRef fractions.
+  // Centre = (left+20, 32+top+20) — adds floating-div top:32 offset and half of 40px div.
+  const LABEL_POS = {
+    n1: { fx: (105+20) / 400, fy: (32+80 +20) / 440 },
+    d1: { fx: (110+20) / 400, fy: (32+170+20) / 440 },
+    n2: { fx: (249+20) / 400, fy: (32+80 +20) / 440 },
+    d2: { fx: (246+20) / 400, fy: (32+170+20) / 440 },
+  };
+
+  const triggerNumberFlyIn = () => {
+    if (!circleContainerRef.current) return;
+    const cRect = circleContainerRef.current.getBoundingClientRect();
+    const SIZE  = 44;
+
+    const getSrc = (ref) => {
+      if (!ref.current) return { left: cRect.left, top: cRect.top };
+      const r = ref.current.getBoundingClientRect();
+      return { left: r.left + r.width / 2 - SIZE / 2, top: r.top + r.height / 2 - SIZE / 2 };
+    };
+    const sources = {
+      n1: getSrc(num1Ref), d1: getSrc(den1Ref),
+      n2: getSrc(num2Ref), d2: getSrc(den2Ref),
+    };
+
+    // Destination centres (proportional into the visual bounding rect)
+    const dst = Object.fromEntries(
+      Object.entries(LABEL_POS).map(([k, { fx, fy }]) => [k, {
+        x: cRect.left + fx * cRect.width  - SIZE / 2,
+        y: cRect.top  + fy * cRect.height - SIZE / 2,
+      }])
+    );
+
+    // Pre-compute control points ONCE before any RAF fires — eliminates jitter
+    const ctrl = {};
+    ['n1','d1','n2','d2'].forEach(k => {
+      const s = sources[k], d = dst[k];
+      ctrl[k] = {
+        x: (s.left + d.x) / 2 + (Math.random() - 0.5) * 300,
+        y: Math.min(s.top, d.y) - 80 - Math.random() * 120,
+      };
+    });
+
+    const bezier    = (t, p0, cp, p1) => (1-t)**2 * p0 + 2*(1-t)*t * cp + t**2 * p1;
+    const easeInOut = t => t < 0.5 ? 2*t*t : 1-((-2*t+2)**2)/2;
+
+    // Spawn bubbles one by one, 300 ms apart, each with a sparkle sound
+    const order   = ['n1', 'd1', 'n2', 'd2'];
+    const bRefs   = { n1: bRef1, d1: bRef2, n2: bRef3, d2: bRef4 };
+    const setters = { n1: setN1Visible, d1: setD1Visible, n2: setN2Visible, d2: setD2Visible };
+    const values  = {
+      n1: problem.numerator1,  d1: problem.denominator1,
+      n2: problem.numerator2,  d2: problem.denominator2,
+    };
+
+    setFlyBubbles({});   // initialise empty so the container renders
+    order.forEach((key, idx) => {
+      setTimeout(() => {
+        setFlyBubbles(prev => prev !== null
+          ? { ...prev, [key]: { ...sources[key], opacity: 1, value: values[key] } }
+          : prev
+        );
+        new Audio('/SoundEffects/sparkleSound.wav').play().catch(() => {});
+      }, 500 + idx * 150);
+    });
+
+    // Fly one-by-one with 300 ms stagger
+    let arrived = 0;
+
+    setTimeout(() => {
+      order.forEach((key, idx) => {
+        setTimeout(() => {
+          new Audio('/SoundEffects/numberMove.wav').play().catch(() => {});
+          const s = sources[key], d = dst[key], c = ctrl[key];
+          const ref = bRefs[key];
+          const duration = 900, t0 = performance.now();
+
+          const frame = (now) => {
+            const raw = Math.min((now - t0) / duration, 1);
+            const t   = easeInOut(raw);
+            if (ref.current) {
+              ref.current.style.left = bezier(t, s.left, c.x, d.x) + 'px';
+              ref.current.style.top  = bezier(t, s.top,  c.y, d.y) + 'px';
+            }
+            if (raw < 1) {
+              requestAnimationFrame(frame);
+            } else {
+              // Hide imperatively — avoids React re-render overwriting position
+              if (ref.current) ref.current.style.opacity = '0';
+              new Audio('/SoundEffects/sparkleExplode.wav').play().catch(() => {});
+              setters[key](true);
+              // Spawn sparkle inside the floating div at the label's centre
+              const pos = LABEL_OVERLAY[key];
+              const sid = sparklePidRef.current++;
+              setExplodeSparkles(prev => [...prev, { id: sid, left: pos.left + 20, top: pos.top + 20 }]);
+              setTimeout(() => setExplodeSparkles(prev => prev.filter(s => s.id !== sid)), 800);
+              arrived++;
+              if (arrived === order.length) setFlyBubbles(null);
+            }
+          };
+          requestAnimationFrame(frame);
+        }, idx * 150);
+      });
+    }, 2000);
+  };
+
+  useEffect(() => {
+    if (!circleDetected) return;
+    const t = setTimeout(triggerNumberFlyIn, 1200);
+    return () => clearTimeout(t);
+  }, [circleDetected]);
 
   // ── Defeat trigger ────────────────────────────────────────────────────────
   const triggerDefeat = (target, onComplete) => {
@@ -429,6 +564,11 @@ const DissimilarIslandGame = ({
           setTimeout(() => {
             setFeedback(''); setFeedbackType('');
             setProblem(generateProblem()); setCurrentStep(1);
+            setCircleDetected(false); setInteractableVisible(true);
+            setN1Visible(false); setD1Visible(false);
+            setN2Visible(false); setD2Visible(false);
+            setFlyBubbles(null);
+            if (flyArcRef.current) cancelAnimationFrame(flyArcRef.current);
             setBgShift('return-right'); lastBgShiftRef.current = null;
             setTimeout(() => setBgShift(null), 700);
           }, 1500);
@@ -599,16 +739,16 @@ const DissimilarIslandGame = ({
                 {corners('#703737')}
                 {problem.whole1 > 0 && <span style={{ fontSize:28, fontWeight:800, color:'#222' }}>{problem.whole1}</span>}
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
-                  <span style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.numerator1}</span>
+                  <span ref={num1Ref} style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.numerator1}</span>
                   <div style={{ width:50, height:3, background:'#222', borderRadius:2, margin:'3px 0' }} />
-                  <span style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.denominator1}</span>
+                  <span ref={den1Ref} style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.denominator1}</span>
                 </div>
                 <span style={{ fontSize:32, fontWeight:800, color:'#222' }}>{problem.operator}</span>
                 {problem.whole2 > 0 && <span style={{ fontSize:28, fontWeight:800, color:'#222' }}>{problem.whole2}</span>}
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
-                  <span style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.numerator2}</span>
+                  <span ref={num2Ref} style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.numerator2}</span>
                   <div style={{ width:50, height:3, background:'#222', borderRadius:2, margin:'3px 0' }} />
-                  <span style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.denominator2}</span>
+                  <span ref={den2Ref} style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.denominator2}</span>
                 </div>
                 <span style={{ fontSize:28, fontWeight:800, color:'#555' }}>= ?</span>
               </div>
@@ -712,6 +852,34 @@ const DissimilarIslandGame = ({
                         objectFit:'contain', pointerEvents:'none',
                         animation:'problemFadeIn 0.5s ease-out',
                       }} />
+                      {/* Sparkle bursts — inside floating div so they move with the magic circle */}
+                      {explodeSparkles.map(s => (
+                        <img key={s.id} src="/OtherEffects/BlueSparkle.png" alt="" style={{
+                          position: 'absolute', left: s.left, top: s.top,
+                          width: 72, height: 72,
+                          pointerEvents: 'none', zIndex: 4,
+                          animation: 'sparkBurst 0.8s ease-out forwards',
+                        }} />
+                      ))}
+                      {/* Number overlays at N1/D1/N2/D2 positions */}
+                      {[
+                        { key:'n1', visible:n1Visible, val:problem.numerator1,   left:105,  top:80, fontSize:21 },
+                        { key:'d1', visible:d1Visible, val:problem.denominator1, left:110, top:170, fontSize:18 },
+                        { key:'n2', visible:n2Visible, val:problem.numerator2,   left:249, top:80, fontSize:21 },
+                        { key:'d2', visible:d2Visible, val:problem.denominator2, left:246, top:170, fontSize:18 },
+                      ].map(({ key, visible, val, left, top, fontSize }) => (
+                        <div key={key} style={{
+                          position:'absolute', left, top,
+                          width:40, height:40,
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          fontSize: fontSize ?? 18, fontWeight:900, color:'#222',
+                          border: '3px dashed #222', borderRadius: 0,
+                          fontFamily:'"Press Start 2P", monospace',
+                          opacity: visible ? 1 : 0,
+                          transition: 'opacity 0.3s ease',
+                          pointerEvents:'none', zIndex:3,
+                        }}>{val}</div>
+                      ))}
                       {/* ── Answer inputs will be placed here when the new solving method is implemented ── */}
                     </div>
                   </>
@@ -839,6 +1007,31 @@ const DissimilarIslandGame = ({
 
       {/* Tutorials */}
       {showTutorial && <ButterflyTutorial onComplete={() => setShowTutorial(false)} />}
+
+      {/* Flying number bubbles — same style as Similar Island's denomination bubbles */}
+      {flyBubbles && (
+        <>
+          <style>{`@keyframes sparkleSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+          {[
+            { key:'n1', ref:bRef1 }, { key:'d1', ref:bRef2 },
+            { key:'n2', ref:bRef3 }, { key:'d2', ref:bRef4 },
+          ].map(({ key, ref }) => {
+            const b = flyBubbles[key];
+            return b ? (
+              <div key={key} ref={ref} style={{
+                position:'fixed', left:b.left, top:b.top,
+                width:44, height:44,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                zIndex:9999, pointerEvents:'none',
+                opacity:b.opacity, transition:'opacity 0.3s ease',
+              }}>
+                <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position:'absolute', inset:0, width:'100%', height:'100%', animation:'sparkleSpin 1.2s linear infinite', pointerEvents:'none' }} />
+                <span style={{ position:'relative', zIndex:1, fontSize:18, fontWeight:900, color:'#fff', textShadow:'0 0 6px rgba(0,0,0,0.9)', fontFamily:'"Press Start 2P", monospace' }}>{b.value}</span>
+              </div>
+            ) : null;
+          })}
+        </>
+      )}
       {showMixedTutorial && <MixedButterflyTutorial onComplete={() => setHasSeenMixedTutorial(true)} />}
 
       {/* Exit modal */}
