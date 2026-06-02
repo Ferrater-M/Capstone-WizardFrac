@@ -110,6 +110,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [interactableVisible, setInteractableVisible] = useState(true);
   const [formulaVisible, setFormulaVisible] = useState(false);
   const [showHintConfirm, setShowHintConfirm] = useState(false);
+  const [showDrawHint, setShowDrawHint] = useState(true);
   const [denAnimating, setDenAnimating] = useState(false);
   const [denVisible, setDenVisible] = useState(false);
   const [nVisible, setNVisible] = useState(false);
@@ -1576,24 +1577,24 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 </div>
               )}
 
-              {!circleDetected && (
+              {!circleDetected && showDrawHint && (
                 <p style={{
                   position: 'absolute',
-                  top: 16, left: '50%',
+                  bottom: 16, left: '50%',
                   transform: 'translateX(-50%)',
                   margin: 0,
-                  color: '#fff',
+                  color: '#ffffff',
                   fontSize: '13px',
-                  fontWeight: 700,
+                  fontWeight: 900,
                   whiteSpace: 'nowrap',
-                  textShadow: '0 0 10px rgba(0,0,0,0.9), 2px 2px 6px rgba(0,0,0,0.8)',
+                  textShadow: '0 0 8px rgba(0,0,0,1), 0 0 16px rgba(0,0,0,1), 3px 3px 0px rgba(0,0,0,1)',
                   zIndex: 3,
                   pointerEvents: 'none',
                 }}>Draw a circle to continue!</p>
               )}
 
               {!circleDetected ? (
-                <div style={{ position: 'absolute', inset: 0, zIndex: 3 }}>
+                <div style={{ position: 'absolute', inset: 0, zIndex: 3 }} onPointerDown={() => { if (showDrawHint) setShowDrawHint(false); }}>
                   <DrawingCanvas onCircleDetected={handleCircleDetected} />
                 </div>
               ) : (

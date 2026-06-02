@@ -223,7 +223,7 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle' }) => {
         {/* Stroke canvas */}
         <canvas
           ref={canvasRef}
-          width={380} height={240}
+          width={380} height={340}
           onMouseDown={startDrawing}
           onMouseMove={draw}
           onMouseUp={stopDrawing}
@@ -235,7 +235,7 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle' }) => {
         {/* Particle canvas — sits on top, pointer-events off */}
         <canvas
           ref={particleCanvasRef}
-          width={380} height={240}
+          width={380} height={340}
           style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
         />
 

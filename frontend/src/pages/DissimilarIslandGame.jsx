@@ -68,6 +68,7 @@ const DissimilarIslandGame = ({
   const [pulse, setPulse] = useState(0);
 
   // ── Interactable panel (infinity drawing) ──────────────────────────────────
+  const [showDrawHint, setShowDrawHint] = useState(true);
   const [circleDetected, setCircleDetected] = useState(false);
   const [interactableVisible, setInteractableVisible] = useState(true);
   const [rectScale, setRectScale] = useState(1);
@@ -80,6 +81,14 @@ const DissimilarIslandGame = ({
   const [d1Visible, setD1Visible] = useState(false);
   const [n2Visible, setN2Visible] = useState(false);
   const [d2Visible, setD2Visible] = useState(false);
+  const [dragOffsets, setDragOffsets] = useState({ d1:{dx:0,dy:0}, d2:{dx:0,dy:0} });
+  const [inMagnetZone, setInMagnetZone] = useState({ n1:false, n2:false, d1:false, d2:false });
+  const [pulsatingWhite, setPulsatingWhite] = useState({ n1:false, n2:false, d1:false, d2:false });
+  const [dragScreenPos, setDragScreenPos] = useState(null);
+  const dragRef = useRef(null);
+  const floatingDivRef = useRef(null);
+  const n1OverlayRef = useRef(null); const d1OverlayRef = useRef(null);
+  const n2OverlayRef = useRef(null); const d2OverlayRef = useRef(null);
   const [flyBubbles, setFlyBubbles] = useState(null);
   const [explodeSparkles, setExplodeSparkles] = useState([]);
   const sparklePidRef = useRef(0);
@@ -88,6 +97,73 @@ const DissimilarIslandGame = ({
   const bRef1 = useRef(null); const bRef2 = useRef(null);
   const bRef3 = useRef(null); const bRef4 = useRef(null);
   const flyArcRef = useRef(null);
+
+  const MAGNET_THRESHOLD = 60;
+  const BASE_POS = { n1:{left:106,top:80,size:40}, n2:{left:248,top:80,size:40}, d1:{left:110,top:170,size:32}, d2:{left:250,top:170,size:32} };
+  const magnetSoundRef = useRef(null);
+
+  const handleNumPointerDown = (e, key) => {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const scale = rectScaleRef.current || 1;
+    const elRect = e.currentTarget.getBoundingClientRect();
+    const toCenterDx = (e.clientX - (elRect.left + elRect.width  / 2)) / scale;
+    const toCenterDy = (e.clientY - (elRect.top  + elRect.height / 2)) / scale;
+    const floatTop = floatingDivRef.current?.getBoundingClientRect().top ?? 0;
+    dragRef.current = { key, startX: e.clientX, startY: e.clientY, startDx: dragOffsets[key].dx + toCenterDx, startDy: dragOffsets[key].dy + toCenterDy, startFloatTop: floatTop };
+    setDragScreenPos({ x: e.clientX, y: e.clientY, key });
+    const audio = new Audio('/SoundEffects/magnet.wav');
+    audio.loop = true;
+    audio.playbackRate = 0.5;
+    audio.play().catch(() => {});
+    magnetSoundRef.current = audio;
+  };
+  const handleNumPointerMove = (e) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const scale = rectScaleRef.current || 1;
+    const floatTop = floatingDivRef.current?.getBoundingClientRect().top ?? d.startFloatTop;
+    const floatDrift = (floatTop - d.startFloatTop) / scale;
+    const newDx = d.startDx + (e.clientX - d.startX) / scale;
+    const newDy = d.startDy + (e.clientY - d.startY) / scale - floatDrift;
+    setDragOffsets(prev => ({ ...prev, [d.key]: { dx: newDx, dy: newDy } }));
+    setDragScreenPos(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : prev);
+    const b = BASE_POS[d.key];
+    const myCx = b.left + b.size / 2 + newDx;
+    const myCy = b.top  + b.size / 2 + newDy;
+    const otherKey = d.key === 'd1' ? 'd2' : 'd1';
+    const RESTRICTED = { d1:'n1', d2:'n2' };
+    const ALLOWED_TARGETS = { d1:['n2','d2'], d2:['n1','d1'] };
+    const newMagnet = { n1:false, n2:false, d1:false, d2:false };
+    const newPulse = { n1:false, n2:false, d1:false, d2:false };
+    const dists = ['n1', 'n2', otherKey].map(tk => {
+      const t = BASE_POS[tk];
+      const dist = Math.hypot(myCx - (t.left + t.size/2), myCy - (t.top + t.size/2));
+      if (dist < MAGNET_THRESHOLD) {
+        newMagnet[d.key] = true;
+        if (RESTRICTED[d.key] !== tk) newMagnet[tk] = true;
+        if (ALLOWED_TARGETS[d.key].includes(tk)) { newPulse[d.key] = true; newPulse[tk] = true; }
+      }
+      return dist;
+    });
+    setInMagnetZone(newMagnet);
+    setPulsatingWhite(newPulse);
+    if (magnetSoundRef.current) {
+      const minDist = Math.min(...dists);
+      magnetSoundRef.current.playbackRate = 0.1 + Math.max(0, 1 - minDist / 200) * 0.6;
+    }
+  };
+  const handleNumPointerUp = () => {
+    const d = dragRef.current;
+    if (d) {
+      setDragOffsets(prev => ({ ...prev, [d.key]: { dx:0, dy:0 } }));
+      setInMagnetZone({ n1:false, n2:false, d1:false, d2:false });
+      setPulsatingWhite({ n1:false, n2:false, d1:false, d2:false });
+    }
+    if (magnetSoundRef.current) { magnetSoundRef.current.pause(); magnetSoundRef.current = null; }
+    setDragScreenPos(null);
+    dragRef.current = null;
+  };
 
   // ── Enemy data ─────────────────────────────────────────────────────────────
   const [enemyData, setEnemyData] = useState(null);
@@ -322,19 +398,19 @@ const DissimilarIslandGame = ({
   // Label positions within the floating div (top:32 inside circleContainerRef)
   // These must match the left/top values in the overlay array exactly.
   const LABEL_OVERLAY = {
-    n1: { left: 105, top: 80  },
+    n1: { left: 106, top: 80  },
     d1: { left: 110, top: 170 },
-    n2: { left: 249, top: 80  },
-    d2: { left: 246, top: 170 },
+    n2: { left: 248, top: 80  },
+    d2: { left: 250, top: 170 },
   };
 
   // Flying-bubble destinations: centre of each label in circleContainerRef fractions.
   // Centre = (left+20, 32+top+20) — adds floating-div top:32 offset and half of 40px div.
   const LABEL_POS = {
-    n1: { fx: (105+20) / 400, fy: (32+80 +20) / 440 },
+    n1: { fx: (106+20) / 400, fy: (32+80 +20) / 440 },
     d1: { fx: (110+20) / 400, fy: (32+170+20) / 440 },
-    n2: { fx: (249+20) / 400, fy: (32+80 +20) / 440 },
-    d2: { fx: (246+20) / 400, fy: (32+170+20) / 440 },
+    n2: { fx: (248+20) / 400, fy: (32+80 +20) / 440 },
+    d2: { fx: (250+20) / 400, fy: (32+170+20) / 440 },
   };
 
   const triggerNumberFlyIn = () => {
@@ -821,32 +897,32 @@ const DissimilarIslandGame = ({
                 {/* Book */}
                 <img src="/InteractableUI/BookUI.png" alt="book" style={{
                   position:'absolute', bottom:14, left:'50%', width:'140%',
-                  transform:'translateX(-50%)',
                   objectFit:'contain', pointerEvents:'none', zIndex:1,
                   animation:'bookFloat 6s ease-in-out infinite',
                 }} />
 
                 {/* Draw ∞ prompt */}
-                {!circleDetected && (
+                {!circleDetected && showDrawHint && (
                   <p style={{
-                    position:'absolute', top:16, left:'50%', transform:'translateX(-50%)',
-                    margin:0, color:'#fff', fontSize:'13px', fontWeight:700, whiteSpace:'nowrap',
-                    textShadow:'0 0 10px rgba(0,0,0,0.9), 2px 2px 6px rgba(0,0,0,0.8)',
+                    position:'absolute', bottom:16, left:'50%', transform:'translateX(-50%)',
+                    margin:0, color:'#ffffff', fontSize:'13px', fontWeight:900, whiteSpace:'nowrap',
+                    textShadow:'0 0 8px rgba(0,0,0,1), 0 0 16px rgba(0,0,0,1), 3px 3px 0px rgba(0,0,0,1)',
                     zIndex:3, pointerEvents:'none',
                   }}>Draw <span style={{ fontSize: '38px', verticalAlign: 'top', lineHeight: 0.6, position: 'relative', top: '-9px' }}>∞</span> to continue!</p>
                 )}
 
                 {/* Drawing canvas or magic circle */}
                 {!circleDetected ? (
-                  <div style={{ position:'absolute', inset:0, zIndex:3 }}>
+                  <div style={{ position:'absolute', inset:0, zIndex:3 }} onPointerDown={() => { if (showDrawHint) setShowDrawHint(false); }}>
                     <DrawingCanvas mode="infinity" onCircleDetected={handleInfinityDetected} />
                   </div>
                 ) : (
                   <>
                     <style>{`
                       @keyframes dimFadeIn { from{opacity:0;transform:translateY(-10px)} to{opacity:0.3;transform:translateY(0)} }
+                      @keyframes nAreaFadeIn { from{opacity:0;transform:translateX(-50%) translateY(-10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
                     `}</style>
-                    <div style={{ position:'absolute', top:32, left:0, right:0, height:'300px', animation:'magicFloat 4s ease-in-out infinite', zIndex:2 }}>
+                    <div ref={floatingDivRef} style={{ position:'absolute', top:32, left:0, right:0, height:'300px', animation:'magicFloat 4s ease-in-out infinite', zIndex:2 }}>
                       <img src="/InteractableUI/DissimilarMagicCircle.png" alt="magic circle" style={{
                         position:'absolute', top:0, left:0, right:0, width:'100%', height:'100%',
                         objectFit:'contain', pointerEvents:'none',
@@ -863,27 +939,129 @@ const DissimilarIslandGame = ({
                       ))}
                       {/* Number overlays at N1/D1/N2/D2 positions */}
                       {[
-                        { key:'n1', visible:n1Visible, val:problem.numerator1,   left:105,  top:80, fontSize:21 },
-                        { key:'d1', visible:d1Visible, val:problem.denominator1, left:110, top:170, fontSize:18 },
-                        { key:'n2', visible:n2Visible, val:problem.numerator2,   left:249, top:80, fontSize:21 },
-                        { key:'d2', visible:d2Visible, val:problem.denominator2, left:246, top:170, fontSize:18 },
-                      ].map(({ key, visible, val, left, top, fontSize }) => (
-                        <div key={key} style={{
-                          position:'absolute', left, top,
+                        { key:'n1', oRef:n1OverlayRef, visible:n1Visible, val:problem.numerator1,   left:106, top:80,  fontSize:21, size:40, bg:'#333' },
+                        { key:'d1', oRef:d1OverlayRef, visible:d1Visible, val:problem.denominator1, left:110, top:170, fontSize:13, size:32, bg:'#333' },
+                        { key:'n2', oRef:n2OverlayRef, visible:n2Visible, val:problem.numerator2,   left:248, top:80,  fontSize:21, size:40, bg:'#333' },
+                        { key:'d2', oRef:d2OverlayRef, visible:d2Visible, val:problem.denominator2, left:250, top:170, fontSize:13, size:32, bg:'#333' },
+                      ].map(({ key, oRef, visible, val, left, top, fontSize, size, bg }) => {
+                        const draggable = key === 'd1' || key === 'd2';
+                        const offset = draggable ? dragOffsets[key] : { dx:0, dy:0 };
+                        const vibrating = inMagnetZone[key];
+                        return (
+                          <div key={key} ref={oRef}
+                            onPointerDown={visible && draggable ? (e) => handleNumPointerDown(e, key) : undefined}
+                            onPointerMove={visible && draggable ? handleNumPointerMove : undefined}
+                            onPointerUp={visible && draggable ? handleNumPointerUp : undefined}
+                            style={{
+                              position:'absolute', left: left + offset.dx, top: top + offset.dy,
+                              animation: 'numFadeIn 0.5s ease-out both',
+                              animationPlayState: visible ? 'running' : 'paused',
+                              pointerEvents: visible ? 'auto' : 'none',
+                              cursor: visible && draggable ? 'grab' : 'default',
+                              userSelect: 'none', touchAction: 'none',
+                              zIndex: dragRef.current?.key === key ? 10 : 3,
+                              opacity: dragScreenPos?.key === key ? 0 : undefined,
+                            }}>
+                            <div style={{
+                              width:size, height:size,
+                              display:'flex', alignItems:'center', justifyContent:'center',
+                              fontSize, fontWeight:900, color:'#e8d5b4',
+                              border: '3px dashed #e8d5b4', borderRadius: 0, background: bg,
+                              fontFamily:'"Press Start 2P", monospace',
+                              animation: [
+                                vibrating ? 'magnetVibrate 0.15s ease-in-out infinite' : null,
+                                pulsatingWhite[key] ? 'pulsateWhite 0.5s ease-in-out infinite' : null,
+                              ].filter(Boolean).join(', ') || 'none',
+                            }}>{val}</div>
+                          </div>
+                        );
+                      })}
+                      {/* Center node, appears with the buttons */}
+                      {n1Visible && d1Visible && n2Visible && d2Visible && (
+                        <div style={{
+                          position:'absolute', left:177, top:128,
                           width:40, height:40,
-                          display:'flex', alignItems:'center', justifyContent:'center',
-                          fontSize: fontSize ?? 18, fontWeight:900, color:'#222',
-                          border: '3px dashed #222', borderRadius: 0,
-                          fontFamily:'"Press Start 2P", monospace',
-                          opacity: visible ? 1 : 0,
-                          transition: 'opacity 0.3s ease',
+                          border:'3px dashed #ffffff', borderRadius:0,
+                          background:'transparent',
+                          boxShadow:'0 0 8px 3px rgba(0,0,0,0.7)',
+                          animation:'numFadeIn 0.5s ease-out both',
                           pointerEvents:'none', zIndex:3,
-                        }}>{val}</div>
-                      ))}
+                        }} />
+                      )}
+                      {/* SD — bottom node, appears with the buttons */}
+                      {n1Visible && d1Visible && n2Visible && d2Visible && (
+                        <div style={{
+                          position:'absolute', left:177, top:210,
+                          width:40, height:40,
+                          border:'3px dashed #ffffff', borderRadius:0,
+                          background:'transparent',
+                          boxShadow:'0 0 8px 3px rgba(0,0,0,0.7)',
+                          animation:'numFadeIn 0.5s ease-out both',
+                          pointerEvents:'none', zIndex:3,
+                        }} />
+                      )}
                       {/* ── Answer inputs will be placed here when the new solving method is implemented ── */}
                     </div>
+
+                    {/* ── Bottom buttons — appear once all 4 numbers have landed ── */}
+                    {n1Visible && d1Visible && n2Visible && d2Visible && (
+                      <div style={{ position:'absolute', bottom:12, left:'50%', display:'flex', gap:10, zIndex:4, animation:'nAreaFadeIn 0.5s ease-out forwards' }}>
+                        {/* ??? — functionality TBD */}
+                        <button style={{ padding:'4px 56px', fontSize:10, fontWeight:700, fontFamily:'"Press Start 2P", monospace', background:'#703737', border:'4px solid #703737', borderRadius:0, boxShadow:'none', position:'relative', color:'#e8d5b4', cursor:'pointer', backdropFilter:'blur(6px)' }}>
+                          <div style={{position:'absolute',top:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',top:-6,right:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',bottom:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',bottom:-6,right:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',top:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',top:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',bottom:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',bottom:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                          ???
+                        </button>
+                        {/* Hint */}
+                        <button style={{ padding:'4px 16px', fontSize:10, fontWeight:700, fontFamily:'"Press Start 2P", monospace', background:'#703737', border:'4px solid #703737', borderRadius:0, boxShadow:'none', position:'relative', color:'#e8d5b4', cursor:'pointer', backdropFilter:'blur(6px)' }}>
+                          <div style={{position:'absolute',top:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',top:-6,right:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',bottom:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',bottom:-6,right:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',top:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',top:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',bottom:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                          <div style={{position:'absolute',bottom:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                          Hint
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
+
+                {/* Fixed overlay for dragged number — outside floating div so magicFloat doesn't affect it */}
+                {dragScreenPos && (() => {
+                  const info = [
+                    { key:'d1', size:32, bg:'#333', fontSize:13, val:problem.denominator1 },
+                    { key:'d2', size:32, bg:'#333', fontSize:13, val:problem.denominator2 },
+                  ].find(i => i.key === dragScreenPos.key);
+                  if (!info) return null;
+                  const vibrating = inMagnetZone[info.key];
+                  return (
+                    <div style={{
+                      position:'fixed',
+                      left: dragScreenPos.x - info.size / 2,
+                      top:  dragScreenPos.y - info.size / 2,
+                      width: info.size, height: info.size,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontSize: info.fontSize, fontWeight:900, color:'#e8d5b4',
+                      border:'3px dashed #e8d5b4', borderRadius:0, background: info.bg,
+                      fontFamily:'"Press Start 2P", monospace',
+                      pointerEvents:'none', zIndex:9999,
+                      animation: [
+                        vibrating ? 'magnetVibrate 0.15s ease-in-out infinite' : null,
+                        pulsatingWhite[info.key] ? 'pulsateWhite 0.5s ease-in-out infinite' : null,
+                      ].filter(Boolean).join(', ') || 'none',
+                      cursor:'grabbing',
+                    }}>{info.val}</div>
+                  );
+                })()}
               </div>
             </div>
           </div>
