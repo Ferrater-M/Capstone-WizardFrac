@@ -10,6 +10,7 @@ import SimilarIslandGame from './pages/SimilarIslandGame';
 import DissimilarIslandGame from './pages/DissimilarIslandGame';
 import HybridIslandGame from './pages/HybridIslandGame';
 import StudentDashboard from './pages/StudentDashboard';
+import { API_BASE_URL } from './utils/apiConfig';
 
 const LOBBY_PATHS = ['/', '/login', '/character-selection', '/game-lobby'];
 
@@ -137,7 +138,7 @@ function App() {
   const handleNextLevel = async () => {
     const nextLevel = (gameSession.level || 1) + 1;
     try {
-      const res = await fetch(`http://localhost:8080/api/game-lobby/start-stage/${studentId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/game-lobby/start-stage/${studentId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ islandType: gameSession.islandType, stageNumber: nextLevel }),
@@ -156,6 +157,7 @@ function App() {
   };
 
   const handleReturnToLogin = () => {
+    endActionLocked.current = false;
     setStudentId(null);
     setStudentNickname(null);
     setSelectedCharacter(null);
