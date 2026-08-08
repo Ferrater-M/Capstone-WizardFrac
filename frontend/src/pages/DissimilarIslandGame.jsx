@@ -6,6 +6,7 @@ import DrawingCanvas from '../components/DrawingCanvas';
 import ButterflyTutorial from '../components/ButterflyTutorial';
 import MixedButterflyTutorial from '../components/MixedButterflyTutorial';
 import GameMenuModal from '../components/GameMenuModal';
+import { API_BASE_URL } from '../utils/apiConfig';
 import './game.css';
 import '../components/components.css';
 import { getDifficultyParams, buildProblemDissimilar, TIMING } from '../utils/gameUtils';
@@ -838,7 +839,7 @@ const DissimilarIslandGame = ({
   // ── API ───────────────────────────────────────────────────────────────────
   const saveSpellAttempt = async (attempt) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/game-progress/spell-attempt/${gameSession.sessionId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/game-progress/spell-attempt/${gameSession.sessionId}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(attempt),
       });
       if (!res.ok) console.error('Failed to save spell attempt');
@@ -847,7 +848,7 @@ const DissimilarIslandGame = ({
 
   const saveGameEnd = async (status, isWon) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/game-progress/end-session/${gameSession.sessionId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/game-progress/end-session/${gameSession.sessionId}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, isWon }),
       });
       if (!res.ok) {

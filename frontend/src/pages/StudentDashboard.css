@@ -242,7 +242,7 @@
 .achievement-row[data-tooltip]:hover::before {
   content: '';
   position: absolute;
-  bottom: calc(100% + 4px);
+  bottom: calc(100% + 4px); 
   left: 1.5rem;
   border: 6px solid transparent;
   border-top-color: var(--wizard-gold);
@@ -348,6 +348,75 @@
   font-weight: 500;
   letter-spacing: 1px;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.send-stats-btn {
+  margin-top: 1rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--wizard-gold);
+  color: var(--wizard-purple-dark);
+  border: 2px solid var(--wizard-purple-dark);
+  border-radius: 8px;
+  font-family: var(--wizard-font);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.send-stats-btn:hover:not(:disabled) {
+  background: #fff2c0;
+  transform: translateY(-1px);
+}
+
+.send-stats-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.email-modal-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.email-modal-download-btn {
+  width: 100%;
+}
+
+.email-modal-actions {
+  flex-wrap: nowrap;
+}
+
+.email-modal-actions .wizard-menu-btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.email-modal-input {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.75rem;
+  border: 3px solid #703737;
+  border-radius: 0;
+  background: #fff;
+  color: #1a0f0f;
+  box-sizing: border-box;
+}
+
+.email-modal-input:focus {
+  outline: none;
+  border-color: #8a4a4a;
+}
+
+.email-modal-error {
+  margin: 0;
+  font-size: 0.7rem;
+  color: #b91c1c;
+  line-height: 1.5;
 }
 
 .dashboard-divider-stats {

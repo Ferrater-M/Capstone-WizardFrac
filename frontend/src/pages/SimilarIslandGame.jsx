@@ -7,6 +7,7 @@ import GameMenuModal from '../components/GameMenuModal';
 import '../components/components.css';
 
 import { buildProblem, buildProblemDissimilar, buildProblemHybrid, getDifficultyParams, TIMING } from '../utils/gameUtils';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 // Detects frame count from a horizontal sprite sheet.
 // Square frames (most common): width is an exact multiple of height → frame count = width / height.
@@ -494,7 +495,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const saveGameEnd = async (status, isWon) => {
     try {
       const res = await fetch(
-        `http://localhost:8080/api/game-progress/end-session/${gameSession.sessionId}`,
+        `${API_BASE_URL}/api/game-progress/end-session/${gameSession.sessionId}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -514,7 +515,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     sessionHintsUsed.current += 1;
     try {
       await fetch(
-        `http://localhost:8080/api/game-progress/hint-used/${gameSession.sessionId}`,
+        `${API_BASE_URL}/api/game-progress/hint-used/${gameSession.sessionId}`,
         { method: 'POST' }
       );
     } catch (err) {
@@ -717,7 +718,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const saveSpellAttempt = async (attempt) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/game-progress/spell-attempt/${gameSession.sessionId}`,
+        `${API_BASE_URL}/api/game-progress/spell-attempt/${gameSession.sessionId}`,
         {
           method: 'POST',
           headers: {

@@ -5,6 +5,10 @@ import MisconceptionPanel from '../components/MisconceptionPanel';
 import GameMenuModal from '../components/GameMenuModal';
 import './StudentDashboard.css';
 import LoadingScreen from '../components/LoadingScreen';
+import { API_BASE_URL } from '../utils/apiConfig';
+import { generateDashboardPdf } from '../utils/generateDashboardPdf';
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const RANK_TIERS = [
   { rank: 'Apprentice', icon: '🪄', hint: 'Starting rank — every wizard begins here.' },
@@ -30,13 +34,13 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
   useEffect(() => {
     const fetchDiagnostics = async () => {
       try {
-        const response = await fetch(`http://localhost:8080/api/game-progress/diagnostics/${studentId}`);
+        const response = await fetch(`${API_BASE_URL}/api/game-progress/diagnostics/${studentId}`);
         if (!response.ok) throw new Error('Failed to fetch diagnostics');
         const data = await response.json();
         setDiagnostics(data);
       } catch (err) {
         const message = err.message === 'Failed to fetch'
-          ? 'Cannot reach the server. Make sure the backend is running on http://localhost:8080.'
+          ? `Cannot reach the server. Make sure the backend is running on ${API_BASE_URL}.`
           : err.message;
         setError(message);
       } finally {
@@ -51,6 +55,82 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
     const updated = [...claimedBadges, badge.rank];
     setClaimedBadges(updated);
     localStorage.setItem(claimedStorageKey, JSON.stringify(updated));
+  };
+
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [emailStatus, setEmailStatus] = useState('idle'); // idle | sending | error
+  const [emailError, setEmailError] = useState('');
+
+  const openEmailModal = () => {
+    setEmailInput('');
+    setEmailStatus('idle');
+    setEmailError('');
+    setShowEmailModal(true);
+  };
+
+  const closeEmailModal = () => {
+    if (emailStatus === 'sending') return;
+    setShowEmailModal(false);
+  };
+
+  const buildStatisticsPdf = () => {
+    const { summary, competencies, gameHistory, dissimilarMisconceptions } = diagnostics;
+    const accuracyValue = summary.totalCorrect + summary.totalIncorrect > 0
+      ? Math.round((summary.totalCorrect / (summary.totalCorrect + summary.totalIncorrect)) * 100)
+      : 0;
+    return generateDashboardPdf({
+      studentNickname,
+      summary,
+      accuracy: accuracyValue,
+      competencies,
+      misconceptions: dissimilarMisconceptions,
+      gameHistory,
+    });
+  };
+
+  const handleDownloadPdf = () => {
+    const pdfBlob = buildStatisticsPdf();
+    const url = URL.createObjectURL(pdfBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `wizardfrac-progress-${studentId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSendStatistics = async () => {
+    if (!EMAIL_PATTERN.test(emailInput.trim())) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+    setEmailStatus('sending');
+    setEmailError('');
+    try {
+      const pdfBlob = buildStatisticsPdf();
+
+      const formData = new FormData();
+      formData.append('email', emailInput.trim());
+      formData.append('file', pdfBlob, `wizardfrac-progress-${studentId}.pdf`);
+
+      const response = await fetch(`${API_BASE_URL}/api/email/send-diagnostics`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to send email');
+      }
+      setShowEmailModal(false);
+      setEmailStatus('idle');
+    } catch (err) {
+      setEmailStatus('error');
+      setEmailError(err.message === 'Failed to fetch'
+        ? `Cannot reach the server. Make sure the backend is running on ${API_BASE_URL}.`
+        : err.message);
+    }
   };
 
   if (loading) {
@@ -198,8 +278,64 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
         <div className="dashboard-title-box">
           <h1 className="dashboard-title">Progress Dashboard</h1>
           <p className="dashboard-subtitle">Your wizard training journey</p>
+          <button
+            type="button"
+            className="send-stats-btn"
+            onClick={openEmailModal}
+            disabled={!hasData}
+            title={!hasData ? 'Play a game first to generate statistics' : undefined}
+          >
+            Convert Statistics to PDF
+          </button>
         </div>
       </div>
+
+      {showEmailModal && (
+        <GameMenuModal
+          icon="📄"
+          title="Convert Statistics to PDF"
+          message="Download a PDF of your progress dashboard, or enter your Gmail address to have it emailed to you."
+          onClose={closeEmailModal}
+        >
+          <div className="email-modal-form">
+            <input
+              type="email"
+              className="email-modal-input"
+              placeholder="yourname@gmail.com"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              disabled={emailStatus === 'sending'}
+              autoFocus
+            />
+            {emailError && <p className="email-modal-error">{emailError}</p>}
+            <div className="wizard-menu-actions email-modal-actions">
+              <button
+                className="wizard-menu-btn wizard-menu-btn-secondary"
+                onClick={closeEmailModal}
+                disabled={emailStatus === 'sending'}
+              >
+                Cancel
+              </button>
+              <button
+                className="wizard-menu-btn wizard-menu-btn-primary"
+                onClick={handleSendStatistics}
+                disabled={emailStatus === 'sending'}
+              >
+                {emailStatus === 'sending' ? 'Sending…' : 'Send'}
+              </button>
+            </div>
+            <div className="wizard-menu-actions">
+              <button
+                className="wizard-menu-btn wizard-menu-btn-secondary email-modal-download-btn"
+                onClick={handleDownloadPdf}
+                disabled={emailStatus === 'sending'}
+              >
+                ⬇ Download PDF
+              </button>
+            </div>
+          </div>
+        </GameMenuModal>
+      )}
 
       <div className="dashboard-divider dashboard-divider-stats">
         <span>Stats</span>

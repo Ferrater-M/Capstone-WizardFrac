@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { API_BASE_URL } from '../utils/apiConfig';
 import './login.css';
 
 const LandingPage = ({ onLoginSuccess }) => {
@@ -194,7 +195,7 @@ const LandingPage = ({ onLoginSuccess }) => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('http://localhost:8080/api/students/login', {
+      const response = await fetch(`${API_BASE_URL}/api/students/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nickname: nickname.trim() }),

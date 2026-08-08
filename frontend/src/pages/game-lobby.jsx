@@ -4,6 +4,7 @@ import LoadingScreen from '../components/LoadingScreen';
 import IslandInterior from './IslandInterior';
 import GameMenuModal from '../components/GameMenuModal';
 import GameMechanicsIntro from '../components/GameMechanicsIntro';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 const MECHANICS_INTRO_KEY = 'wizardfrac_seen_mechanics_intro';
 
@@ -257,7 +258,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const loadGameProgress = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/game-progress/${studentId}`);
+      const res = await fetch(`${API_BASE_URL}/api/game-progress/${studentId}`);
       if (res.status === 404) {
         setGameProgress({ similarIslandMaxStage: 0, dissimilarIslandUnlocked: false, hybridIslandUnlocked: false });
       } else {
@@ -284,7 +285,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     let isMounted = true;
     const loadSelectedCharacter = async () => {
       try {
-        const res = await fetch(`http://localhost:8080/api/characters/student/${studentId}`);
+        const res = await fetch(`${API_BASE_URL}/api/characters/student/${studentId}`);
         if (!res.ok) {
           return;
         }
@@ -387,7 +388,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const handleSelectLevel = async (level) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/game-lobby/start-stage/${studentId}`,
+        `${API_BASE_URL}/api/game-lobby/start-stage/${studentId}`,
         {
           method: 'POST',
           headers: {

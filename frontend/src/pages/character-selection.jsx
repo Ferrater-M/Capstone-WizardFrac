@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './character-selection.css';
 import LoadingScreen from '../components/LoadingScreen';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
   const [characters, setCharacters] = useState([]);
@@ -10,7 +11,7 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
 
   useEffect(() => {
     // Fetch available characters from backend
-    fetch('http://localhost:8080/api/characters')
+    fetch(`${API_BASE_URL}/api/characters`)
       .then(res => res.json())
       .then(data => {
         setCharacters(data);
@@ -55,7 +56,7 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/characters/select/${studentId}`,
+        `${API_BASE_URL}/api/characters/select/${studentId}`,
         {
           method: 'POST',
           headers: {
