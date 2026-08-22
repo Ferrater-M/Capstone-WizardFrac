@@ -248,29 +248,40 @@ const LandingPage = ({ onLoginSuccess }) => {
               <span className="sep-line"></span>
             </div>
 
+            <p className="panel-subtitle">Enter your nickname to begin your adventure!</p>
+
             {error && <div className="error-message">{error}</div>}
 
             <form onSubmit={handleStartGame} className="login-form">
-              <div className="input-group">
-                <div className="input-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
+              <div>
+                <label className="input-label" htmlFor="nickname-input">NICKNAME</label>
+                <div className="input-group">
+                  <div className="input-icon" aria-hidden="true">🧙</div>
+                  <input
+                    id="nickname-input"
+                    type="text"
+                    placeholder="Enter your nickname..."
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    disabled={loading}
+                    required
+                    maxLength={16}
+                  />
+                  <span className="input-sparkle" aria-hidden="true">✨</span>
                 </div>
-                <input
-                  type="text"
-                  placeholder="Nickname"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  disabled={loading}
-                  required
-                />
+                <p className="input-hint">3–16 characters</p>
+              </div>
+
+              <div className="tip-box">
+                <span className="tip-star" aria-hidden="true">⭐</span>
+                <span>Tip: Use a name that other wizards will remember!</span>
               </div>
 
               <div className="button-container">
                 <button type="submit" className="start-btn" disabled={loading}>
+                  <span className="start-btn-icon" aria-hidden="true">🪄</span>
                   <span>{loading ? 'LOGGING IN...' : 'START GAME'}</span>
+                  <span className="start-btn-icon" aria-hidden="true">✨</span>
                 </button>
               </div>
             </form>
