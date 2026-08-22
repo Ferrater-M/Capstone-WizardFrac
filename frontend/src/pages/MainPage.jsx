@@ -1,5 +1,31 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './MainPage.css';
+
+const FEATURES = [
+  { icon: '🛡️', label: 'PLAY', desc: 'Fun & Engaging' },
+  { icon: '📖', label: 'LEARN', desc: 'Step by Step' },
+  { icon: '🏆', label: 'MASTER', desc: 'Become a Champion' },
+];
+
+const ABOUT_SECTIONS = [
+  {
+    icon: '🧙',
+    title: 'What is WizardFrac?',
+    body: 'WizardFrac is an exciting educational adventure that helps Grade 4 students learn and master fractions through fun games, magical challenges, and rewarding quests!',
+  },
+  {
+    icon: '📖',
+    title: 'Our Mission',
+    body: 'We make learning fractions engaging and enjoyable by combining education with adventure, helping students build confidence and achieve mastery step by step.',
+  },
+];
+
+const WHY_WIZARDFRAC = [
+  'Aligned with the MATATAG Curriculum',
+  'Game-based learning that keeps students motivated',
+  'Tracks progress and celebrates achievements',
+  'Safe, fun, and student-friendly environment',
+];
 
 const FRAC_BUBBLES = [
   { id: 1,  left: '4%',  delay: '0s',    dur: '13s', n1: '1', d1: '2', op: '+', n2: '1', d2: '4' },
@@ -70,6 +96,7 @@ const MainPage = ({ onStart }) => {
   const canvasRef = useRef(null);
   const frameRef  = useRef(null);
   const flashRef  = useRef(null);
+  const [showAbout, setShowAbout] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -269,6 +296,10 @@ const MainPage = ({ onStart }) => {
       <canvas ref={canvasRef} className="main-canvas" />
       <div ref={flashRef} className="lightning-overlay" />
 
+      <button className="main-about-btn" onClick={() => setShowAbout(true)}>
+        <span className="main-about-icon">ⓘ</span> About
+      </button>
+
       <div className="frac-bubbles-layer" aria-hidden="true">
         {FRAC_BUBBLES.map(b => (
           <div
@@ -301,7 +332,64 @@ const MainPage = ({ onStart }) => {
         <button className="main-start-btn" onClick={onStart}>
           Start your Journey
         </button>
+
+        <div className="main-features">
+          {FEATURES.map(f => (
+            <div className="main-feature" key={f.label}>
+              <span className="main-feature-icon">{f.icon}</span>
+              <span className="main-feature-label">{f.label}</span>
+              <span className="main-feature-desc">{f.desc}</span>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {showAbout && (
+        <div className="about-overlay" onClick={() => setShowAbout(false)}>
+          <div className="about-panel" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <button className="about-close" onClick={() => setShowAbout(false)} aria-label="Close">✕</button>
+
+            <div className="about-banner">
+              <span className="about-banner-star">★</span>
+              <span className="about-banner-about">ABOUT</span>{' '}
+              <span className="about-banner-name">WIZARDFRAC</span>
+              <span className="about-banner-star">★</span>
+            </div>
+
+            <p className="about-subtitle">A magical journey to master fractions!</p>
+
+            <div className="about-sections">
+              {ABOUT_SECTIONS.map(sec => (
+                <div className="about-section" key={sec.title}>
+                  <div className="about-icon-circle">{sec.icon}</div>
+                  <div>
+                    <h3 className="about-section-title">{sec.title}</h3>
+                    <p className="about-section-text">{sec.body}</p>
+                  </div>
+                </div>
+              ))}
+
+              <div className="about-section">
+                <div className="about-icon-circle">🏆</div>
+                <div>
+                  <h3 className="about-section-title">Why WizardFrac?</h3>
+                  <ul className="about-why-list">
+                    {WHY_WIZARDFRAC.map(item => (
+                      <li key={item}><span className="about-why-star">★</span>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="about-quote">
+              <span className="about-quote-mark">&ldquo;</span>
+              Every fraction you solve brings you closer to becoming a fraction master!
+              <span className="about-quote-star">★</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

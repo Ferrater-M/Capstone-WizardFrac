@@ -41,7 +41,24 @@ const makeEnemies = (levels = []) => {
   return positions;
 };
 
-const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
+const StarRow = ({ stars = 0 }) => (
+  <div style={{ display: 'flex', gap: 1 }}>
+    {[1, 2, 3].map(n => (
+      <span
+        key={n}
+        style={{
+          fontSize: 11,
+          color: n <= stars ? '#fbbf24' : 'rgba(255,255,255,0.35)',
+          textShadow: n <= stars ? '0 0 4px rgba(251,191,36,0.8)' : 'none',
+        }}
+      >
+        ★
+      </span>
+    ))}
+  </div>
+);
+
+const IslandInterior = ({ island, maxStage = 0, stars = {}, onSelectLevel, onBack }) => {
   const isCompleted = (level) => maxStage >= level;
   const isLocked    = (level) => level > maxStage + 1;
 
@@ -243,6 +260,11 @@ const IslandInterior = ({ island, maxStage = 0, onSelectLevel, onBack }) => {
                   }}>
                     👑
                   </span>
+                )}
+                {done && (
+                  <div style={{ position: 'absolute', top: -16, left: '50%', transform: 'translateX(-50%)' }}>
+                    <StarRow stars={stars[enemy.level] || 0} />
+                  </div>
                 )}
                 {locked ? '🔒' : done ? '✓' : boss ? '!' : enemy.level}
               </div>

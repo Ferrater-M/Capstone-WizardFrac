@@ -9,6 +9,7 @@ const MECHANICS_INTRO_KEY = 'wizardfrac_seen_mechanics_intro';
 
 const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onEnterIslandInterior, onLeaveIslandInterior, onLogout }) => {
   const [gameProgress, setGameProgress] = useState(null);
+  const [stageStars, setStageStars] = useState({});
   const [selectedIsland, setSelectedIsland] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState(1);
   const [showInterior, setShowInterior] = useState(false);
@@ -272,8 +273,24 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     }
   };
 
+  const loadStageStars = async () => {
+    try {
+      const res = await fetch(`http://localhost:8080/api/game-progress/stars/${studentId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const map = {};
+      data.forEach(({ islandType, stageNumber, stars }) => {
+        map[`${islandType}_${stageNumber}`] = stars;
+      });
+      setStageStars(map);
+    } catch (err) {
+      console.error('Error fetching stage stars:', err);
+    }
+  };
+
   useEffect(() => {
     loadGameProgress();
+    loadStageStars();
   }, [studentId]);
 
   useEffect(() => {
@@ -381,6 +398,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     setSelectedIsland(null);
     setSelectedLevel(1);
     loadGameProgress();
+    loadStageStars();
     onLeaveIslandInterior?.();
   };
 
@@ -413,6 +431,18 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     }
   };
 
+  const STAGES_PER_ISLAND = 6;
+  const STARS_PER_STAGE = 3;
+  const MAX_ISLAND_STARS = STAGES_PER_ISLAND * STARS_PER_STAGE;
+
+  const islandStarTotal = (islandName) => {
+    let total = 0;
+    for (let stage = 1; stage <= STAGES_PER_ISLAND; stage++) {
+      total += stageStars[`${islandName}_${stage}`] || 0;
+    }
+    return total;
+  };
+
   const islands = [
     {
       name: 'Similar',
@@ -421,7 +451,8 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       mechanic: 'Same Container',
       unlocked: true,
       maxStage: gameProgress?.similarIslandMaxStage || 0,
-      color: '#667eea',
+      color: '#22C55E',
+      icon: '🌿',
       image: '/SimilarIsland.png',
     },
     {
@@ -431,7 +462,8 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       mechanic: 'Butterfly Method',
       unlocked: true,
       maxStage: gameProgress?.dissimilarIslandMaxStage || 0,
-      color: '#764ba2',
+      color: '#F59E0B',
+      icon: '🦋',
       image: '/DisimilarIsland.png',
     },
     {
@@ -441,10 +473,33 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       mechanic: 'Mixed Conversion',
       unlocked: true,
       maxStage: gameProgress?.hybridIslandMaxStage || 0,
-      color: '#f093fb',
+      color: '#7C3AED',
+      icon: '🌀',
       image: '/HybridIsland.png',
     },
   ];
+
+  const getAvatarImage = () => {
+    const name = (character?.name || '').toLowerCase();
+    if (name.includes('girl')) return '/Female.png';
+    if (name.includes('boy')) return '/Male.png';
+    return character?.imageUrl || '/Male.png';
+  };
+
+  const totalStarsAll = islands.reduce((sum, isl) => sum + islandStarTotal(isl.name), 0);
+  const overallPercent = Math.round((totalStarsAll / (MAX_ISLAND_STARS * islands.length)) * 100) || 0;
+
+  const level = gameProgress?.level || 1;
+  const xpIntoLevel = gameProgress?.xpIntoLevel || 0;
+  const xpForNextLevel = gameProgress?.xpForNextLevel || 200;
+  const xpPercent = Math.round((xpIntoLevel / xpForNextLevel) * 100);
+  const wizardRank = gameProgress?.wizardRank || 'Apprentice';
+  const starCurrency = gameProgress?.starCurrency ?? 0;
+  const currentStreak = gameProgress?.currentStreak ?? 0;
+  const dailyQuestProgress = gameProgress?.dailyQuestProgress ?? 0;
+  const dailyQuestTarget = gameProgress?.dailyQuestTarget || 5;
+  const dailyQuestClaimed = gameProgress?.dailyQuestClaimed || false;
+  const dailyQuestPercent = Math.round((dailyQuestProgress / dailyQuestTarget) * 100);
 
   if (showInterior && selectedIsland) {
     const liveMaxStage = (() => {
@@ -455,10 +510,16 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
         default:           return 0;
       }
     })();
+    const islandStars = {};
+    Object.entries(stageStars).forEach(([key, stars]) => {
+      const [islandType, stageNumber] = key.split('_');
+      if (islandType === selectedIsland.name) islandStars[stageNumber] = stars;
+    });
     return (
       <IslandInterior
         island={selectedIsland}
         maxStage={liveMaxStage}
+        stars={islandStars}
         onSelectLevel={handleSelectLevel}
         onBack={handleBackToLobby}
       />
@@ -469,69 +530,177 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     <div className="game-lobby">
       <canvas ref={canvasRef} className="galaxy-canvas" />
       {loading && <LoadingScreen />}
+
       <div className="lobby-top-right">
-        <button className="dashboard-btn" onClick={onOpenDashboard}>Dashboard</button>
-        <button className="logout-btn" onClick={() => setShowMechanicsIntro(true)}>Help</button>
-        <button className="logout-btn" onClick={() => setShowMenu(true)}>Menu</button>
+        <div className="currency-badge"><span className="currency-star">⭐</span> {starCurrency}</div>
+        <button className="icon-pill" onClick={() => setShowMechanicsIntro(true)}>Help</button>
+        <button className="icon-pill icon-pill-round" onClick={() => setShowMenu(true)} aria-label="Settings">⚙️</button>
       </div>
-      <div className="lobby-container">
-        <div
-          ref={titleBoxRef}
-          className={`lobby-title-box${animPhase === 'flash' ? ' anim-flash' : ''}${animPhase && animPhase !== 'flash' ? ' anim-hidden' : ''}`}
-        >
-          <div style={{ position: 'absolute', top: -6,   left: -6,  width: 10, height: 10, background: '#703737' }} />
-          <div style={{ position: 'absolute', top: -6,   right: -6, width: 10, height: 10, background: '#703737' }} />
-          <div style={{ position: 'absolute', bottom: -6, left: -6,  width: 10, height: 10, background: '#703737' }} />
-          <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#703737' }} />
-          <div style={{ position: 'absolute', top: 3,    left: 3,   width: 5,  height: 5,  background: '#703737' }} />
-          <div style={{ position: 'absolute', top: 3,    right: 3,  width: 5,  height: 5,  background: '#703737' }} />
-          <div style={{ position: 'absolute', bottom: 3,  left: 3,   width: 5,  height: 5,  background: '#703737' }} />
-          <div style={{ position: 'absolute', bottom: 3,  right: 3,  width: 5,  height: 5,  background: '#703737' }} />
-          <h1 className="lobby-title">WIZARD ISLANDS</h1>
-          <p className="lobby-subtitle">Choose your adventure</p>
+
+      <div className="lobby-dashboard">
+        <div className="player-card">
+          <img className="player-avatar" src={getAvatarImage()} alt="Player avatar" />
+          <div className="player-card-info">
+            <p className="player-name">{studentNickname || 'Young Wizard'}</p>
+            <p className="player-level">Level {level}</p>
+            <div className="mini-progress-track"><div className="mini-progress-fill" style={{ width: `${xpPercent}%` }} /></div>
+            <p className="xp-text">{xpIntoLevel} / {xpForNextLevel} XP</p>
+          </div>
+          <div className="player-rank">
+            <span className="rank-icon">🛡️</span>
+            <div>
+              <p className="rank-label">WIZARD RANK</p>
+              <p className="rank-value">{wizardRank}</p>
+            </div>
+          </div>
         </div>
 
-        {error && <div className="error-message">{error}</div>}
+        <nav className="lobby-sidebar">
+          <button className="sidebar-item active" onClick={onOpenDashboard}><span>🏠</span>Dashboard</button>
+          <button className="sidebar-item" onClick={onOpenDashboard}><span>📊</span>Progress</button>
+          <button className="sidebar-item soon" disabled><span>📖</span>Spellbook<span className="soon-tag">Soon</span></button>
+          <button className="sidebar-item soon" disabled><span>🏆</span>Achievements<span className="soon-tag">Soon</span></button>
+          <button className="sidebar-item soon" disabled><span>🎒</span>Collection<span className="soon-tag">Soon</span></button>
+          <button className="sidebar-item" onClick={() => setShowMenu(true)}><span>⚙️</span>Settings</button>
+        </nav>
 
-        <div className="islands-grid" style={{ pointerEvents: animPhase ? 'none' : 'auto' }}>
-          {islands.map(island => (
-            <div
-              key={island.name}
-              ref={el => islandCardRefs.current[island.name] = el}
-              className={`island-card-wrapper ${!island.unlocked ? 'locked' : ''}`}
-              onClick={() => handleEnterIsland(island)}
-              style={{
-                opacity: animPhase && animIsland && island.name !== animIsland.name
-                  ? 0
-                  : island.unlocked ? 1 : 0.6,
-                transition: animPhase ? 'opacity 0.5s ease, filter 0.5s ease' : 'opacity 0.3s ease',
-                filter: animPhase === 'explode' && animIsland?.name === island.name
-                  ? 'brightness(4)'
-                  : 'brightness(1)',
-              }}
-            >
-              <div className="floating-island-wrapper">
-                <img
-                  className="floating-island"
-                  src={island.image}
-                  alt={island.title}
-                />
-                <div className="island-info">
-                  <h3>{island.title}</h3>
-                  <p className="description">{island.description}</p>
-                  <p className="mechanic">Mechanic: {island.mechanic}</p>
-                </div>
-                {!island.unlocked && (
-                  <div className="lock-overlay">
-                    <span className="lock-icon">🔒</span>
-                    <p>Unlock by completing previous island</p>
+        <div className="lobby-title-area">
+          <div
+            ref={titleBoxRef}
+            className={`lobby-title-box${animPhase === 'flash' ? ' anim-flash' : ''}${animPhase && animPhase !== 'flash' ? ' anim-hidden' : ''}`}
+          >
+            <div className="lobby-title-gem"><span className="lobby-title-gem-inner"></span></div>
+            <h1 className="lobby-title">WIZARD ISLANDS</h1>
+            <p className="lobby-subtitle">
+              <span className="lobby-subtitle-star">★</span> Choose your adventure <span className="lobby-subtitle-star">★</span>
+            </p>
+          </div>
+          <p className="lobby-tagline">Each island challenges your fraction skills in a unique way!</p>
+
+          {error && <div className="error-message">{error}</div>}
+        </div>
+
+        <div className="lobby-islands-area">
+          <div className="islands-grid" style={{ pointerEvents: animPhase ? 'none' : 'auto' }}>
+            {islands.map(island => {
+              const stars = islandStarTotal(island.name);
+              return (
+                <div
+                  key={island.name}
+                  ref={el => islandCardRefs.current[island.name] = el}
+                  className={`island-card-wrapper ${!island.unlocked ? 'locked' : ''}`}
+                  onClick={() => handleEnterIsland(island)}
+                  style={{
+                    opacity: animPhase && animIsland && island.name !== animIsland.name
+                      ? 0
+                      : island.unlocked ? 1 : 0.6,
+                    transition: animPhase ? 'opacity 0.5s ease, filter 0.5s ease' : 'opacity 0.3s ease',
+                    filter: animPhase === 'explode' && animIsland?.name === island.name
+                      ? 'brightness(4)'
+                      : 'brightness(1)',
+                  }}
+                >
+                  <div className="island-card">
+                    <div className="island-ribbon" style={{ background: island.color }}>
+                      <span className="island-ribbon-icon">{island.icon}</span>
+                      <span>{island.title.toUpperCase()}</span>
+                    </div>
+                    <p className="island-card-desc">{island.description}</p>
+                    <div className="floating-island-wrapper">
+                      <img
+                        className="floating-island"
+                        src={island.image}
+                        alt={island.title}
+                      />
+                      {!island.unlocked && (
+                        <div className="lock-overlay">
+                          <span className="lock-icon">🔒</span>
+                          <p>Unlock by completing previous island</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="island-stats">
+                      <span className="island-stars">
+                        <span className="island-stars-icon">⭐</span> {stars} / {MAX_ISLAND_STARS}
+                      </span>
+                    </div>
+                    <div className="island-progress-track">
+                      <div
+                        className="island-progress-fill"
+                        style={{ width: `${(stars / MAX_ISLAND_STARS) * 100}%`, background: island.color }}
+                      />
+                    </div>
                   </div>
-                )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="lobby-side-cards">
+          <div className="side-card quest-card">
+            <p className="side-card-title"><span>📜</span> DAILY QUEST</p>
+            <p className="quest-desc">Solve {dailyQuestTarget} fraction problems</p>
+            <p className="quest-count">{dailyQuestProgress} / {dailyQuestTarget}</p>
+            <div className="mini-progress-track"><div className="mini-progress-fill" style={{ width: `${dailyQuestPercent}%` }} /></div>
+            <div className="quest-reward">
+              <span className="quest-reward-label">{dailyQuestClaimed ? 'CLAIMED ✓' : 'REWARD'}</span>
+              <span>⭐ 50</span>
+              <span>🔮 20</span>
+            </div>
+          </div>
+          <div className="side-card streak-card">
+            <p className="side-card-title"><span>🔥</span> WIZARD STREAK</p>
+            <div className="streak-flame">🔥</div>
+            <p className="streak-days">{currentStreak} <small>days</small></p>
+            <p className="streak-note">Keep it up!</p>
+          </div>
+        </div>
+
+        <div className="lobby-pet">
+          <span className="pet-emoji">🦊</span>
+        </div>
+
+        <div className="lobby-bottom-bar">
+          <div className="bottom-section achievement-section">
+            <p className="bottom-label">RECENT ACHIEVEMENT</p>
+            <div className="achievement-row">
+              <div className="achievement-badge">
+                <span className="achievement-badge-star">⭐</span>
+                <span className="achievement-badge-check">✓</span>
+              </div>
+              <div>
+                <p className="achievement-title">Fraction Finder</p>
+                <p className="achievement-desc">Solve 10 problems</p>
               </div>
             </div>
-          ))}
+          </div>
+          <div className="bottom-section overview-section">
+            <p className="bottom-label">
+              <span className="bottom-label-deco">◆</span> PROGRESS OVERVIEW <span className="bottom-label-deco">◆</span>
+            </p>
+            <div className="overview-row">
+              <div className="progress-ring" style={{ '--pct': overallPercent }}>
+                <span>{overallPercent}%</span>
+              </div>
+              <div className="overview-bar-col">
+                <p>Overall Progress</p>
+                <div className="mini-progress-track"><div className="mini-progress-fill" style={{ width: `${overallPercent}%` }} /></div>
+              </div>
+              <div className="next-reward">
+                <span>Next Reward</span>
+                <span className="next-reward-icon">🎁</span>
+              </div>
+            </div>
+          </div>
+          <button className="bottom-section spell-practice-btn" type="button">
+            <span className="spell-practice-icon">✨🪄✨</span>
+            <span>
+              <p className="spell-practice-title">SPELL PRACTICE</p>
+              <p className="spell-practice-desc">Sharpen your skills!</p>
+            </span>
+          </button>
         </div>
-
       </div>
 
       {animPhase && animPhase !== 'flash' && (
