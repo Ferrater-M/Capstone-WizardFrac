@@ -15,18 +15,19 @@
   --lb-border: #6D28D9;
 
   position: relative;
-  min-height: 100vh;
+  height: 100vh;
   box-sizing: border-box;
   padding: 28px 40px 60px;
   background: radial-gradient(ellipse at 50% -10%, var(--lb-bg2) 0%, var(--lb-bg1) 65%);
   font-family: 'Outfit', 'Segoe UI', sans-serif;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
-.lb-back-btn,
-.lb-sort-btn {
+.lb-back-btn {
   position: fixed;
   top: 24px;
+  left: 40px;
   padding: 10px 20px;
   background: var(--lb-panel2);
   color: var(--lb-text);
@@ -41,18 +42,9 @@
   z-index: 5;
 }
 
-.lb-back-btn:hover,
-.lb-sort-btn:hover {
+.lb-back-btn:hover {
   background: var(--lb-primary);
   transform: translateY(-1px);
-}
-
-.lb-back-btn {
-  left: 40px;
-}
-
-.lb-sort-btn {
-  right: 40px;
 }
 
 .lb-title {
@@ -304,8 +296,7 @@
     order: -1;
   }
 
-  .lb-back-btn,
-  .lb-sort-btn {
+  .lb-back-btn {
     position: static;
     margin-bottom: 12px;
   }

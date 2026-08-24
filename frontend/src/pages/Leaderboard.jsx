@@ -20,7 +20,6 @@ const Leaderboard = ({ studentId, onBack }) => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [ascending, setAscending] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -56,15 +55,11 @@ const Leaderboard = ({ studentId, onBack }) => {
 
   const podium = entries.slice(0, 3);
   const podiumOrder = [podium[1], podium[0], podium[2]];
-  const restBase = entries.slice(3);
-  const rest = ascending ? [...restBase].reverse() : restBase;
+  const rest = entries.slice(3);
 
   return (
     <div className="leaderboard-container">
       <button className="lb-back-btn" onClick={onBack}>← Back</button>
-      <button className="lb-sort-btn" onClick={() => setAscending(a => !a)}>
-        ⚙ Sort {ascending ? '▲' : '▼'}
-      </button>
 
       <h1 className="lb-title">Leaderboard</h1>
       <p className="lb-subtitle">Top wizards this season</p>

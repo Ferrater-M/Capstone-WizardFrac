@@ -139,6 +139,8 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
     );
   }
 
+  const characterFallbackAvatar = selectedCharacter?.name?.toLowerCase().includes('girl') ? '/Female.png' : '/Male.png';
+
   const { summary, competencies, gameHistory, dissimilarMisconceptions } = diagnostics;
   const hasData = summary.totalSessions > 0;
   const accuracy = summary.totalCorrect + summary.totalIncorrect > 0
@@ -220,8 +222,14 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
       <div className="profile-bar">
         <img
           className="profile-avatar"
-          src={selectedCharacter?.name?.toLowerCase().includes('girl') ? '/Female.png' : '/Male.png'}
+          src={studentId ? `http://localhost:8082/api/students/${studentId}/profile-picture` : characterFallbackAvatar}
           alt="Player avatar"
+          onError={(e) => {
+            if (e.currentTarget.src !== characterFallbackAvatar) {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = characterFallbackAvatar;
+            }
+          }}
         />
         <div className="profile-info">
           <p className="profile-name">{studentNickname || 'Wizard'}</p>
