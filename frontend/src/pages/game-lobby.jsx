@@ -7,7 +7,7 @@ import GameMechanicsIntro from '../components/GameMechanicsIntro';
 
 const MECHANICS_INTRO_KEY = 'wizardfrac_seen_mechanics_intro';
 
-const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onEnterIslandInterior, onLeaveIslandInterior, onLogout }) => {
+const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onOpenLeaderboard, onEnterIslandInterior, onLeaveIslandInterior, onLogout }) => {
   const [gameProgress, setGameProgress] = useState(null);
   const [stageStars, setStageStars] = useState({});
   const [selectedIsland, setSelectedIsland] = useState(null);
@@ -258,7 +258,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const loadGameProgress = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/game-progress/${studentId}`);
+      const res = await fetch(`http://localhost:8082/api/game-progress/${studentId}`);
       if (res.status === 404) {
         setGameProgress({ similarIslandMaxStage: 0, dissimilarIslandUnlocked: false, hybridIslandUnlocked: false });
       } else {
@@ -275,7 +275,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
 
   const loadStageStars = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/game-progress/stars/${studentId}`);
+      const res = await fetch(`http://localhost:8082/api/game-progress/stars/${studentId}`);
       if (!res.ok) return;
       const data = await res.json();
       const map = {};
@@ -301,7 +301,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     let isMounted = true;
     const loadSelectedCharacter = async () => {
       try {
-        const res = await fetch(`http://localhost:8080/api/characters/student/${studentId}`);
+        const res = await fetch(`http://localhost:8082/api/characters/student/${studentId}`);
         if (!res.ok) {
           return;
         }
@@ -405,7 +405,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const handleSelectLevel = async (level) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/game-lobby/start-stage/${studentId}`,
+        `http://localhost:8082/api/game-lobby/start-stage/${studentId}`,
         {
           method: 'POST',
           headers: {
@@ -558,6 +558,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
         <nav className="lobby-sidebar">
           <button className="sidebar-item active" onClick={onOpenDashboard}><span>🏠</span>Dashboard</button>
           <button className="sidebar-item" onClick={onOpenDashboard}><span>📊</span>Progress</button>
+          <button className="sidebar-item" onClick={onOpenLeaderboard}><span>👑</span>Leaderboard</button>
           <button className="sidebar-item soon" disabled><span>📖</span>Spellbook<span className="soon-tag">Soon</span></button>
           <button className="sidebar-item soon" disabled><span>🏆</span>Achievements<span className="soon-tag">Soon</span></button>
           <button className="sidebar-item soon" disabled><span>🎒</span>Collection<span className="soon-tag">Soon</span></button>
@@ -658,7 +659,9 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
         </div>
 
         <div className="lobby-pet">
-          <span className="pet-emoji">🦊</span>
+          <div className="pet-frame">
+            <span className="pet-emoji">🦊</span>
+          </div>
         </div>
 
         <div className="lobby-bottom-bar">

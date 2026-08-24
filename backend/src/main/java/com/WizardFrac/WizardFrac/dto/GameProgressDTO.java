@@ -10,6 +10,15 @@ public class GameProgressDTO {
     private Integer totalScore;
     private Integer totalGamesPlayed;
     private Integer totalGamesWon;
+    private Integer level;
+    private Integer xpIntoLevel;
+    private Integer xpForNextLevel;
+    private String wizardRank;
+    private Integer starCurrency;
+    private Integer currentStreak;
+    private Integer dailyQuestProgress;
+    private Integer dailyQuestTarget;
+    private Boolean dailyQuestClaimed;
 
     // Constructors
     public GameProgressDTO() {}
@@ -17,7 +26,10 @@ public class GameProgressDTO {
     public GameProgressDTO(Long studentId, Integer similarIslandMaxStage,
                           Boolean dissimilarIslandUnlocked, Integer dissimilarIslandMaxStage,
                           Boolean hybridIslandUnlocked, Integer hybridIslandMaxStage,
-                          Integer totalScore, Integer totalGamesPlayed, Integer totalGamesWon) {
+                          Integer totalScore, Integer totalGamesPlayed, Integer totalGamesWon,
+                          Integer level, Integer xpIntoLevel, Integer xpForNextLevel, String wizardRank,
+                          Integer starCurrency, Integer currentStreak,
+                          Integer dailyQuestProgress, Integer dailyQuestTarget, Boolean dailyQuestClaimed) {
         this.studentId = studentId;
         this.similarIslandMaxStage = similarIslandMaxStage;
         this.dissimilarIslandUnlocked = dissimilarIslandUnlocked;
@@ -27,6 +39,15 @@ public class GameProgressDTO {
         this.totalScore = totalScore;
         this.totalGamesPlayed = totalGamesPlayed;
         this.totalGamesWon = totalGamesWon;
+        this.level = level;
+        this.xpIntoLevel = xpIntoLevel;
+        this.xpForNextLevel = xpForNextLevel;
+        this.wizardRank = wizardRank;
+        this.starCurrency = starCurrency;
+        this.currentStreak = currentStreak;
+        this.dailyQuestProgress = dailyQuestProgress;
+        this.dailyQuestTarget = dailyQuestTarget;
+        this.dailyQuestClaimed = dailyQuestClaimed;
     }
 
     // Getters and Setters
@@ -100,5 +121,77 @@ public class GameProgressDTO {
 
     public void setTotalGamesWon(Integer totalGamesWon) {
         this.totalGamesWon = totalGamesWon;
+    }
+
+    public Integer getLevel() {
+        return level;
+    }
+
+    public void setLevel(Integer level) {
+        this.level = level;
+    }
+
+    public Integer getXpIntoLevel() {
+        return xpIntoLevel;
+    }
+
+    public void setXpIntoLevel(Integer xpIntoLevel) {
+        this.xpIntoLevel = xpIntoLevel;
+    }
+
+    public Integer getXpForNextLevel() {
+        return xpForNextLevel;
+    }
+
+    public void setXpForNextLevel(Integer xpForNextLevel) {
+        this.xpForNextLevel = xpForNextLevel;
+    }
+
+    public String getWizardRank() {
+        return wizardRank;
+    }
+
+    public void setWizardRank(String wizardRank) {
+        this.wizardRank = wizardRank;
+    }
+
+    public Integer getStarCurrency() {
+        return starCurrency;
+    }
+
+    public void setStarCurrency(Integer starCurrency) {
+        this.starCurrency = starCurrency;
+    }
+
+    public Integer getCurrentStreak() {
+        return currentStreak;
+    }
+
+    public void setCurrentStreak(Integer currentStreak) {
+        this.currentStreak = currentStreak;
+    }
+
+    public Integer getDailyQuestProgress() {
+        return dailyQuestProgress;
+    }
+
+    public void setDailyQuestProgress(Integer dailyQuestProgress) {
+        this.dailyQuestProgress = dailyQuestProgress;
+    }
+
+    public Integer getDailyQuestTarget() {
+        return dailyQuestTarget;
+    }
+
+    public void setDailyQuestTarget(Integer dailyQuestTarget) {
+        this.dailyQuestTarget = dailyQuestTarget;
+    }
+
+    public Boolean getDailyQuestClaimed() {
+        return dailyQuestClaimed;
+    }
+
+    public void setDailyQuestClaimed(Boolean dailyQuestClaimed) {
+        this.dailyQuestClaimed = dailyQuestClaimed;
     }
 }

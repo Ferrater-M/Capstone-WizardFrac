@@ -1,7 +1,8 @@
 .wizard-menu-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.78);
+  background: rgba(6, 4, 20, 0.78);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -10,11 +11,22 @@
 }
 
 .wizard-menu-panel {
+  --wm-panel: #211044;
+  --wm-panel2: #32175E;
+  --wm-accent: #7C3AED;
+  --wm-glow: #A855F7;
+  --wm-gold: #FBBF24;
+  --wm-text: #F8F7FF;
+  --wm-text2: #C4B5FD;
+
   position: relative;
-  background: #e8d5b4;
-  border: 4px solid #703737;
-  border-radius: 0;
-  box-shadow: 0 0 0 2px #1a0f0f, 0 20px 40px rgba(0, 0, 0, 0.65);
+  background: linear-gradient(165deg, var(--wm-panel) 0%, #150a38 100%);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 18px;
+  box-shadow:
+    0 0 40px rgba(124, 58, 237, 0.35),
+    0 20px 40px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   padding: 2rem 2.5rem 1.75rem;
   text-align: center;
   width: min(100%, 420px);
@@ -23,19 +35,7 @@
   align-items: center;
   gap: 1rem;
   font-family: 'Press Start 2P', monospace;
-  color: #1a0f0f;
-}
-
-.wizard-menu-panel::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  bottom: 8px;
-  left: 8px;
-  border: 1px solid #703737;
-  border-radius: 0;
-  pointer-events: none;
+  color: var(--wm-text);
 }
 
 .wizard-menu-icon {
@@ -49,14 +49,14 @@
   font-weight: 800;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: #703737;
-  text-shadow: none;
+  color: var(--wm-gold);
+  text-shadow: 0 0 14px rgba(251, 191, 36, 0.4);
 }
 
 .wizard-menu-message {
   margin: 0;
   font-size: 0.75rem;
-  color: #1a0f0f;
+  color: var(--wm-text2);
   line-height: 1.7;
 }
 
@@ -71,11 +71,11 @@
 .wizard-menu-info-row {
   margin: 0;
   font-size: 0.75rem;
-  color: #1a0f0f;
+  color: var(--wm-text2);
 }
 
 .wizard-menu-info-row strong {
-  color: #703737;
+  color: var(--wm-gold);
   font-weight: 700;
 }
 
@@ -94,9 +94,9 @@
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.5px;
-  border-radius: 0;
+  border-radius: 10px;
   cursor: pointer;
-  transition: background 0.2s, transform 0.15s;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
   min-width: 120px;
 }
 
@@ -105,22 +105,23 @@
 }
 
 .wizard-menu-btn-primary {
-  background: #703737;
-  color: #e8d5b4;
-  border: 3px solid #703737;
+  background: var(--wm-accent);
+  color: var(--wm-text);
+  border: 1px solid rgba(168, 85, 247, 0.6);
 }
 
 .wizard-menu-btn-primary:hover {
-  background: #8a4a4a;
-  border-color: #8a4a4a;
+  background: var(--wm-glow);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
 }
 
 .wizard-menu-btn-secondary {
-  background: transparent;
-  color: #703737;
-  border: 3px solid #703737;
+  background: var(--wm-panel2);
+  color: var(--wm-text2);
+  border: 1px solid rgba(168, 85, 247, 0.4);
 }
 
 .wizard-menu-btn-secondary:hover {
-  background: rgba(112, 55, 55, 0.12);
+  background: rgba(168, 85, 247, 0.18);
+  color: var(--wm-text);
 }

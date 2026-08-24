@@ -194,7 +194,7 @@ const LandingPage = ({ onLoginSuccess }) => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('http://localhost:8080/api/students/login', {
+      const response = await fetch('http://localhost:8082/api/students/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nickname: nickname.trim() }),

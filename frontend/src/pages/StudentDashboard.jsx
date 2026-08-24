@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import CompetencyMasteryCard from '../components/CompetencyMasteryCard';
 import WizardRankBadge from '../components/WizardRankBadge';
 import MisconceptionPanel from '../components/MisconceptionPanel';
 import GameMenuModal from '../components/GameMenuModal';
 import './StudentDashboard.css';
 import LoadingScreen from '../components/LoadingScreen';
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const RANK_TIERS = [
   { rank: 'Apprentice', icon: '🪄', hint: 'Starting rank — every wizard begins here.' },
@@ -27,16 +31,23 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
     }
   });
 
+  // Email-my-progress (PDF) state
+  const pdfContentRef = useRef(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [sendStatus, setSendStatus] = useState('idle'); // idle | generating | sending | success | error
+  const [sendError, setSendError] = useState('');
+
   useEffect(() => {
     const fetchDiagnostics = async () => {
       try {
-        const response = await fetch(`http://localhost:8080/api/game-progress/diagnostics/${studentId}`);
+        const response = await fetch(`http://localhost:8082/api/game-progress/diagnostics/${studentId}`);
         if (!response.ok) throw new Error('Failed to fetch diagnostics');
         const data = await response.json();
         setDiagnostics(data);
       } catch (err) {
         const message = err.message === 'Failed to fetch'
-          ? 'Cannot reach the server. Make sure the backend is running on http://localhost:8080.'
+          ? 'Cannot reach the server. Make sure the backend is running on http://localhost:8082.'
           : err.message;
         setError(message);
       } finally {
@@ -51,6 +62,68 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
     const updated = [...claimedBadges, badge.rank];
     setClaimedBadges(updated);
     localStorage.setItem(claimedStorageKey, JSON.stringify(updated));
+  };
+
+  const closeEmailModal = () => {
+    setShowEmailModal(false);
+    setSendStatus('idle');
+    setSendError('');
+    setEmailInput('');
+  };
+
+  const generatePdfBlob = async () => {
+    const node = pdfContentRef.current;
+    const canvas = await html2canvas(node, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#1b0d40',
+    });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'pt', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    let heightLeft = imgHeight;
+    let position = 0;
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+    return pdf.output('blob');
+  };
+
+  const handleSendEmail = async () => {
+    const trimmed = emailInput.trim();
+    if (!EMAIL_PATTERN.test(trimmed)) {
+      setSendStatus('error');
+      setSendError('Please enter a valid email address.');
+      return;
+    }
+    setSendError('');
+    setSendStatus('generating');
+    try {
+      const pdfBlob = await generatePdfBlob();
+      setSendStatus('sending');
+      const formData = new FormData();
+      formData.append('email', trimmed);
+      formData.append('file', pdfBlob, 'wizardfrac-progress.pdf');
+      const res = await fetch('http://localhost:8082/api/email/send-diagnostics', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to send email.');
+      setSendStatus('success');
+    } catch (err) {
+      setSendStatus('error');
+      setSendError(err.message === 'Failed to fetch' ? 'Cannot reach the server.' : err.message);
+    }
   };
 
   if (loading) {
@@ -136,7 +209,12 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
       {/* Back */}
       <div className="dashboard-header">
         <button className="back-btn" onClick={onBack}>← Back</button>
+        <button className="email-progress-btn" onClick={() => setShowEmailModal(true)}>
+          <span>📧</span> Email My Progress
+        </button>
       </div>
+
+      <div ref={pdfContentRef}>
 
       {/* Profile */}
       <div className="profile-bar">
@@ -292,6 +370,68 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
           </div>
 
         </div>
+      )}
+
+      </div>
+
+      {showEmailModal && (
+        <GameMenuModal
+          icon="📧"
+          title={sendStatus === 'success' ? 'Sent!' : 'Email My Progress'}
+          onClose={closeEmailModal}
+        >
+          {sendStatus === 'success' ? (
+            <>
+              <p className="wizard-menu-message">
+                Your progress PDF is on its way to <strong>{emailInput.trim()}</strong>.
+              </p>
+              <div className="wizard-menu-actions">
+                <button type="button" className="wizard-menu-btn wizard-menu-btn-primary" onClick={closeEmailModal}>
+                  Done
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="wizard-menu-message">
+                We'll turn this dashboard into a PDF and send it straight to your inbox.
+              </p>
+              <input
+                type="email"
+                className="email-modal-input"
+                placeholder="you@example.com"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && sendStatus !== 'generating' && sendStatus !== 'sending') {
+                    handleSendEmail();
+                  }
+                }}
+                disabled={sendStatus === 'generating' || sendStatus === 'sending'}
+                autoFocus
+              />
+              {sendStatus === 'error' && <p className="email-modal-error">{sendError}</p>}
+              <div className="wizard-menu-actions">
+                <button
+                  type="button"
+                  className="wizard-menu-btn wizard-menu-btn-secondary"
+                  onClick={closeEmailModal}
+                  disabled={sendStatus === 'generating' || sendStatus === 'sending'}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="wizard-menu-btn wizard-menu-btn-primary"
+                  onClick={handleSendEmail}
+                  disabled={sendStatus === 'generating' || sendStatus === 'sending'}
+                >
+                  {sendStatus === 'generating' ? 'Preparing PDF…' : sendStatus === 'sending' ? 'Sending…' : 'Send'}
+                </button>
+              </div>
+            </>
+          )}
+        </GameMenuModal>
       )}
     </div>
   );

@@ -5,11 +5,14 @@ import com.WizardFrac.WizardFrac.service.GameProgressService;
 import com.WizardFrac.WizardFrac.dto.SpellAttemptDTO;
 import com.WizardFrac.WizardFrac.dto.DiagnosticsDTO;
 import com.WizardFrac.WizardFrac.dto.GameProgressDTO;
+import com.WizardFrac.WizardFrac.dto.LeaderboardEntryDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -67,6 +70,14 @@ public class GameProgressController {
             return ResponseEntity.notFound().build();
         }
         GameProgress p = progress.get();
+
+        // Daily quest resets at midnight; if today's data hasn't been touched yet,
+        // show it as fresh without writing to the DB on a plain read.
+        boolean questIsForToday = p.getDailyQuestDate() != null && p.getDailyQuestDate().isEqual(LocalDate.now());
+        int questProgress = questIsForToday ? p.getDailyQuestProgress() : 0;
+        boolean questClaimed = questIsForToday && Boolean.TRUE.equals(p.getDailyQuestClaimed());
+
+        int totalScore = p.getTotalScore();
         GameProgressDTO dto = new GameProgressDTO(
             p.getStudent().getId(),
             p.getSimilarIslandMaxStage(),
@@ -74,9 +85,18 @@ public class GameProgressController {
             p.getDissimilarIslandMaxStage(),
             p.getHybridIslandUnlocked(),
             p.getHybridIslandMaxStage(),
-            p.getTotalScore(),
+            totalScore,
             p.getTotalGamesPlayed(),
-            p.getTotalGamesWon()
+            p.getTotalGamesWon(),
+            gameProgressService.getLevel(totalScore),
+            gameProgressService.getXpIntoLevel(totalScore),
+            gameProgressService.getXpForNextLevel(totalScore),
+            gameProgressService.getWizardRank(totalScore),
+            p.getStarCurrency(),
+            p.getCurrentStreak(),
+            questProgress,
+            gameProgressService.getDailyQuestTarget(),
+            questClaimed
         );
         return ResponseEntity.ok(dto);
     }
@@ -92,5 +112,17 @@ public class GameProgressController {
     public ResponseEntity<DiagnosticsDTO> getDiagnostics(@PathVariable Long studentId) {
         DiagnosticsDTO diagnostics = gameProgressService.getDiagnostics(studentId);
         return ResponseEntity.ok(diagnostics);
+    }
+
+    // Get best star rating per stage (for stage-select display)
+    @GetMapping("/stars/{studentId}")
+    public ResponseEntity<?> getStageStars(@PathVariable Long studentId) {
+        return ResponseEntity.ok(gameProgressService.getStageStars(studentId));
+    }
+
+    // All-time leaderboard, ranked by total score across all students
+    @GetMapping("/leaderboard")
+    public ResponseEntity<List<LeaderboardEntryDTO>> getLeaderboard() {
+        return ResponseEntity.ok(gameProgressService.getLeaderboard());
     }
 }

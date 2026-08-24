@@ -10,7 +10,7 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
 
   useEffect(() => {
     // Fetch available characters from backend
-    fetch('http://localhost:8080/api/characters')
+    fetch('http://localhost:8082/api/characters')
       .then(res => res.json())
       .then(data => {
         setCharacters(data);
@@ -55,7 +55,7 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/characters/select/${studentId}`,
+        `http://localhost:8082/api/characters/select/${studentId}`,
         {
           method: 'POST',
           headers: {

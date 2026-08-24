@@ -10,6 +10,7 @@ import SimilarIslandGame from './pages/SimilarIslandGame';
 import DissimilarIslandGame from './pages/DissimilarIslandGame';
 import HybridIslandGame from './pages/HybridIslandGame';
 import StudentDashboard from './pages/StudentDashboard';
+import Leaderboard from './pages/Leaderboard';
 
 const LOBBY_PATHS = ['/', '/login', '/character-selection', '/game-lobby'];
 
@@ -137,7 +138,7 @@ function App() {
   const handleNextLevel = async () => {
     const nextLevel = (gameSession.level || 1) + 1;
     try {
-      const res = await fetch(`http://localhost:8080/api/game-lobby/start-stage/${studentId}`, {
+      const res = await fetch(`http://localhost:8082/api/game-lobby/start-stage/${studentId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ islandType: gameSession.islandType, stageNumber: nextLevel }),
@@ -167,6 +168,8 @@ function App() {
 
   const handleOpenDashboard = () => navigate('/dashboard');
   const handleBackToLobbyFromDashboard = () => navigate('/game-lobby');
+  const handleOpenLeaderboard = () => navigate('/leaderboard');
+  const handleBackToLobbyFromLeaderboard = () => navigate('/game-lobby');
 
   const renderGame = () => {
     if (!gameSession) return null;
@@ -230,6 +233,7 @@ function App() {
                 selectedCharacter={selectedCharacter}
                 onGameStart={handleGameStart}
                 onOpenDashboard={handleOpenDashboard}
+                onOpenLeaderboard={handleOpenLeaderboard}
                 onEnterIslandInterior={pauseMusic}
                 onLeaveIslandInterior={resumeMusic}
                 onLogout={handleReturnToLogin}
@@ -245,6 +249,12 @@ function App() {
                 selectedCharacter={selectedCharacter}
                 onBack={handleBackToLobbyFromDashboard}
               />
+            : <Navigate to="/login" replace />
+        } />
+
+        <Route path="/leaderboard" element={
+          studentId
+            ? <Leaderboard studentId={studentId} onBack={handleBackToLobbyFromLeaderboard} />
             : <Navigate to="/login" replace />
         } />
 

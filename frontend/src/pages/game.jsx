@@ -67,7 +67,7 @@ const Game = ({ studentId, gameSession, onGameEnd }) => {
   const saveSpellAttempt = async (attempt) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/game-progress/spell-attempt/${gameSession.sessionId}`,
+        `http://localhost:8082/api/game-progress/spell-attempt/${gameSession.sessionId}`,
         {
           method: 'POST',
           headers: {
@@ -166,7 +166,7 @@ const Game = ({ studentId, gameSession, onGameEnd }) => {
   const handleGameEnd = async (status, isWon) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/game-progress/end-session/${gameSession.sessionId}`,
+        `http://localhost:8082/api/game-progress/end-session/${gameSession.sessionId}`,
         {
           method: 'POST',
           headers: {

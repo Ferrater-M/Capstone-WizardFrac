@@ -494,7 +494,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const saveGameEnd = async (status, isWon) => {
     try {
       const res = await fetch(
-        `http://localhost:8080/api/game-progress/end-session/${gameSession.sessionId}`,
+        `http://localhost:8082/api/game-progress/end-session/${gameSession.sessionId}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -514,7 +514,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     sessionHintsUsed.current += 1;
     try {
       await fetch(
-        `http://localhost:8080/api/game-progress/hint-used/${gameSession.sessionId}`,
+        `http://localhost:8082/api/game-progress/hint-used/${gameSession.sessionId}`,
         { method: 'POST' }
       );
     } catch (err) {
@@ -717,7 +717,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const saveSpellAttempt = async (attempt) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/game-progress/spell-attempt/${gameSession.sessionId}`,
+        `http://localhost:8082/api/game-progress/spell-attempt/${gameSession.sessionId}`,
         {
           method: 'POST',
           headers: {

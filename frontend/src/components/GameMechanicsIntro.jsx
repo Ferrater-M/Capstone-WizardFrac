@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import ButterflyDiagramCanvas from './ButterflyDiagramCanvas';
 
-const BROWN = '#703737';
-const CREAM = '#e8d5b4';
-const DARK  = '#1a0f0f';
-const GOLD  = '#f6b825';
+const BROWN = '#7C3AED';  // now the accent/border purple
+const CREAM = '#211044';  // now the panel background
+const DARK  = '#F8F7FF';  // now the readable body text
+const GOLD  = '#FBBF24';
+const PANEL2 = '#32175E';
+const TEXT2  = '#C4B5FD';
 
 const BUTTERFLY_EXAMPLE = { numerator1: 1, denominator1: 2, numerator2: 1, denominator2: 3, operator: '+' };
 const BUTTERFLY_SLIDE_INDEX = 2;
 
 const Heart = ({ filled }) => (
-  <span style={{ fontSize: 18, color: filled ? '#e0245e' : '#5a3a3a', filter: filled ? 'drop-shadow(0 0 3px #e0245e)' : 'none' }}>
+  <span style={{ fontSize: 18, color: filled ? '#e0245e' : '#4a3a6e', filter: filled ? 'drop-shadow(0 0 3px #e0245e)' : 'none' }}>
     {filled ? '❤' : '♡'}
   </span>
 );
@@ -33,7 +35,7 @@ const slides = [
             <div style={{
               width: 54, height: 64, border: `2px solid ${BROWN}`, borderRadius: 6,
               display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-              background: 'rgba(112,55,55,0.08)', overflow: 'hidden',
+              background: 'rgba(124,58,237,0.14)', overflow: 'hidden',
             }}>
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 900, color: DARK }}>{n}</div>
               <div style={{ height: 2, background: BROWN }} />
@@ -109,14 +111,15 @@ const PixelBtn = ({ onClick, disabled, primary, children }) => (
   <button onClick={onClick} disabled={disabled} style={{
     position: 'relative',
     padding: '10px 20px',
-    background: disabled ? '#4a2a2a' : primary ? BROWN : CREAM,
-    border: `3px solid ${BROWN}`,
-    color: disabled ? '#6b4040' : primary ? CREAM : BROWN,
+    background: disabled ? PANEL2 : primary ? BROWN : PANEL2,
+    border: `1px solid ${disabled ? 'rgba(168,85,247,0.25)' : 'rgba(168,85,247,0.5)'}`,
+    color: disabled ? TEXT2 : primary ? DARK : TEXT2,
+    opacity: disabled ? 0.5 : 1,
     fontFamily: '"Press Start 2P", monospace',
     fontSize: 9,
     fontWeight: 700,
     cursor: disabled ? 'not-allowed' : 'pointer',
-    borderRadius: 0,
+    borderRadius: 8,
     whiteSpace: 'nowrap',
   }}>
     {children}
@@ -144,26 +147,22 @@ const GameMechanicsIntro = ({ onComplete }) => {
   }, [index]);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 2500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.78)' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 2500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(6,4,20,0.78)', backdropFilter: 'blur(4px)' }}>
       <div style={{
         position: 'relative',
         width: 420,
         maxWidth: '90vw',
-        background: CREAM,
-        border: `4px solid ${BROWN}`,
+        background: `linear-gradient(165deg, ${CREAM} 0%, #150a38 100%)`,
+        border: '1px solid rgba(168,85,247,0.4)',
+        borderRadius: 18,
+        boxShadow: '0 0 40px rgba(124,58,237,0.35), 0 20px 40px rgba(0,0,0,0.6)',
+        overflow: 'hidden',
         fontFamily: '"Press Start 2P", monospace',
       }}>
-        {/* corner pixels */}
-        <div style={{ position:'absolute', inset:5, border:`1px solid ${BROWN}`, pointerEvents:'none' }} />
-        {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i)=>(
-          <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:12, height:12, background:BROWN,
-            ...(t!==null?{top:t}:{bottom:-6}), ...(l!==null?{left:l}:{right:-6}) }}/>
-        ))}
-
         {/* Header */}
-        <div style={{ background: BROWN, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 9, color: CREAM, letterSpacing: 1 }}>{slide.icon} {slide.title}</span>
-          <button onClick={onComplete} style={{ fontSize: 8, color: CREAM, background: 'transparent', border: `1px solid ${CREAM}`, padding: '3px 8px', fontFamily: '"Press Start 2P", monospace', cursor: 'pointer' }}>SKIP</button>
+        <div style={{ background: `linear-gradient(135deg, ${BROWN} 0%, #4F46E5 100%)`, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 9, color: DARK, letterSpacing: 1 }}>{slide.icon} {slide.title}</span>
+          <button onClick={onComplete} style={{ fontSize: 8, color: DARK, background: 'transparent', border: `1px solid ${DARK}`, borderRadius: 6, padding: '3px 8px', fontFamily: '"Press Start 2P", monospace', cursor: 'pointer' }}>SKIP</button>
         </div>
 
         {/* Body */}
@@ -175,16 +174,16 @@ const GameMechanicsIntro = ({ onComplete }) => {
               </div>
             </div>
           ) : slide.visual}
-          <div style={{ fontSize: 9, color: DARK, lineHeight: 1.9, whiteSpace: 'pre-line' }}>
+          <div style={{ fontSize: 9, color: TEXT2, lineHeight: 1.9, whiteSpace: 'pre-line' }}>
             {slide.body}
           </div>
         </div>
 
         {/* Footer */}
-        <div style={{ padding: '14px 14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: `2px solid ${BROWN}` }}>
+        <div style={{ padding: '14px 14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(168,85,247,0.3)' }}>
           <div style={{ display: 'flex', gap: 5 }}>
             {slides.map((_, i) => (
-              <div key={i} style={{ width: i === index ? 14 : 7, height: 7, background: i === index ? BROWN : '#b09090', transition: 'all 0.2s' }} />
+              <div key={i} style={{ width: i === index ? 14 : 7, height: 7, borderRadius: 4, background: i === index ? GOLD : PANEL2, transition: 'all 0.2s' }} />
             ))}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
