@@ -31,6 +31,12 @@ public class Student {
     @Column(nullable = true)
     private String selectedCharacterName;
 
+    @Column(nullable = true, columnDefinition = "bytea")
+    private byte[] profilePicture;
+
+    @Column(nullable = true)
+    private String profilePictureType;
+
     public Student() {
         this.createdAt = LocalDateTime.now();
         this.lastLoginAt = LocalDateTime.now();
@@ -89,5 +95,21 @@ public class Student {
 
     public void setSelectedCharacterName(String selectedCharacterName) {
         this.selectedCharacterName = selectedCharacterName;
+    }
+
+    public byte[] getProfilePicture() {
+        return profilePicture;
+    }
+
+    public void setProfilePicture(byte[] profilePicture) {
+        this.profilePicture = profilePicture;
+    }
+
+    public String getProfilePictureType() {
+        return profilePictureType;
+    }
+
+    public void setProfilePictureType(String profilePictureType) {
+        this.profilePictureType = profilePictureType;
     }
 }
