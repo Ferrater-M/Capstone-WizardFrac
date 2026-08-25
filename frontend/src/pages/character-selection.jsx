@@ -2,6 +2,26 @@ import React, { useState, useEffect } from 'react';
 import './character-selection.css';
 import LoadingScreen from '../components/LoadingScreen';
 
+const CHARACTER_TRAITS = {
+  boy: [
+    { icon: '✦', label: 'Balanced' },
+    { icon: '📖', label: 'Support' },
+    { icon: '🌀', label: 'Magic' },
+  ],
+  girl: [
+    { icon: '✦', label: 'High Magic' },
+    { icon: '🏹', label: 'Ranged' },
+    { icon: '💎', label: 'Agile' },
+  ],
+};
+
+const getGenderKey = (name) => {
+  const n = (name || '').toLowerCase();
+  if (n.includes('girl')) return 'girl';
+  if (n.includes('boy')) return 'boy';
+  return null;
+};
+
 const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
   const [characters, setCharacters] = useState([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState(null);
@@ -25,16 +45,6 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
 
   const handleSelectCharacter = (characterId) => {
     setSelectedCharacterId(characterId);
-  };
-
-  const getGenderIcon = (name) => {
-    if (name.toLowerCase().includes('girl')) {
-      return '/Female.png';
-    }
-    if (name.toLowerCase().includes('boy')) {
-      return '/Male.png';
-    }
-    return null;
   };
 
   const getCharacterCardImage = (character) => {
@@ -86,17 +96,21 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
 
   return (
     <div className="character-selection">
-      {/* Top Navigation Bar as requested in wireframe */}
       <div className="nav-bar">
         <div className="nav-logo">
           <span>WIZARDFRAC</span>
         </div>
-        <div className="nav-menu">
-          <button type="button" className="menu-btn" onClick={onBack}>← Back to Main</button>
-        </div>
+        <button type="button" className="menu-btn" onClick={onBack}>← Back to Main</button>
       </div>
 
       <div className="character-selection-container">
+        <div className="cs-title-row">
+          <span className="cs-title-deco">✦───✦</span>
+          <h1 className="cs-title">Choose Your Wizard</h1>
+          <span className="cs-title-deco">✦───✦</span>
+        </div>
+        <p className="cs-subtitle">Select a character to begin your magical journey.</p>
+
         {error && <div className="error-message">{error}</div>}
 
         <div className="characters-grid">
@@ -105,37 +119,55 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
             .filter(c => c.name !== 'Ember Sage' && c.name !== 'Frost Warden')
             .map(character => {
               const displayName = character.name;
+              const genderKey = getGenderKey(character.name);
+              const traits = CHARACTER_TRAITS[genderKey] || [];
               return (
-              <div
-                key={character.id}
-                className={`character-card ${selectedCharacterId === character.id ? 'selected' : ''}`}
-                onClick={() => handleSelectCharacter(character.id)}
-              >
-                <div className="character-image">
-                  {/* Using a magical CSS gradient placeholder if image fails to load, or show the image */}
-                  {getCharacterCardImage(character) ? (
-                    <img src={getCharacterCardImage(character)} alt={displayName} />
-                  ) : (
-                    <div className="image-placeholder"></div>
-                  )}
-                  {getGenderIcon(character.name) && (
-                    <div className="gender-badge">
-                      <img className="gender-icon" src={getGenderIcon(character.name)} alt="gender icon" />
+                <div
+                  key={character.id}
+                  className={`character-card ${selectedCharacterId === character.id ? 'selected' : ''}`}
+                  onClick={() => handleSelectCharacter(character.id)}
+                >
+                  <div className="character-ribbon">
+                    <span className="character-ribbon-icon">✦</span>
+                    {displayName.toUpperCase()}
+                  </div>
+                  {genderKey && (
+                    <div className="character-gender-badge">
+                      {genderKey === 'girl' ? '♀' : '♂'}
                     </div>
                   )}
-                  <div className="character-name-badge">{displayName}</div>
-                  {selectedCharacterId === character.id && (
-                    <div className="selected-overlay">
-                      <span className="check-icon">✓</span>
-                    </div>
-                  )}
+
+                  <div className="character-image">
+                    {getCharacterCardImage(character) ? (
+                      <img src={getCharacterCardImage(character)} alt={displayName} />
+                    ) : (
+                      <div className="image-placeholder"></div>
+                    )}
+                    {selectedCharacterId === character.id && (
+                      <div className="selected-overlay">
+                        <span className="check-icon">✓</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="character-divider"><span>✦</span></div>
+
+                  <div className="character-info">
+                    <p className="description">{character.description}</p>
+                    {traits.length > 0 && (
+                      <div className="character-traits">
+                        {traits.map(trait => (
+                          <span key={trait.label} className="trait-pill">
+                            <span className="trait-icon">{trait.icon}</span>
+                            {trait.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="character-info">
-                  <p className="description">{character.description}</p>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
 
         <div className="selection-actions">
@@ -144,8 +176,12 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
             onClick={handleConfirmSelection}
             disabled={!selectedCharacterId}
           >
-            SELECT
+            <span className="confirm-btn-deco">✦</span> SELECT <span className="confirm-btn-deco">✦</span>
           </button>
+        </div>
+
+        <div className="cs-hint">
+          <span className="cs-hint-icon">💡</span> You can change your character later in the settings.
         </div>
       </div>
     </div>
