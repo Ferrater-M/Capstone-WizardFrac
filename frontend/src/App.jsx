@@ -393,34 +393,6 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {/* Floating mute button */}
-      <button
-        onClick={toggleMute}
-        title={isMuted ? 'Unmute music' : 'Mute music'}
-        style={{
-          position: 'fixed',
-          bottom: 20,
-          right: 20,
-          zIndex: 9999,
-          width: 44,
-          height: 44,
-          borderRadius: '50%',
-          background: 'rgba(0,0,0,0.55)',
-          border: '2px solid rgba(255,255,255,0.3)',
-          color: '#fff',
-          fontSize: 20,
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backdropFilter: 'blur(8px)',
-          transition: 'background 0.2s, transform 0.15s',
-        }}
-        onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.8)'}
-        onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.55)'}
-      >
-        {isMuted ? '🔇' : '🔊'}
-      </button>
     </div>
   );
 }

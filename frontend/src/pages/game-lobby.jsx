@@ -537,44 +537,50 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
         <button className="icon-pill icon-pill-round" onClick={onOpenSettings} aria-label="Settings">⚙️</button>
       </div>
 
-      <div className="lobby-dashboard">
-        <div className="player-card">
-          <img
-            className="player-avatar"
-            src={profilePictureUrl || getAvatarImage()}
-            alt="Player avatar"
-            onError={(e) => {
-              if (e.currentTarget.src !== getAvatarImage()) {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = getAvatarImage();
-              }
-            }}
-          />
-          <div className="player-card-info">
-            <p className="player-name">{studentNickname || 'Young Wizard'}</p>
-            <p className="player-level">Level {level}</p>
-            <div className="mini-progress-track"><div className="mini-progress-fill" style={{ width: `${xpPercent}%` }} /></div>
-            <p className="xp-text">{xpIntoLevel} / {xpForNextLevel} XP</p>
-          </div>
-          <div className="player-rank">
-            <span className="rank-icon">🛡️</span>
-            <div>
-              <p className="rank-label">WIZARD RANK</p>
-              <p className="rank-value">{wizardRank}</p>
-            </div>
-          </div>
+      <div className="player-card-fixed">
+        <img
+          className="player-avatar"
+          src={profilePictureUrl || getAvatarImage()}
+          alt="Player avatar"
+          onError={(e) => {
+            if (e.currentTarget.src !== getAvatarImage()) {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = getAvatarImage();
+            }
+          }}
+        />
+        <div className="player-card-info">
+          <p className="player-name">{studentNickname || 'Young Wizard'}</p>
+          <p className="player-level">Level {level} <span className="player-rank-inline">· Rank: {wizardRank}</span></p>
+          <div className="mini-progress-track"><div className="mini-progress-fill" style={{ width: `${xpPercent}%` }} /></div>
+          <p className="xp-text">{xpIntoLevel} / {xpForNextLevel} XP</p>
         </div>
+      </div>
 
-        <nav className="lobby-sidebar">
-          <button className="sidebar-item active" onClick={onOpenDashboard}><span>🏠</span>Dashboard</button>
-          <button className="sidebar-item" onClick={onOpenDashboard}><span>📊</span>Progress</button>
-          <button className="sidebar-item" onClick={onOpenLeaderboard}><span>👑</span>Leaderboard</button>
-          <button className="sidebar-item soon" disabled><span>📖</span>Spellbook<span className="soon-tag">Soon</span></button>
-          <button className="sidebar-item soon" disabled><span>🏆</span>Achievements<span className="soon-tag">Soon</span></button>
-          <button className="sidebar-item soon" disabled><span>🎒</span>Collection<span className="soon-tag">Soon</span></button>
-          <button className="sidebar-item" onClick={onOpenSettings}><span>⚙️</span>Settings</button>
-        </nav>
+      <div className="lobby-pet-fixed">
+        <div className="pet-frame">
+          <span className="pet-emoji">🦊</span>
+        </div>
+      </div>
 
+      <div className="left-panel-slider">
+        <div className="left-panel-content">
+          <nav className="lobby-sidebar">
+            <button className="sidebar-item active" onClick={onOpenDashboard}><span>🏠</span>Dashboard</button>
+            <button className="sidebar-item" onClick={onOpenDashboard}><span>📊</span>Progress</button>
+            <button className="sidebar-item" onClick={onOpenLeaderboard}><span>👑</span>Leaderboard</button>
+            <button className="sidebar-item soon" disabled><span>📖</span>Spellbook<span className="soon-tag">Soon</span></button>
+            <button className="sidebar-item soon" disabled><span>🏆</span>Achievements<span className="soon-tag">Soon</span></button>
+            <button className="sidebar-item soon" disabled><span>🎒</span>Collection<span className="soon-tag">Soon</span></button>
+            <button className="sidebar-item" onClick={onOpenSettings}><span>⚙️</span>Settings</button>
+          </nav>
+        </div>
+        <div className="left-panel-tab">
+          <span className="left-panel-arrow">▶</span>
+        </div>
+      </div>
+
+      <div className="lobby-dashboard">
         <div className="lobby-title-area">
           <div
             ref={titleBoxRef}
@@ -586,8 +592,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
               <span className="lobby-subtitle-star">★</span> Choose your adventure <span className="lobby-subtitle-star">★</span>
             </p>
           </div>
-          <p className="lobby-tagline">Each island challenges your fraction skills in a unique way!</p>
-
           {error && <div className="error-message">{error}</div>}
         </div>
 
@@ -612,11 +616,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
                   }}
                 >
                   <div className="island-card">
-                    <div className="island-ribbon" style={{ background: island.color }}>
-                      <span className="island-ribbon-icon">{island.icon}</span>
-                      <span>{island.title.toUpperCase()}</span>
-                    </div>
-                    <p className="island-card-desc">{island.description}</p>
                     <div className="floating-island-wrapper">
                       <img
                         className="floating-island"
@@ -641,6 +640,11 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
                         style={{ width: `${(stars / MAX_ISLAND_STARS) * 100}%`, background: island.color }}
                       />
                     </div>
+                    <div className="island-ribbon">
+                      <span className="island-ribbon-icon">{island.icon}</span>
+                      <span>{island.title.toUpperCase()}</span>
+                    </div>
+                    <p className="island-card-desc">{island.description}</p>
                   </div>
                 </div>
               );
@@ -648,7 +652,26 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
           </div>
         </div>
 
-        <div className="lobby-side-cards">
+      </div>
+
+      <div className="lobby-bottom-bar">
+        <div className="bottom-bar-info">
+          <span className="bottom-progress-label">Overall Progress: {overallPercent}%</span>
+          <span className="bottom-achievement-label">
+            Recent Achievement: <strong>Fraction Finder</strong>
+            <span className="bottom-achievement-badge">⭐</span>
+          </span>
+        </div>
+        <div className="bottom-progress-track">
+          <div className="bottom-progress-fill" style={{ width: `${overallPercent}%` }} />
+        </div>
+      </div>
+
+      <div className="side-cards-slider">
+        <div className="side-cards-tab">
+          <span className="side-cards-arrow">◀</span>
+        </div>
+        <div className="side-cards-panel">
           <div className="side-card quest-card">
             <p className="side-card-title"><span>📜</span> DAILY QUEST</p>
             <p className="quest-desc">Solve {dailyQuestTarget} fraction problems</p>
@@ -666,53 +689,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
             <p className="streak-days">{currentStreak} <small>days</small></p>
             <p className="streak-note">Keep it up!</p>
           </div>
-        </div>
-
-        <div className="lobby-pet">
-          <div className="pet-frame">
-            <span className="pet-emoji">🦊</span>
-          </div>
-        </div>
-
-        <div className="lobby-bottom-bar">
-          <div className="bottom-section achievement-section">
-            <p className="bottom-label">RECENT ACHIEVEMENT</p>
-            <div className="achievement-row">
-              <div className="achievement-badge">
-                <span className="achievement-badge-star">⭐</span>
-                <span className="achievement-badge-check">✓</span>
-              </div>
-              <div>
-                <p className="achievement-title">Fraction Finder</p>
-                <p className="achievement-desc">Solve 10 problems</p>
-              </div>
-            </div>
-          </div>
-          <div className="bottom-section overview-section">
-            <p className="bottom-label">
-              <span className="bottom-label-deco">◆</span> PROGRESS OVERVIEW <span className="bottom-label-deco">◆</span>
-            </p>
-            <div className="overview-row">
-              <div className="progress-ring" style={{ '--pct': overallPercent }}>
-                <span>{overallPercent}%</span>
-              </div>
-              <div className="overview-bar-col">
-                <p>Overall Progress</p>
-                <div className="mini-progress-track"><div className="mini-progress-fill" style={{ width: `${overallPercent}%` }} /></div>
-              </div>
-              <div className="next-reward">
-                <span>Next Reward</span>
-                <span className="next-reward-icon">🎁</span>
-              </div>
-            </div>
-          </div>
-          <button className="bottom-section spell-practice-btn" type="button">
-            <span className="spell-practice-icon">✨🪄✨</span>
-            <span>
-              <p className="spell-practice-title">SPELL PRACTICE</p>
-              <p className="spell-practice-desc">Sharpen your skills!</p>
-            </span>
-          </button>
         </div>
       </div>
 
