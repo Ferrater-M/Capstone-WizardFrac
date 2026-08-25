@@ -1174,12 +1174,201 @@
 /* ── Fixed pet (bottom-left) ── */
 .lobby-pet-fixed {
   position: fixed;
-  bottom: 76px;
+  bottom: 72px;
   left: 20px;
-  z-index: 10;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  /* above both slide-out panels (z-index 100) so clicks reach the pet */
+  z-index: 110;
+  /* match the pet's visual width so the hover zone doesn't bleed into dead space;
+     the dialogue bubble overflows to the right as position:absolute */
+  width: 162px;
+  overflow: visible;
+  pointer-events: all;
+}
+
+/* ── Dialogue bubble ── */
+.pet-dialogue {
+  position: absolute;
+  bottom: 218px;
+  left: 100px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  border-radius: 14px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #2a1a5e;
+  /* grid stacks sizer + text in same cell so bubble width = full text always */
+  display: grid;
+  white-space: nowrap;
+  line-height: 1.5;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  z-index: 20;
+  animation: dialoguePop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.pet-dialogue::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 16px;
+  border: 8px solid transparent;
+  border-top-color: rgba(255, 255, 255, 0.96);
+}
+/* invisible — sets the bubble width to the full text so no resize during typing */
+.pet-dialogue-sizer {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  white-space: nowrap;
+}
+/* visible typed text, sits on top of sizer in the same grid cell */
+.pet-dialogue-text {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
+@keyframes dialoguePop {
+  from { transform: scale(0.7) translateY(6px); opacity: 0; }
+  to   { transform: scale(1)   translateY(0);   opacity: 1; }
+}
+
+/* ── Sprite base ── */
+.pet-sprite {
+  position: relative;
+  width: 120px;
+  height: 155px;
+  transform-origin: bottom left;
+  /* starts off-screen; state classes control actual transform/animation */
+  transform: scale(1.35) translateY(240px);
+}
+
+/* ── State classes ── */
+.pet-sprite--hidden     { transform: scale(1.35) translateY(240px); animation: none; }
+.pet-sprite--rising     { animation: petRise 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.pet-sprite--up         { animation: petBob 2.2s ease-in-out infinite; }
+.pet-sprite--talking    { transform: scale(1.35) translateY(0); animation: none; transition: transform 0.25s ease-out; }
+.pet-sprite--squish     { animation: petSquish 0.35s ease-out forwards; }
+.pet-sprite--descending { animation: petDescend 0.55s ease-in forwards; }
+
+
+/* ── Motion keyframes ── */
+@keyframes petBob {
+  0%, 100% { transform: scale(1.35) translateY(0px); }
+  50%       { transform: scale(1.35) translateY(-9px); }
+}
+
+@keyframes petRise {
+  0%   { transform: scale(1.35) translateY(240px); }
+  58%  { transform: scale(1.35) translateY(-14px); }
+  76%  { transform: scale(1.35) translateY(5px); }
+  90%  { transform: scale(1.35) translateY(-7px); }
+  100% { transform: scale(1.35) translateY(0); }
+}
+
+@keyframes petDescend {
+  0%   { transform: scale(1.35) translateY(0); }
+  22%  { transform: scale(1.35) translateY(-10px); }
+  100% { transform: scale(1.35) translateY(240px); }
+}
+
+@keyframes petSquish {
+  0%   { transform: scale3d(1.755, 0.945, 1) translateY(0); }
+  50%  { transform: scale3d(1.215, 1.553, 1) translateY(-8px); }
+  100% { transform: scale3d(1.35,  1.35,  1) translateY(0);   }
+}
+
+/* ── Pet body parts ── */
+.pet-body {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 110px;
+  z-index: 1;
+}
+
+/* wrapper fixes the lateral position — never moves, so stopping the rotation
+   animation can never cause a position jump */
+.pet-head-wrapper {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  transform: translateX(calc(-50% + 28px));
+  z-index: 3;
+}
+
+.pet-head {
+  width: 88px;
+  display: block;
+  transform-origin: 50% 65%;
+  transition: transform 0.3s ease-out;   /* smooth rotation settle */
+  animation: petHeadSway 3.2s ease-in-out infinite;
+}
+
+.pet-ear {
+  position: absolute;
+  top: 15px;
+  width: 52px;
+  z-index: 2;
+}
+
+.pet-ear-left {
+  left: 40px;
+  transform-origin: bottom center;
+  animation: petEarLeft 3.2s ease-in-out infinite;
+}
+
+.pet-ear-right {
+  right: -12px;
+  transform-origin: bottom center;
+  animation: petEarRight 3.2s ease-in-out infinite;
+}
+
+/* head sway — pure rotation; position is handled by .pet-head-wrapper */
+@keyframes petHeadSway {
+  0%   { transform: rotate(0deg);   }
+  25%  { transform: rotate(-14deg); }
+  75%  { transform: rotate(14deg);  }
+  100% { transform: rotate(0deg);   }
+}
+
+/* left ear — starts at mid-point so resuming after twitch has minimal jump */
+@keyframes petEarLeft {
+  0%   { transform: rotate(-16deg); }
+  25%  { transform: rotate(-26deg); }
+  75%  { transform: rotate(-6deg);  }
+  100% { transform: rotate(-16deg); }
+}
+
+/* right ear — same logic, mirrored */
+@keyframes petEarRight {
+  0%   { transform: scaleX(-1) rotate(-16deg); }
+  25%  { transform: scaleX(-1) rotate(-6deg);  }
+  75%  { transform: scaleX(-1) rotate(-26deg); }
+  100% { transform: scaleX(-1) rotate(-16deg); }
+}
+
+/* ── Talking state: stop sway — the transition on .pet-head eases rotation to 0° */
+.pet-head.pet-talking {
+  animation: none;
+  transform: rotate(0deg);    /* transition on .pet-head smoothly gets here */
+}
+
+.pet-ear-left.pet-talking {
+  animation: petEarTwitchL 0.22s ease-in-out infinite alternate;
+}
+
+.pet-ear-right.pet-talking {
+  animation: petEarTwitchR 0.22s ease-in-out infinite alternate;
+}
+
+@keyframes petEarTwitchL {
+  from { transform: rotate(-16deg); }
+  to   { transform: rotate(-7deg);  }
+}
+
+@keyframes petEarTwitchR {
+  from { transform: scaleX(-1) rotate(-16deg); }
+  to   { transform: scaleX(-1) rotate(-7deg);  }
 }
 
 /* ── Slide-out left panel ── */
