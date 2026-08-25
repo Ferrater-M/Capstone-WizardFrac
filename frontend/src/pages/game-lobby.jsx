@@ -2,12 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import './game-lobby.css';
 import LoadingScreen from '../components/LoadingScreen';
 import IslandInterior from './IslandInterior';
-import GameMenuModal from '../components/GameMenuModal';
 import GameMechanicsIntro from '../components/GameMechanicsIntro';
 
 const MECHANICS_INTRO_KEY = 'wizardfrac_seen_mechanics_intro';
 
-const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onOpenLeaderboard, onEnterIslandInterior, onLeaveIslandInterior, onLogout }) => {
+const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onOpenLeaderboard, onOpenSettings, onEnterIslandInterior, onLeaveIslandInterior }) => {
   const [gameProgress, setGameProgress] = useState(null);
   const [stageStars, setStageStars] = useState({});
   const [selectedIsland, setSelectedIsland] = useState(null);
@@ -17,7 +16,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const [error, setError] = useState('');
   const [character, setCharacter] = useState(selectedCharacter);
   const actionLocked = useRef(false);
-  const [showMenu, setShowMenu] = useState(false);
   const [showMechanicsIntro, setShowMechanicsIntro] = useState(
     () => !localStorage.getItem(MECHANICS_INTRO_KEY)
   );
@@ -486,6 +484,8 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     return character?.imageUrl || '/Male.png';
   };
 
+  const profilePictureUrl = studentId ? `http://localhost:8082/api/students/${studentId}/profile-picture` : null;
+
   const totalStarsAll = islands.reduce((sum, isl) => sum + islandStarTotal(isl.name), 0);
   const overallPercent = Math.round((totalStarsAll / (MAX_ISLAND_STARS * islands.length)) * 100) || 0;
 
@@ -534,12 +534,22 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       <div className="lobby-top-right">
         <div className="currency-badge"><span className="currency-star">⭐</span> {starCurrency}</div>
         <button className="icon-pill" onClick={() => setShowMechanicsIntro(true)}>Help</button>
-        <button className="icon-pill icon-pill-round" onClick={() => setShowMenu(true)} aria-label="Settings">⚙️</button>
+        <button className="icon-pill icon-pill-round" onClick={onOpenSettings} aria-label="Settings">⚙️</button>
       </div>
 
       <div className="lobby-dashboard">
         <div className="player-card">
-          <img className="player-avatar" src={getAvatarImage()} alt="Player avatar" />
+          <img
+            className="player-avatar"
+            src={profilePictureUrl || getAvatarImage()}
+            alt="Player avatar"
+            onError={(e) => {
+              if (e.currentTarget.src !== getAvatarImage()) {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = getAvatarImage();
+              }
+            }}
+          />
           <div className="player-card-info">
             <p className="player-name">{studentNickname || 'Young Wizard'}</p>
             <p className="player-level">Level {level}</p>
@@ -562,7 +572,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
           <button className="sidebar-item soon" disabled><span>📖</span>Spellbook<span className="soon-tag">Soon</span></button>
           <button className="sidebar-item soon" disabled><span>🏆</span>Achievements<span className="soon-tag">Soon</span></button>
           <button className="sidebar-item soon" disabled><span>🎒</span>Collection<span className="soon-tag">Soon</span></button>
-          <button className="sidebar-item" onClick={() => setShowMenu(true)}><span>⚙️</span>Settings</button>
+          <button className="sidebar-item" onClick={onOpenSettings}><span>⚙️</span>Settings</button>
         </nav>
 
         <div className="lobby-title-area">
@@ -736,35 +746,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
 
       {showMechanicsIntro && (
         <GameMechanicsIntro onComplete={closeMechanicsIntro} />
-      )}
-
-      {showMenu && (
-        <GameMenuModal title="Menu" onClose={() => setShowMenu(false)}>
-          <div className="wizard-menu-info">
-            {studentNickname && (
-              <p className="wizard-menu-info-row">
-                <strong>Username:</strong> {studentNickname}
-              </p>
-            )}
-            {character && (
-              <p className="wizard-menu-info-row">
-                <strong>Character:</strong> {character.name}
-              </p>
-            )}
-          </div>
-          <div className="wizard-menu-actions">
-            <button type="button" className="wizard-menu-btn wizard-menu-btn-secondary">
-              Settings
-            </button>
-            <button
-              type="button"
-              className="wizard-menu-btn wizard-menu-btn-primary"
-              onClick={onLogout}
-            >
-              Logout
-            </button>
-          </div>
-        </GameMenuModal>
       )}
     </div>
   );
