@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { playSfx } from '../utils/audio';
 import './game-lobby.css';
 import LoadingScreen from '../components/LoadingScreen';
 import IslandInterior from './IslandInterior';
@@ -328,7 +329,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const handleEnterIsland = (island) => {
     if (!island.unlocked || actionLocked.current) return;
     actionLocked.current = true;
-    new Audio('/SoundEffects/islandSelect.wav').play().catch(() => {});
+    playSfx('/SoundEffects/islandSelect.wav');
     setAnimIsland(island);
     setAnimPhase('flash');
   };
@@ -343,12 +344,12 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
         const islandRect = islandEl?.getBoundingClientRect();
         if (titleRect) setSparkleStart({ x: titleRect.left + titleRect.width / 2, y: titleRect.top + titleRect.height / 2 });
         if (islandRect) setSparkleEnd({ x: islandRect.left + islandRect.width / 2, y: islandRect.top + islandRect.height / 2 });
-        new Audio('/SoundEffects/starAppear.wav').play().catch(() => {});
+        playSfx('/SoundEffects/starAppear.wav');
         setAnimPhase('sparkle');
       }, 500);
     } else if (animPhase === 'sparkle') {
       t = setTimeout(() => {
-        new Audio('/SoundEffects/starMove.wav').play().catch(() => {});
+        playSfx('/SoundEffects/starMove.wav');
         setAnimPhase('travel');
       }, 1200);
     } else if (animPhase === 'explode') {
@@ -382,7 +383,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       el.style.top = `${y}px`;
       if (t < 1) rafId = requestAnimationFrame(animate);
       else {
-        new Audio('/SoundEffects/starHit.wav').play().catch(() => {});
+        playSfx('/SoundEffects/starHit.wav');
         setAnimPhase('explode');
       }
     };

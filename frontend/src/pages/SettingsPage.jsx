@@ -1,11 +1,10 @@
 import React, { useRef, useState } from 'react';
 import GameMenuModal from '../components/GameMenuModal';
 import Toast from '../components/Toast';
+import { MASTER_VOLUME_KEY, SFX_VOLUME_KEY } from '../utils/audio';
 import './SettingsPage.css';
 
 const API_BASE = 'http://localhost:8082';
-const MASTER_VOLUME_KEY = 'wizardfrac_master_volume';
-const SFX_VOLUME_KEY = 'wizardfrac_sfx_volume';
 const MAX_PICTURE_BYTES = 5 * 1024 * 1024; // 5MB
 
 const readStoredVolume = (key, fallback) => {
@@ -14,7 +13,7 @@ const readStoredVolume = (key, fallback) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, onLogout, onNicknameChanged }) => {
+const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, onLogout, onNicknameChanged, onMasterVolumeChanged }) => {
   const fileInputRef = useRef(null);
   const profileSectionRef = useRef(null);
   const volumeSectionRef = useRef(null);
@@ -256,6 +255,7 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
                   const v = Number(e.target.value);
                   setMasterVolume(v);
                   localStorage.setItem(MASTER_VOLUME_KEY, String(v));
+                  onMasterVolumeChanged?.(v / 100);
                 }}
               />
               <span className="settings-slider-value">{masterVolume}%</span>

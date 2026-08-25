@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
 // ButterflyDiagramCanvas and ButterflyStepPanel disabled — new solving method coming
 // import ButterflyDiagramCanvas from '../components/ButterflyDiagramCanvas';
@@ -179,6 +180,7 @@ const DissimilarIslandGame = ({
     const audio = new Audio('/SoundEffects/magnet.wav');
     audio.loop = true;
     audio.playbackRate = 0.5;
+    audio.volume = getSfxVolume();
     audio.play().catch(() => {});
     magnetSoundRef.current = audio;
   };
@@ -263,7 +265,7 @@ const DissimilarIslandGame = ({
     setTimeout(() => {
       setDenExplosion(true);
       setSdBlinking(true);
-      new Audio('/SoundEffects/sparkleExplode.wav').play().catch(() => {});
+      playSfx('/SoundEffects/sparkleExplode.wav');
       setTimeout(() => setDenExplosion(false), 900);
       setDenominatorPhase('arc-returning');
       // Arc: D1 from SD (181,214) back to base (110,170); D2 from (181,214) to (250,170)
@@ -299,7 +301,7 @@ const DissimilarIslandGame = ({
     const base = BASE_POS[dragKey];
     // Explosion + sound
     setCrossExplosion(explodeKey);
-    new Audio('/SoundEffects/sparkleExplode.wav').play().catch(() => {});
+    playSfx('/SoundEffects/sparkleExplode.wav');
     setTimeout(() => setCrossExplosion(null), 900);
     // Arc dragged denominator back to base
     const el = dragKey === 'd1' ? d1OverlayRef.current : d2OverlayRef.current;
@@ -331,7 +333,7 @@ const DissimilarIslandGame = ({
     const willPlayerDie = lives <= 1;
     // Step 1: flash the magic circle
     setCircleFailSequence('flashing');
-    new Audio('/SoundEffects/initialDissimilarFail.wav').play().catch(() => {});
+    playSfx('/SoundEffects/initialDissimilarFail.wav');
 
     // Step 2 (2s): start fade + hide interactable UI + bg shift simultaneously → player/enemy collapse
     setTimeout(() => {
@@ -438,7 +440,7 @@ const DissimilarIslandGame = ({
   const playOST = (src) => {
     if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; }
     const audio = new Audio(src);
-    audio.loop = true; audio.volume = 0.8; audio.crossOrigin = 'anonymous'; audio.currentTime = 0;
+    audio.loop = true; audio.volume = getMasterVolume(); audio.crossOrigin = 'anonymous'; audio.currentTime = 0;
     try {
       if (!audioCtxRef.current) {
         audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -611,7 +613,7 @@ const DissimilarIslandGame = ({
   }, []);
 
   const handleInfinityDetected = () => {
-    new Audio('/SoundEffects/circleAppear.wav').play().catch(() => {});
+    playSfx('/SoundEffects/circleAppear.wav');
     setCircleDetected(true);
   };
 
@@ -685,7 +687,7 @@ const DissimilarIslandGame = ({
           ? { ...prev, [key]: { ...sources[key], opacity: 1, value: values[key] } }
           : prev
         );
-        new Audio('/SoundEffects/sparkleSound.wav').play().catch(() => {});
+        playSfx('/SoundEffects/sparkleSound.wav');
       }, 500 + idx * 150);
     });
 
@@ -695,7 +697,7 @@ const DissimilarIslandGame = ({
     setTimeout(() => {
       order.forEach((key, idx) => {
         setTimeout(() => {
-          new Audio('/SoundEffects/numberMove.wav').play().catch(() => {});
+          playSfx('/SoundEffects/numberMove.wav');
           const s = sources[key], d = dst[key], c = ctrl[key];
           const ref = bRefs[key];
           const duration = 900, t0 = performance.now();
@@ -712,7 +714,7 @@ const DissimilarIslandGame = ({
             } else {
               // Hide imperatively — avoids React re-render overwriting position
               if (ref.current) ref.current.style.opacity = '0';
-              new Audio('/SoundEffects/sparkleExplode.wav').play().catch(() => {});
+              playSfx('/SoundEffects/sparkleExplode.wav');
               setters[key](true);
               // Spawn sparkle inside the floating div at the label's centre
               const pos = LABEL_OVERLAY[key];
@@ -774,7 +776,7 @@ const DissimilarIslandGame = ({
   const triggerDefeat = (target, onComplete) => {
     setDefeatTarget(target);
     const audio = new Audio('/SoundEffects/beforeDefeat.wav');
-    audio.loop = true; audio.play().catch(() => {});
+    audio.loop = true; audio.volume = getSfxVolume(); audio.play().catch(() => {});
     beforeDefeatRef.current = audio;
     let elapsed = 0;
     const iv = setInterval(() => {
@@ -784,7 +786,7 @@ const DissimilarIslandGame = ({
         clearInterval(iv);
         if (beforeDefeatRef.current) { beforeDefeatRef.current.pause(); beforeDefeatRef.current.src = ''; }
         setDefeatFading(true);
-        new Audio('/SoundEffects/defeat.wav').play().catch(() => {});
+        playSfx('/SoundEffects/defeat.wav');
         const boxRef = target === 'enemy' ? enemyBoxRef.current : playerBoxRef.current;
         const el = boxRef || (target === 'enemy' ? enemyRef.current : playerRef.current);
         if (el) {
@@ -811,10 +813,10 @@ const DissimilarIslandGame = ({
     const sx = pr.right - SIZE / 2, sy = pr.top + pr.height / 2 - SIZE / 2;
     const ex = er.left + er.width / 2 - SIZE / 2, ey = er.top + er.height / 2 - SIZE / 2;
     onHitRef.current = onHit;
-    new Audio('/SoundEffects/spellCast.wav').play().catch(() => {});
+    playSfx('/SoundEffects/spellCast.wav');
     setFireball({ sx, sy, ex, ey, flying: false });
     setTimeout(() => {
-      new Audio('/SoundEffects/spellThrow.wav').play().catch(() => {});
+      playSfx('/SoundEffects/spellThrow.wav');
       setFireball({ sx, sy, ex, ey, flying: true });
     }, 800);
   };
@@ -934,7 +936,7 @@ const DissimilarIslandGame = ({
     setEnemyAttacking(true); setTimeout(() => setEnemyAttacking(false), 1000);
     setPlayerFlashing(true); setTimeout(() => setPlayerFlashing(false), 500);
     setFeedback(hint ? `Wrong! ${hint}` : 'Wrong answer!'); setFeedbackType('incorrect');
-    new Audio('/VoiceLines/castFailure.wav').play().catch(() => {});
+    playSfx('/VoiceLines/castFailure.wav');
 
     saveSpellAttempt({
       gameSessionId: gameSession.sessionId,
@@ -1540,7 +1542,7 @@ const DissimilarIslandGame = ({
                               setCircleMistakes(updated);
                               const newCount = circleFailCount + 1;
                               setCircleFailCount(newCount);
-                              new Audio('/SoundEffects/dissimilarWrong.wav').play().catch(() => {});
+                              playSfx('/SoundEffects/dissimilarWrong.wav');
                               setCircleShaking(true);
                               setTimeout(() => setCircleShaking(false), 1000);
                               if (newCount >= 3) {
@@ -1572,7 +1574,7 @@ const DissimilarIslandGame = ({
                                 setConfirmPressed(true);
                                 setSdCorrect(true);
                                 setHintUsed(false); setCurrentHint('');
-                                new Audio('/SoundEffects/circleAppear.wav').play().catch(() => {});
+                                playSfx('/SoundEffects/circleAppear.wav');
                                 const spawnBatch = () => { const spread=18,pid=Date.now(),ps=[]; for(let i=0;i<7;i++){ps.push({id:pid+i,sl:126+(Math.random()-.5)*spread,st:186+(Math.random()-.5)*spread,tx:71+(Math.random()-.5)*spread,ty:44+(Math.random()-.5)*spread,delay:Math.random()*.18,size:Math.floor(Math.random()*5+4)});ps.push({id:pid+i+20,sl:266+(Math.random()-.5)*spread,st:186+(Math.random()-.5)*spread,tx:-69+(Math.random()-.5)*spread,ty:44+(Math.random()-.5)*spread,delay:Math.random()*.18,size:Math.floor(Math.random()*5+4)});} setSdParticles(ps); };
                                 spawnBatch(); if (sdParticleIvRef.current) clearInterval(sdParticleIvRef.current); sdParticleIvRef.current = setInterval(spawnBatch, 600);
                               } else { recordFail('SD', sdInputVal, sdAns, circleMistakes); }
@@ -1582,7 +1584,7 @@ const DissimilarIslandGame = ({
                                 setN1CrossConfirmed(true);
                                 setN1CrossCorrect(true);
                                 setHintUsed(false); setCurrentHint('');
-                                new Audio('/SoundEffects/circleAppear.wav').play().catch(() => {});
+                                playSfx('/SoundEffects/circleAppear.wav');
                                 spawnCrossParticles(setN1CrossParticles, n1CrossParticleIvRef, 266, 186, -140, -86);
                               } else { recordFail('N1', n1CrossVal, n1Ans, circleMistakes); }
                             } else if (n2Active) {
@@ -1591,7 +1593,7 @@ const DissimilarIslandGame = ({
                                 setN2CrossConfirmed(true);
                                 setN2CrossCorrect(true);
                                 setHintUsed(false); setCurrentHint('');
-                                new Audio('/SoundEffects/circleAppear.wav').play().catch(() => {});
+                                playSfx('/SoundEffects/circleAppear.wav');
                                 spawnCrossParticles(setN2CrossParticles, n2CrossParticleIvRef, 126, 186, 142, -86);
                               } else { recordFail('N2', n2CrossVal, n2Ans, circleMistakes); }
                             } else if (centerActive) {
@@ -1602,7 +1604,7 @@ const DissimilarIslandGame = ({
                               if (parseInt(centerVal) === ans) {
                                 setCenterCorrect(true);
                                 setHintUsed(false); setCurrentHint('');
-                                new Audio('/SoundEffects/circleAppear.wav').play().catch(() => {});
+                                playSfx('/SoundEffects/circleAppear.wav');
                                 const spawn = () => {
                                   const pid = Date.now(), ps = [];
                                   for (let i = 0; i < 10; i++) {
@@ -1627,7 +1629,7 @@ const DissimilarIslandGame = ({
                               pendingBgShiftRef.current = correct ? 'right' : 'left';
                               setInteractableVisible(false);
                               if (correct) {
-                                new Audio('/VoiceLines/castSuccess.wav').play().catch(() => {});
+                                playSfx('/VoiceLines/castSuccess.wav');
                                 playWizardAnim(Math.random() < 0.5 ? 'attack1' : 'attack2');
                                 setTimeout(() => launchFireball(() => { actionLocked.current = false; handleAnswerSubmit({ numerator: String(fSNum), denominator: String(fSDen), skipAnim: true }); }), 500);
                               } else {
@@ -1836,7 +1838,7 @@ const DissimilarIslandGame = ({
             opacity: fireball.flying ? undefined : 1,
           }}
           onAnimationEnd={() => {
-            new Audio('/SoundEffects/spellHit.wav').play().catch(() => {});
+            playSfx('/SoundEffects/spellHit.wav');
             setFireball(null);
             setEnemyFlashing(true);
             setTimeout(() => setEnemyFlashing(false), 500);

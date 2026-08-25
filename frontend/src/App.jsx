@@ -12,6 +12,7 @@ import HybridIslandGame from './pages/HybridIslandGame';
 import StudentDashboard from './pages/StudentDashboard';
 import Leaderboard from './pages/Leaderboard';
 import SettingsPage from './pages/SettingsPage';
+import { getMasterVolume } from './utils/audio';
 
 const LOBBY_PATHS = ['/', '/login', '/character-selection', '/game-lobby', '/settings'];
 
@@ -56,7 +57,7 @@ function App() {
   useEffect(() => {
     const audio = new Audio('/TitleTheme.wav');
     audio.loop = true;
-    audio.volume = 0.5;
+    audio.volume = getMasterVolume();
     audioRef.current = audio;
     return () => { audio.pause(); audio.src = ''; };
   }, []);
@@ -77,11 +78,19 @@ function App() {
   const toggleMute = () => {
     if (!audioRef.current) return;
     if (isMuted) {
-      audioRef.current.volume = 0.5;
+      audioRef.current.volume = getMasterVolume();
     } else {
       audioRef.current.volume = 0;
     }
     setIsMuted(m => !m);
+  };
+
+  // Live-update the currently playing background music when the Master
+  // Volume slider on the Settings page moves, without waiting for a reload.
+  const handleMasterVolumeChanged = (volume01) => {
+    if (audioRef.current && !isMuted) {
+      audioRef.current.volume = volume01;
+    }
   };
 
   const handleLogin = (student) => {
@@ -275,6 +284,7 @@ function App() {
                 onBack={handleBackToLobbyFromSettings}
                 onLogout={handleReturnToLogin}
                 onNicknameChanged={handleNicknameChanged}
+                onMasterVolumeChanged={handleMasterVolumeChanged}
               />
             : <Navigate to="/login" replace />
         } />
