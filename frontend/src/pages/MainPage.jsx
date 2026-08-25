@@ -347,6 +347,11 @@ const MainPage = ({ onStart }) => {
       {showAbout && (
         <div className="about-overlay" onClick={() => setShowAbout(false)}>
           <div className="about-panel" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <span className="about-corner top-left"></span>
+            <span className="about-corner top-right"></span>
+            <span className="about-corner bottom-left"></span>
+            <span className="about-corner bottom-right"></span>
+
             <button className="about-close" onClick={() => setShowAbout(false)} aria-label="Close">✕</button>
 
             <div className="about-banner">
@@ -358,34 +363,50 @@ const MainPage = ({ onStart }) => {
 
             <p className="about-subtitle">A magical journey to master fractions!</p>
 
-            <div className="about-sections">
-              {ABOUT_SECTIONS.map(sec => (
-                <div className="about-section" key={sec.title}>
-                  <div className="about-icon-circle">{sec.icon}</div>
-                  <div>
-                    <h3 className="about-section-title">{sec.title}</h3>
-                    <p className="about-section-text">{sec.body}</p>
-                  </div>
-                </div>
-              ))}
-
-              <div className="about-section">
-                <div className="about-icon-circle">🏆</div>
-                <div>
-                  <h3 className="about-section-title">Why WizardFrac?</h3>
-                  <ul className="about-why-list">
-                    {WHY_WIZARDFRAC.map(item => (
-                      <li key={item}><span className="about-why-star">★</span>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+            <div className="about-separator">
+              <span className="about-sep-line"></span>
+              <span className="about-sep-diamond"></span>
+              <span className="about-sep-line"></span>
             </div>
 
-            <div className="about-quote">
-              <span className="about-quote-mark">&ldquo;</span>
-              Every fraction you solve brings you closer to becoming a fraction master!
-              <span className="about-quote-star">★</span>
+            <div className="about-body">
+              <div className="about-scroll">
+              <div className="about-text-col">
+                <div className="about-sections">
+                  {ABOUT_SECTIONS.map(sec => (
+                    <div className="about-section" key={sec.title}>
+                      <div className="about-icon-circle">{sec.icon}</div>
+                      <div>
+                        <h3 className="about-section-title">{sec.title}</h3>
+                        <p className="about-section-text">{sec.body}</p>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="about-section">
+                    <div className="about-icon-circle">🏆</div>
+                    <div>
+                      <h3 className="about-section-title">Why WizardFrac?</h3>
+                      <ul className="about-why-list">
+                        {WHY_WIZARDFRAC.map(item => (
+                          <li key={item}><span className="about-why-star">★</span>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="about-quote">
+                  <span className="about-quote-mark">&ldquo;</span>
+                  Every fraction you solve brings you closer to becoming a fraction master!
+                  <span className="about-quote-star">★</span>
+                </div>
+              </div>
+              </div>
+
+              <div className="about-image-col">
+                <img className="about-group-img" src="/Group.png" alt="Young wizard, dragon companion, and fellow adventurers" />
+              </div>
             </div>
           </div>
         </div>
