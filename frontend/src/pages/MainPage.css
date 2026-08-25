@@ -129,24 +129,59 @@
 .about-panel {
   position: relative;
   width: 100%;
-  max-width: 640px;
+  max-width: 980px;
   max-height: 88vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 44px 40px 32px;
-  background: linear-gradient(165deg, var(--mp-panel) 0%, #150a38 100%);
-  border: 1px solid rgba(167, 139, 250, 0.35);
+  background:
+    /* scattered stars, spread across the whole panel */
+    radial-gradient(1.6px 1.6px at 6% 12%,  rgba(255,255,255,0.9) 50%, transparent 52%),
+    radial-gradient(1.3px 1.3px at 15% 30%, rgba(255,255,255,0.7) 50%, transparent 52%),
+    radial-gradient(1.4px 1.4px at 27% 8%,  rgba(255,255,255,0.8) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 38% 22%, rgba(255,255,255,0.6) 50%, transparent 52%),
+    radial-gradient(1.6px 1.6px at 50% 10%, rgba(255,255,255,0.85) 50%, transparent 52%),
+    radial-gradient(1.3px 1.3px at 62% 18%, rgba(255,255,255,0.7) 50%, transparent 52%),
+    radial-gradient(1.5px 1.5px at 73% 9%,  rgba(255,255,255,0.9) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 85% 24%, rgba(255,255,255,0.6) 50%, transparent 52%),
+    radial-gradient(1.4px 1.4px at 93% 14%, rgba(255,255,255,0.8) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 20% 55%, rgba(255,255,255,0.55) 50%, transparent 52%),
+    radial-gradient(1.3px 1.3px at 45% 62%, rgba(255,255,255,0.5) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 68% 50%, rgba(255,255,255,0.5) 50%, transparent 52%),
+    /* soft glow behind the characters */
+    radial-gradient(ellipse 55% 55% at 80% 70%, rgba(124, 58, 237, 0.4) 0%, rgba(33, 16, 82, 0) 70%),
+    /* base night sky */
+    linear-gradient(165deg, var(--mp-panel) 0%, #150a38 100%);
+  border: 4px solid #f6b825;
   border-radius: 22px;
   box-shadow:
+    0 0 0 2px #18113c,
     0 0 60px rgba(124, 58, 237, 0.35),
     0 20px 60px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+/* Purple diamond corner accents, matching the login panel edge */
+.about-corner {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(135deg, #c4b0ff 0%, #7c3aed 100%);
+  transform: rotate(45deg);
+  z-index: 2;
+}
+.about-corner.top-left     { top: -4px; left: -4px; }
+.about-corner.top-right    { top: -4px; right: -4px; }
+.about-corner.bottom-left  { bottom: -4px; left: -4px; }
+.about-corner.bottom-right { bottom: -4px; right: -4px; }
+
 .about-close {
   position: absolute;
   top: 18px;
   right: 18px;
+  z-index: 3;
   width: 34px;
   height: 34px;
   border-radius: 50%;
@@ -201,7 +236,117 @@
   color: var(--mp-text2);
   font-style: italic;
   font-size: 1em;
-  margin: 0 0 26px;
+  margin: 0 0 14px;
+}
+
+.about-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 200px;
+  margin: 0 auto 26px;
+}
+
+.about-sep-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(246, 184, 37, 0.4);
+}
+
+.about-sep-diamond {
+  width: 6px;
+  height: 6px;
+  background: #f6b825;
+  transform: rotate(45deg);
+  flex: 0 0 auto;
+}
+
+/* Body: a fixed-height frame. The character art is a plain child here, so
+   it never scrolls. .about-scroll is the only thing that scrolls, and its
+   own scrollbar sits flush at the panel's real right edge. */
+.about-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.about-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #f6b825 rgba(167, 139, 250, 0.12);
+}
+
+.about-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.about-scroll::-webkit-scrollbar-track {
+  background: rgba(167, 139, 250, 0.12);
+  border-radius: 8px;
+}
+.about-scroll::-webkit-scrollbar-thumb {
+  background: #f6b825;
+  border-radius: 8px;
+}
+
+.about-text-col {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-right: 44%;
+}
+
+.about-image-col {
+  position: absolute;
+  top: 0px;
+  right: 40px;
+  bottom: 50px;
+  width: 50%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.about-group-img {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 24px rgba(168, 85, 247, 0.3));
+}
+
+@media (max-width: 760px) {
+  .about-panel {
+    max-width: 480px;
+    padding: 44px 24px 28px;
+  }
+  .about-body {
+    overflow-y: auto;
+  }
+  .about-scroll {
+    flex: 0 0 auto;
+    overflow-y: visible;
+  }
+  .about-text-col {
+    padding-right: 0;
+  }
+  .about-image-col {
+    position: static;
+    order: -1;
+    min-height: 160px;
+    margin-bottom: 8px;
+  }
+  .about-group-img {
+    max-width: 220px;
+    margin: 8px 0 0;
+  }
 }
 
 .about-sections {
@@ -226,13 +371,13 @@
   justify-content: center;
   font-size: 1.3em;
   background: var(--mp-panel2);
-  border: 1px solid rgba(167, 139, 250, 0.4);
-  box-shadow: 0 0 16px rgba(124, 58, 237, 0.3);
+  border: 1px solid rgba(246, 184, 37, 0.45);
+  box-shadow: 0 0 16px rgba(246, 184, 37, 0.25);
 }
 
 .about-section-title {
   margin: 2px 0 6px;
-  color: var(--mp-gold);
+  color: var(--mp-glow);
   font-size: 1.05em;
   font-weight: 800;
 }
@@ -268,7 +413,6 @@
 }
 
 .about-quote {
-  margin-top: 28px;
   padding: 16px 22px;
   background: var(--mp-panel2);
   border: 1px solid rgba(167, 139, 250, 0.35);

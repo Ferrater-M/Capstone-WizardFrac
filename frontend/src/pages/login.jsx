@@ -224,6 +224,13 @@ const LandingPage = ({ onLoginSuccess }) => {
         </div>
       </div>
 
+      {/* Wizard standee, bottom-left */}
+      <img
+        className="wizard-standee"
+        src="/PlayerAssets/WizardBoyStandee.png"
+        alt="Young wizard"
+      />
+
       {/* Right Side Panel */}
       <div className="panel-container">
         <div className="panel">
