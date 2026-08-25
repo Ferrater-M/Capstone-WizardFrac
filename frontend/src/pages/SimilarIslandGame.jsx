@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import './game.css';
 import DrawingCanvas from '../components/DrawingCanvas';
 import FractionPattern from '../components/FractionPattern';
@@ -139,7 +140,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; }
     const audio = new Audio(src);
     audio.loop = true;
-    audio.volume = 0.8;
+    audio.volume = getMasterVolume();
     audio.crossOrigin = 'anonymous';
     audio.currentTime = 0;
 
@@ -307,6 +308,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     // beforeDefeat.wav with escalating playback rate over 5 seconds
     const audio = new Audio('/SoundEffects/beforeDefeat.wav');
     audio.loop = true;
+    audio.volume = getSfxVolume();
     audio.play().catch(() => {});
     beforeDefeatRef.current = audio;
 
@@ -322,7 +324,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
 
         // Phase 2: fade + defeat sound + white particle burst
         setDefeatFading(true);
-        new Audio('/SoundEffects/defeat.wav').play().catch(() => {});
+        playSfx('/SoundEffects/defeat.wav');
 
         const boxRef = target === 'enemy' ? enemyBoxRef.current : playerBoxRef.current;
         const el     = boxRef || (target === 'enemy' ? enemyRef.current : playerRef.current);
@@ -353,7 +355,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   };
 
   const handleCircleDetected = () => {
-    new Audio('/SoundEffects/circleAppear.wav').play().catch(() => {});
+    playSfx('/SoundEffects/circleAppear.wav');
     const SIZE = 48;
     if (den1Ref.current && den2Ref.current && circleContainerRef.current) {
       const r1    = den1Ref.current.getBoundingClientRect();
@@ -378,12 +380,12 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       // Appear at 0.5 s
       setTimeout(() => {
         setBubbles({ b1: { ...s1, opacity: 1 }, b2: { ...s2, opacity: 1 } });
-        new Audio('/SoundEffects/sparkleSound.wav').play().catch(() => {});
+        playSfx('/SoundEffects/sparkleSound.wav');
       }, 500);
 
       // Arc animation begins after 2 s
       setTimeout(() => {
-        new Audio('/SoundEffects/numberMove.wav').play().catch(() => {});
+        playSfx('/SoundEffects/numberMove.wav');
         const duration = 900;
         const start = performance.now();
         const bezier = (t, p0, cp, p1) => (1-t)**2 * p0 + 2*(1-t)*t * cp + t**2 * p1;
@@ -412,11 +414,12 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             setShowDenSparkle(true);
             setTimeout(() => setShowDenSparkle(false), 800);
             const explodeSound = new Audio('/SoundEffects/sparkleExplode.wav');
+            explodeSound.volume = getSfxVolume();
             explodeSound.play().catch(() => {});
             explodeSound.addEventListener('ended', () => {
               setTimeout(() => {
                 setNVisible(true);
-                new Audio('/SoundEffects/circleAppear.wav').play().catch(() => {});
+                playSfx('/SoundEffects/circleAppear.wav');
               }, 200);
             });
           }
@@ -556,13 +559,13 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     const ey  = er.top   + er.height / 2 - SIZE / 2;
 
     onHitRef.current = onHit;
-    new Audio('/SoundEffects/spellCast.wav').play().catch(() => {});
+    playSfx('/SoundEffects/spellCast.wav');
 
     // Hold at player for 800ms, then fly via CSS animation
     setFireball({ sx, sy, ex, ey, flying: false });
 
     setTimeout(() => {
-      new Audio('/SoundEffects/spellThrow.wav').play().catch(() => {});
+      playSfx('/SoundEffects/spellThrow.wav');
       setFireball({ sx, sy, ex, ey, flying: true });
     }, 800);
   };
@@ -641,7 +644,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         : `Incorrect. The answer is ${correctAnswerStr}`
     );
     if (!isCorrect) {
-      new Audio('/VoiceLines/castFailure.wav').play().catch(() => {});
+      playSfx('/VoiceLines/castFailure.wav');
     }
 
     if (!isCorrect) {
@@ -1389,13 +1392,14 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 setShowNSparkle(true);
                                 setTimeout(() => setShowNSparkle(false), 800);
                                 const explode = new Audio('/SoundEffects/sparkleExplode.wav');
+                                explode.volume = getSfxVolume();
                                 explode.play().catch(() => {});
                                 explode.addEventListener('ended', () => {
                                   setDBubble(null);
                                   setFinalAnswerVisible(true);
                                   setFormulaVisible(false);
                                   setTimeout(() => { setCheckButtonReady(true); actionLocked.current = false; }, 600);
-                                  new Audio('/SoundEffects/circleAppear.wav').play().catch(() => {});
+                                  playSfx('/SoundEffects/circleAppear.wav');
                                 });
                               }
                             };
@@ -1465,7 +1469,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       const dir = correct ? 'right' : 'left';
                       setBgShift(dir); lastBgShiftRef.current = dir;
                       if (correct) {
-                        new Audio('/VoiceLines/castSuccess.wav').play().catch(() => {});
+                        playSfx('/VoiceLines/castSuccess.wav');
                         playWizardAnim(Math.random() < 0.5 ? 'attack1' : 'attack2');
                         setTimeout(() => launchFireball(() => {
                           handleAnswerSubmit(answer);
@@ -1998,7 +2002,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             opacity: fireball.flying ? undefined : 1,
           }}
           onAnimationEnd={() => {
-            new Audio('/SoundEffects/spellHit.wav').play().catch(() => {});
+            playSfx('/SoundEffects/spellHit.wav');
             setFireball(null);
             setEnemyFlashing(true);
             setTimeout(() => setEnemyFlashing(false), 500);

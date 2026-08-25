@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { playSfx } from '../utils/audio';
 
 // Checks if two line segments (p1→p2) and (p3→p4) intersect
 const segDir = (a, b, c) => (c.x - a.x) * (b.y - a.y) - (b.x - a.x) * (c.y - a.y);
@@ -137,7 +138,7 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle' }) => {
   useEffect(() => {
     if (!isDrawing) return;
     const interval = setInterval(() => {
-      new Audio('/SoundEffects/drawSound.wav').play().catch(() => {});
+      playSfx('/SoundEffects/drawSound.wav');
     }, 500);
     return () => clearInterval(interval);
   }, [isDrawing]);
@@ -154,7 +155,7 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle' }) => {
 
     if (std < avg * 0.5 && se < avg * 0.9) {
       clearCanvas();
-      new Audio('/SoundEffects/confirmDrawing.wav').play().catch(() => {});
+      playSfx('/SoundEffects/confirmDrawing.wav');
       setMagicCircle({ x: cx, y: cy, r: avg });
       setTimeout(() => {
         setMagicCircle(null);
@@ -189,7 +190,7 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle' }) => {
 
     if (found) {
       clearCanvas();
-      new Audio('/SoundEffects/confirmDrawing.wav').play().catch(() => {});
+      playSfx('/SoundEffects/confirmDrawing.wav');
       const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
       setMagicCircle({ x: cx, y: cy, r: w / 2 });
       setTimeout(() => {
