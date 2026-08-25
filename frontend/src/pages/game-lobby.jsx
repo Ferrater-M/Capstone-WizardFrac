@@ -1,11 +1,39 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { playSfx } from '../utils/audio';
+import { playSfx, getSfxVolume } from '../utils/audio';
 import './game-lobby.css';
 import LoadingScreen from '../components/LoadingScreen';
 import IslandInterior from './IslandInterior';
 import GameMechanicsIntro from '../components/GameMechanicsIntro';
 
 const MECHANICS_INTRO_KEY = 'wizardfrac_seen_mechanics_intro';
+
+// ── Pet dialogue lines ──────────────────────────────────────────────────────
+// To add more lines, just push to these arrays.
+const PET_GREETINGS = [
+  "You can do it! 💪",
+  "How are you today?",
+  "Ready to learn fractions?",
+  "Let's conquer today!",
+  "Good to see you! 😊",
+  "You're doing amazing!",
+  "Believe in yourself!",
+  "Today's the day! ✨",
+];
+
+const PET_CHATS = [
+  "Hi there! 👋",
+  "What's up?",
+  "Nice weather we're having!",
+  "You've got this!",
+  "Let's go! 🚀",
+  "Fractions are fun! 🎉",
+  "Keep it up!",
+  "You're a star! ⭐",
+  "Looking good, wizard!",
+];
+// ────────────────────────────────────────────────────────────────────────────
+
+const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onOpenLeaderboard, onOpenSettings, onEnterIslandInterior, onLeaveIslandInterior }) => {
   const [gameProgress, setGameProgress] = useState(null);
@@ -17,6 +45,59 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const [error, setError] = useState('');
   const [character, setCharacter] = useState(selectedCharacter);
   const actionLocked = useRef(false);
+
+  // ── Pet state ──────────────────────────────────────────────────────────────
+  // phase: 'hidden' | 'rising' | 'up' | 'talking' | 'squish' | 'descending'
+  const [petPhase, setPetPhaseState] = useState('hidden');
+  const [petDialogue, setPetDialogue] = useState(null);
+  const [petTwitching, setPetTwitching] = useState(false); // ears twitch briefly on talk
+  const [petDisplayedText, setPetDisplayedText] = useState(''); // typewriter reveal
+  const petPhaseRef  = useRef('hidden');
+  const petTimerRef  = useRef(null);
+  const petHoverRef  = useRef(false);
+  const petTypingRef = useRef(null);   // interval for typewriter
+  const petSpeakRef  = useRef(null);   // pre-loaded speak audio (zero-latency replay)
+
+  const setPetPhase = (phase) => { petPhaseRef.current = phase; setPetPhaseState(phase); };
+  const clearPetTimer = () => {
+    if (petTimerRef.current) { clearTimeout(petTimerRef.current); petTimerRef.current = null; }
+  };
+
+  const petDescend = (afterDelay = 0) => {
+    clearPetTimer();
+    setPetTwitching(false); // stop twitch immediately; revert to normal bob while we wait
+    petTimerRef.current = setTimeout(() => {
+      if (!petHoverRef.current) {
+        setPetDialogue(null);
+        setPetPhase('descending');
+        petTimerRef.current = setTimeout(() => setPetPhase('hidden'), 600);
+      }
+    }, afterDelay);
+  };
+
+  const petShowDialogue = (line, afterRise = false) => {
+    const showLine = () => {
+      setPetDialogue(line);
+      setPetPhase('talking');
+      setPetTwitching(true);                  // ears twitch while speaking
+      petTimerRef.current = setTimeout(() => {
+        setPetTwitching(false);               // revert to normal head bob after 2 s
+        petTimerRef.current = setTimeout(() => {
+          setPetDialogue(null);
+          setPetPhase('up');
+          petDescend(1800);
+        }, 1800);                             // dialogue stays visible ~1.8 s more
+      }, 2000);
+    };
+    if (afterRise) {
+      setPetPhase('rising');
+      petTimerRef.current = setTimeout(showLine, 700);
+    } else {
+      showLine();
+    }
+  };
+  // ──────────────────────────────────────────────────────────────────────────
+
   const [showMechanicsIntro, setShowMechanicsIntro] = useState(
     () => !localStorage.getItem(MECHANICS_INTRO_KEY)
   );
@@ -25,6 +106,91 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     localStorage.setItem(MECHANICS_INTRO_KEY, '1');
     setShowMechanicsIntro(false);
   };
+
+  // ── Pre-load speak sound once so replay is instant (no per-letter network hit)
+  useEffect(() => {
+    const audio = new Audio('/petAssets/pet1/petSpeak.wav');
+    audio.load();
+    petSpeakRef.current = audio;
+    return () => { petSpeakRef.current = null; };
+  }, []);
+
+  // ── Typewriter effect — runs whenever petDialogue changes ─────────────────
+  useEffect(() => {
+    if (petTypingRef.current) { clearInterval(petTypingRef.current); petTypingRef.current = null; }
+    if (!petDialogue) { setPetDisplayedText(''); return; }
+    setPetDisplayedText('');
+    let i = 0;
+    petTypingRef.current = setInterval(() => {
+      i++;
+      const char = petDialogue[i - 1];
+      setPetDisplayedText(petDialogue.slice(0, i));
+      // play speak sound instantly — reset + replay the pre-loaded element
+      if (char && char.trim() !== '' && petSpeakRef.current) {
+        petSpeakRef.current.volume = getSfxVolume();
+        petSpeakRef.current.currentTime = 0;
+        petSpeakRef.current.play().catch(() => {});
+      }
+      if (i >= petDialogue.length) {
+        clearInterval(petTypingRef.current);
+        petTypingRef.current = null;
+      }
+    }, 38);
+    return () => { if (petTypingRef.current) { clearInterval(petTypingRef.current); petTypingRef.current = null; } };
+  }, [petDialogue]);
+
+  // ── Pet greeting — fires once after loading completes ─────────────────────
+  const petGreetedRef = useRef(false);
+  useEffect(() => {
+    if (loading) return;                    // wait for data to finish loading
+    if (petGreetedRef.current) return;      // only greet once per mount
+    petGreetedRef.current = true;
+    petTimerRef.current = setTimeout(() => {
+      petShowDialogue(pickRandom(PET_GREETINGS), true);
+    }, 800);
+    return () => clearPetTimer();
+  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Pet interaction handlers ───────────────────────────────────────────────
+  const handlePetEnter = () => {
+    petHoverRef.current = true;
+    clearPetTimer();
+    const s = petPhaseRef.current;
+    if (s === 'hidden' || s === 'descending') {
+      setPetPhase('rising');
+      petTimerRef.current = setTimeout(() => {
+        setPetPhase('up');
+        // if mouse already left during the rise, start the descent countdown
+        if (!petHoverRef.current) petDescend(3000);
+      }, 700);
+    }
+    // already rising/up/talking/squish — cancelling any pending descent is enough
+  };
+
+  const handlePetLeave = () => {
+    petHoverRef.current = false;
+    const s = petPhaseRef.current;
+    if (s === 'up' || s === 'talking' || s === 'squish') {
+      petDescend(3000);
+    }
+    // if still rising: the timer above will fire petDescend after rise completes
+  };
+
+  const handlePetClick = (e) => {
+    e.stopPropagation();
+    const s = petPhaseRef.current;
+    if (s === 'hidden' || s === 'rising' || s === 'descending') return;
+    playSfx('/petAssets/pet1/squeak.mp3');
+    clearPetTimer();
+    setPetTwitching(false);
+    setPetDialogue(null);
+    setPetPhase('squish');
+    petTimerRef.current = setTimeout(() => {
+      petShowDialogue(pickRandom(PET_CHATS));
+    }, 350);
+  };
+  // ──────────────────────────────────────────────────────────────────────────
+
   const canvasRef = useRef(null);
   const galaxyFrameRef = useRef(null);
   const titleBoxRef = useRef(null);
@@ -558,9 +724,37 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
         </div>
       </div>
 
-      <div className="lobby-pet-fixed">
-        <div className="pet-frame">
-          <span className="pet-emoji">🦊</span>
+      <div
+        className="lobby-pet-fixed"
+        onMouseEnter={handlePetEnter}
+        onMouseLeave={handlePetLeave}
+        onClick={handlePetClick}
+        style={{ cursor: (petPhase === 'up' || petPhase === 'talking') ? 'pointer' : 'default' }}
+      >
+        {petDialogue && (
+          <div className="pet-dialogue" key={petDialogue}>
+            {/* invisible sizer locks the bubble to the full-text width so it
+                doesn't resize as characters type in */}
+            <span className="pet-dialogue-sizer">{petDialogue}</span>
+            <span className="pet-dialogue-text">{petDisplayedText}</span>
+          </div>
+        )}
+        <div className={`pet-sprite pet-sprite--${petPhase}`}>
+          <img
+            className={`pet-ear pet-ear-left${petTwitching ? ' pet-talking' : ''}`}
+            src="/petAssets/pet1/petEar.png" alt=""
+          />
+          <img
+            className={`pet-ear pet-ear-right${petTwitching ? ' pet-talking' : ''}`}
+            src="/petAssets/pet1/petEar.png" alt=""
+          />
+          <div className="pet-head-wrapper">
+            <img
+              className={`pet-head${petTwitching ? ' pet-talking' : ''}`}
+              src="/petAssets/pet1/petHead.png" alt=""
+            />
+          </div>
+          <img className="pet-body" src="/petAssets/pet1/petBody.png" alt="" />
         </div>
       </div>
 
@@ -632,13 +826,13 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
                     </div>
                     <div className="island-stats">
                       <span className="island-stars">
-                        <span className="island-stars-icon">⭐</span> {stars} / {MAX_ISLAND_STARS}
+                        <span className="island-stars-icon">⭐</span> {island.maxStage} / {STAGES_PER_ISLAND}
                       </span>
                     </div>
                     <div className="island-progress-track">
                       <div
                         className="island-progress-fill"
-                        style={{ width: `${(stars / MAX_ISLAND_STARS) * 100}%`, background: island.color }}
+                        style={{ width: `${(island.maxStage / STAGES_PER_ISLAND) * 100}%`, background: island.color }}
                       />
                     </div>
                     <div className="island-ribbon">
