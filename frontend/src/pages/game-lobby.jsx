@@ -35,6 +35,30 @@ const PET_CHATS = [
 
 const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
+// Maps island name -> the section key used for it in enemyData.txt
+const ISLAND_ENEMY_KEY = { Similar: 'similarIsland', Dissimilar: 'dissimilarIsland', Hybrid: 'hybridIsland' };
+
+// Counts how many enemy blocks exist for each island section in enemyData.txt,
+// so the lobby can show each island's real max stage count instead of a guess.
+const countEnemiesPerIsland = (text) => {
+  const sections = text.split('===').filter(s => s.trim());
+  const counts = {};
+  Object.entries(ISLAND_ENEMY_KEY).forEach(([islandName, key]) => {
+    let count = 0;
+    for (const section of sections) {
+      const lines = section.trim().split('\n').map(l => l.trim()).filter(l => l);
+      if (lines[0] !== key) continue;
+      const blocks = section.split('---').slice(1);
+      for (const rawBlock of blocks) {
+        const content = rawBlock.split('+++')[0].trim();
+        if (content) count++;
+      }
+    }
+    counts[islandName] = count;
+  });
+  return counts;
+};
+
 const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onOpenLeaderboard, onOpenSettings, onEnterIslandInterior, onLeaveIslandInterior }) => {
   const [gameProgress, setGameProgress] = useState(null);
   const [stageStars, setStageStars] = useState({});
@@ -44,7 +68,16 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [character, setCharacter] = useState(selectedCharacter);
+  const [islandStageCounts, setIslandStageCounts] = useState({});
   const actionLocked = useRef(false);
+
+  // ── Island stage counts — derived from how many enemies exist per island in enemyData.txt ──
+  useEffect(() => {
+    fetch(`/enemyData.txt?t=${Date.now()}`)
+      .then(r => r.text())
+      .then(text => setIslandStageCounts(countEnemiesPerIsland(text)))
+      .catch(() => {});
+  }, []);
 
   // ── Pet state ──────────────────────────────────────────────────────────────
   // phase: 'hidden' | 'rising' | 'up' | 'talking' | 'squish' | 'descending'
@@ -585,7 +618,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
 
       if (response.ok) {
         const gameSession = await response.json();
-        onGameStart({ ...gameSession, level: level, isBoss: level === 6 });
+        onGameStart({ ...gameSession, level: level, isBoss: level === getIslandStageCount(selectedIsland.name) });
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Failed to start game');
@@ -596,13 +629,18 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     }
   };
 
-  const STAGES_PER_ISLAND = 6;
+  // Each island's stage count comes from how many enemies are defined for it
+  // in enemyData.txt (see islandStageCounts above). If an island has no
+  // entries there, there's genuinely no known stage count — return null
+  // instead of guessing a number, so the UI can show "null" for it.
   const STARS_PER_STAGE = 3;
-  const MAX_ISLAND_STARS = STAGES_PER_ISLAND * STARS_PER_STAGE;
+  const getIslandStageCount = (islandName) => islandStageCounts[islandName] || null;
 
   const islandStarTotal = (islandName) => {
+    const stageCount = getIslandStageCount(islandName);
+    if (!stageCount) return 0;
     let total = 0;
-    for (let stage = 1; stage <= STAGES_PER_ISLAND; stage++) {
+    for (let stage = 1; stage <= stageCount; stage++) {
       total += stageStars[`${islandName}_${stage}`] || 0;
     }
     return total;
@@ -616,6 +654,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       mechanic: 'Same Container',
       unlocked: true,
       maxStage: gameProgress?.similarIslandMaxStage || 0,
+      totalStages: getIslandStageCount('Similar'),
       color: '#22C55E',
       icon: '🌿',
       image: '/SimilarIsland.png',
@@ -627,6 +666,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       mechanic: 'Butterfly Method',
       unlocked: true,
       maxStage: gameProgress?.dissimilarIslandMaxStage || 0,
+      totalStages: getIslandStageCount('Dissimilar'),
       color: '#F59E0B',
       icon: '🦋',
       image: '/DisimilarIsland.png',
@@ -638,6 +678,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       mechanic: 'Mixed Conversion',
       unlocked: true,
       maxStage: gameProgress?.hybridIslandMaxStage || 0,
+      totalStages: getIslandStageCount('Hybrid'),
       color: '#7C3AED',
       icon: '🌀',
       image: '/HybridIsland.png',
@@ -654,7 +695,8 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const profilePictureUrl = studentId ? `http://localhost:8082/api/students/${studentId}/profile-picture` : null;
 
   const totalStarsAll = islands.reduce((sum, isl) => sum + islandStarTotal(isl.name), 0);
-  const overallPercent = Math.round((totalStarsAll / (MAX_ISLAND_STARS * islands.length)) * 100) || 0;
+  const totalStarsPossible = islands.reduce((sum, isl) => sum + (isl.totalStages || 0) * STARS_PER_STAGE, 0);
+  const overallPercent = Math.round((totalStarsAll / totalStarsPossible) * 100) || 0;
 
   const level = gameProgress?.level || 1;
   const xpIntoLevel = gameProgress?.xpIntoLevel || 0;
@@ -826,13 +868,13 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
                     </div>
                     <div className="island-stats">
                       <span className="island-stars">
-                        <span className="island-stars-icon">⭐</span> {island.maxStage} / {STAGES_PER_ISLAND}
+                        <span className="island-stars-icon">⭐</span> {island.maxStage} / {island.totalStages ?? 'null'}
                       </span>
                     </div>
                     <div className="island-progress-track">
                       <div
                         className="island-progress-fill"
-                        style={{ width: `${(island.maxStage / STAGES_PER_ISLAND) * 100}%`, background: island.color }}
+                        style={{ width: `${island.totalStages ? (island.maxStage / island.totalStages) * 100 : 0}%`, background: island.color }}
                       />
                     </div>
                     <div className="island-ribbon">
