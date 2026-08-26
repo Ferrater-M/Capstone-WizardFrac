@@ -19,6 +19,59 @@
   pointer-events: none;
 }
 
+/* Readability scrim — keeps title/text popping regardless of sky brightness */
+.main-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 60% at 50% 45%, rgba(6, 4, 20, 0) 0%, rgba(6, 4, 20, 0.35) 100%);
+  transition: background 0.6s ease;
+}
+.main-page.time-morning .main-scrim,
+.main-page.time-afternoon .main-scrim {
+  background: radial-gradient(ellipse 70% 60% at 50% 45%, rgba(8, 6, 24, 0.08) 0%, rgba(6, 4, 18, 0.58) 100%);
+}
+
+/* Time-of-day greeting badge */
+.main-greeting {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  font-size: 0.95em;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #e8ddff;
+  background: rgba(109, 40, 217, 0.28);
+  border: 1px solid rgba(180, 140, 255, 0.40);
+  border-radius: 50px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 0 16px rgba(130, 90, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  white-space: nowrap;
+}
+
+.main-greeting-icon {
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+@media (max-width: 700px) {
+  .main-greeting {
+    top: auto;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.8em;
+    padding: 8px 16px;
+  }
+}
+
 /* Lightning screen flash overlay */
 .lightning-overlay {
   position: absolute;
@@ -375,6 +428,24 @@
   box-shadow: 0 0 16px rgba(246, 184, 37, 0.25);
 }
 
+/* Image badges (Hat / Book / Trophy) already carry their own ring art,
+   so drop the emoji circle's fill/border and just glow behind them */
+.about-icon-circle--img {
+  width: 56px;
+  height: 56px;
+  margin-top: -6px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.about-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px rgba(246, 184, 37, 0.35));
+}
+
 .about-section-title {
   margin: 2px 0 6px;
   color: var(--mp-glow);
@@ -491,7 +562,9 @@
 }
 
 .main-feature-icon {
-  font-size: clamp(1.6em, 3vw, 2.1em);
+  width: clamp(72px, 9vw, 108px);
+  height: clamp(72px, 9vw, 108px);
+  object-fit: contain;
   filter: drop-shadow(0 0 10px rgba(246, 184, 37, 0.45));
 }
 
@@ -529,6 +602,14 @@
 
 .main-title {
   margin: 0;
+  /* letter-spacing adds a trailing gutter after the last letter, which
+     nudges the visible text left of true center — pull it back */
+  margin-right: -8px;
+  /* the global :root font shorthand fixes line-height at ~26px (145% of
+     18px) and that literal px value inherits straight into this much
+     bigger heading, squashing its box until it overlaps SOLVE IT! below —
+     reset it so the line box scales with this element's own font-size */
+  line-height: 1.05;
   font-size: clamp(3.5em, 9vw, 8em);
   font-weight: 900;
   letter-spacing: 8px;
@@ -543,6 +624,8 @@
 
 .main-solve {
   margin: 0;
+  margin-right: -10px;
+  line-height: 1.1;
   font-size: clamp(1.8em, 4vw, 3.5em);
   font-weight: 800;
   letter-spacing: 10px;
@@ -555,6 +638,7 @@
 
 .main-tagline {
   margin: 6px 0 0;
+  margin-right: -2px;
   font-size: clamp(0.95em, 1.8vw, 1.4em);
   color: rgba(200, 190, 255, 0.70);
   font-style: italic;

@@ -806,9 +806,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
             <button className="sidebar-item active" onClick={onOpenDashboard}><span>🏠</span>Dashboard</button>
             <button className="sidebar-item" onClick={onOpenDashboard}><span>📊</span>Progress</button>
             <button className="sidebar-item" onClick={onOpenLeaderboard}><span>👑</span>Leaderboard</button>
-            <button className="sidebar-item soon" disabled><span>📖</span>Spellbook<span className="soon-tag">Soon</span></button>
             <button className="sidebar-item soon" disabled><span>🏆</span>Achievements<span className="soon-tag">Soon</span></button>
-            <button className="sidebar-item soon" disabled><span>🎒</span>Collection<span className="soon-tag">Soon</span></button>
             <button className="sidebar-item" onClick={onOpenSettings}><span>⚙️</span>Settings</button>
           </nav>
         </div>

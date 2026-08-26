@@ -2,19 +2,19 @@ import React, { useEffect, useRef, useState } from 'react';
 import './MainPage.css';
 
 const FEATURES = [
-  { icon: '🛡️', label: 'PLAY', desc: 'Fun & Engaging' },
-  { icon: '📖', label: 'LEARN', desc: 'Step by Step' },
-  { icon: '🏆', label: 'MASTER', desc: 'Become a Champion' },
+  { icon: '/PlayerAssets/Shield.png',  label: 'PLAY',   desc: 'Fun & Engaging' },
+  { icon: '/PlayerAssets/books.png',   label: 'LEARN',  desc: 'Step by Step' },
+  { icon: '/PlayerAssets/trophyy.png', label: 'MASTER', desc: 'Become a Champion' },
 ];
 
 const ABOUT_SECTIONS = [
   {
-    icon: '🧙',
+    icon: '/PlayerAssets/hat.png',
     title: 'What is WizardFrac?',
     body: 'WizardFrac is an exciting educational adventure that helps Grade 4 students learn and master fractions through fun games, magical challenges, and rewarding quests!',
   },
   {
-    icon: '📖',
+    icon: '/PlayerAssets/Book.png',
     title: 'Our Mission',
     body: 'We make learning fractions engaging and enjoyable by combining education with adventure, helping students build confidence and achieve mastery step by step.',
   },
@@ -92,11 +92,32 @@ function drawBolt(ctx, pts, width, alpha) {
   ctx.restore();
 }
 
+function getTimeOfDay(date = new Date()) {
+  const h = date.getHours();
+  if (h >= 5 && h < 12)  return 'morning';
+  if (h >= 12 && h < 18) return 'afternoon';
+  return 'evening';
+}
+
+const GREETINGS = {
+  morning:   { text: 'Good Morning, Wizard!',   icon: '⛅' },
+  afternoon: { text: 'Good Afternoon, Wizard!', icon: '☀️' },
+  evening:   { text: 'Good Evening, Wizard!',   icon: '🌙' },
+};
+
 const MainPage = ({ onStart }) => {
   const canvasRef = useRef(null);
   const frameRef  = useRef(null);
   const flashRef  = useRef(null);
   const [showAbout, setShowAbout] = useState(false);
+  const [timeOfDay, setTimeOfDay] = useState(getTimeOfDay());
+
+  // Re-check the clock every minute so morning/afternoon/evening — and the
+  // greeting — flip on their own through the day without a page reload.
+  useEffect(() => {
+    const id = setInterval(() => setTimeOfDay(getTimeOfDay()), 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -110,25 +131,46 @@ const MainPage = ({ onStart }) => {
     resize();
     window.addEventListener('resize', resize);
 
-    // Dim stars — storm clouds mostly cover them
-    const stars = Array.from({ length: 90 }, () => ({
-      x: Math.random(), y: Math.random(),
-      r: Math.random() * 1.1 + 0.2,
-      alpha: Math.random() * 0.25 + 0.05,
-      twinkleSpeed: Math.random() * 0.005 + 0.002,
-      twinkleDir: Math.random() < 0.5 ? 1 : -1,
-      vx: (Math.random() - 0.5) * 0.00005,
-      vy: (Math.random() - 0.5) * 0.00005,
-      color: ['#aac4ff', '#c4b0ff', '#ffffff'][Math.floor(Math.random() * 3)],
-    }));
+    const isEvening   = timeOfDay === 'evening';
+    const isMorning   = timeOfDay === 'morning';
+    const isAfternoon = timeOfDay === 'afternoon';
 
-    // Rolling storm clouds
-    const clouds = [
-      { x: -0.05, y: 0.09, scale: 330, speed: 0.000022, alpha: 0.94 },
-      { x:  0.32, y: 0.04, scale: 410, speed: 0.000016, alpha: 0.96 },
-      { x:  0.68, y: 0.12, scale: 370, speed: 0.000028, alpha: 0.90 },
-      { x:  1.05, y: 0.06, scale: 350, speed: 0.000020, alpha: 0.92 },
-    ];
+    // Stars only belong to the night sky
+    const stars = isEvening
+      ? Array.from({ length: 90 }, () => ({
+          x: Math.random(), y: Math.random(),
+          r: Math.random() * 1.1 + 0.2,
+          alpha: Math.random() * 0.25 + 0.05,
+          twinkleSpeed: Math.random() * 0.005 + 0.002,
+          twinkleDir: Math.random() < 0.5 ? 1 : -1,
+          vx: (Math.random() - 0.5) * 0.00005,
+          vy: (Math.random() - 0.5) * 0.00005,
+          color: ['#aac4ff', '#c4b0ff', '#ffffff'][Math.floor(Math.random() * 3)],
+        }))
+      : [];
+
+    // Cloud tint: dark storm clouds at night, dull grey for a gloomy
+    // morning, soft bright white for a sunny afternoon
+    const cloudColors = isEvening
+      ? ['rgba(14, 6, 35, 0.97)',     'rgba(10, 4, 26, 0.86)',    'rgba(4, 2, 12, 0)']
+      : isMorning
+      ? ['rgba(146, 156, 173, 0.88)', 'rgba(126, 137, 156, 0.66)','rgba(120, 130, 150, 0)']
+      : ['rgba(255, 255, 255, 0.92)', 'rgba(255, 255, 255, 0.62)','rgba(255, 255, 255, 0)'];
+
+    // A full gloomy layer covers the sky in the morning and the night
+    // storm; the sunny afternoon only gets a couple of light drifters
+    const cloudDefs = isAfternoon
+      ? [
+          { x: -0.05, y: 0.10, scale: 300, speed: 0.000018, alpha: 0.50 },
+          { x:  0.55, y: 0.05, scale: 260, speed: 0.000014, alpha: 0.40 },
+        ]
+      : [
+          { x: -0.05, y: 0.09, scale: 330, speed: 0.000022, alpha: isMorning ? 0.80 : 0.94 },
+          { x:  0.32, y: 0.04, scale: 410, speed: 0.000016, alpha: isMorning ? 0.82 : 0.96 },
+          { x:  0.68, y: 0.12, scale: 370, speed: 0.000028, alpha: isMorning ? 0.76 : 0.90 },
+          { x:  1.05, y: 0.06, scale: 350, speed: 0.000020, alpha: isMorning ? 0.78 : 0.92 },
+        ];
+    const clouds = cloudDefs.map(c => ({ ...c }));
 
     function drawCloud(cx, cy, scale) {
       const puffs = [
@@ -144,9 +186,9 @@ const MainPage = ({ onStart }) => {
       puffs.forEach(([dx, dy, sr]) => {
         const px = cx + dx, py = cy + dy, r = scale * sr * 0.62;
         const g = ctx.createRadialGradient(px, py - r * 0.15, 0, px, py, r);
-        g.addColorStop(0,   'rgba(14, 6, 35, 0.97)');
-        g.addColorStop(0.6, 'rgba(10, 4, 26, 0.86)');
-        g.addColorStop(1,   'rgba(4, 2, 12, 0)');
+        g.addColorStop(0,   cloudColors[0]);
+        g.addColorStop(0.6, cloudColors[1]);
+        g.addColorStop(1,   cloudColors[2]);
         ctx.fillStyle = g;
         ctx.beginPath();
         ctx.arc(px, py, r, 0, Math.PI * 2);
@@ -154,35 +196,83 @@ const MainPage = ({ onStart }) => {
       });
     }
 
-    // Rain drops
-    const rain = Array.from({ length: 220 }, () => ({
-      x: Math.random(), y: Math.random(),
-      speed: 0.011 + Math.random() * 0.009,
-      len:   0.018 + Math.random() * 0.020,
-      alpha: 0.10 + Math.random() * 0.22,
-    }));
+    // Rain and lightning are night-storm-only — mornings and afternoons stay dry
+    const rain = isEvening
+      ? Array.from({ length: 220 }, () => ({
+          x: Math.random(), y: Math.random(),
+          speed: 0.011 + Math.random() * 0.009,
+          len:   0.018 + Math.random() * 0.020,
+          alpha: 0.10 + Math.random() * 0.22,
+        }))
+      : [];
 
-    // Lightning state
     const lt = {
       queue: [],
       nextAt: Date.now() + 1800 + Math.random() * 3500,
       glowX: 0, glowY: 0, glowA: 0,
     };
 
+    // A soft low sun for a gloomy morning, a bright high sun in the
+    // afternoon; there is none once evening falls
+    const sun = isMorning
+      ? { x: 0.22, y: 0.24, r: 58 }
+      : { x: 0.74, y: 0.16, r: 88 };
+
+    function drawSun(w, h) {
+      const sx = sun.x * w, sy = sun.y * h;
+      const glowR = sun.r * (isMorning ? 3.0 : 4.4);
+      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, glowR);
+      if (isMorning) {
+        g.addColorStop(0,    'rgba(255, 244, 214, 0.85)');
+        g.addColorStop(0.35, 'rgba(255, 224, 168, 0.40)');
+        g.addColorStop(1,    'rgba(255, 224, 168, 0)');
+      } else {
+        g.addColorStop(0,    'rgba(255, 252, 224, 1)');
+        g.addColorStop(0.35, 'rgba(255, 214, 120, 0.55)');
+        g.addColorStop(1,    'rgba(255, 214, 120, 0)');
+      }
+      ctx.save();
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(sx, sy, glowR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.fillStyle = isMorning ? 'rgba(255, 244, 214, 0.8)' : '#fff8dd';
+      ctx.beginPath();
+      ctx.arc(sx, sy, sun.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
     const draw = () => {
       const w = canvas.width, h = canvas.height;
       ctx.clearRect(0, 0, w, h);
 
-      // Dark stormy background
+      // Sky: dark storm at night, pale grey-blue gloom in the morning,
+      // bright blue in the afternoon
       const bg = ctx.createLinearGradient(0, 0, 0, h);
-      bg.addColorStop(0,   '#06041a');
-      bg.addColorStop(0.45,'#0b0720');
-      bg.addColorStop(1,   '#10082a');
+      if (isEvening) {
+        bg.addColorStop(0,    '#06041a');
+        bg.addColorStop(0.45, '#0b0720');
+        bg.addColorStop(1,    '#10082a');
+      } else if (isMorning) {
+        bg.addColorStop(0,    '#8fa5bf');
+        bg.addColorStop(0.5,  '#c2d1de');
+        bg.addColorStop(1,    '#e9edf1');
+      } else {
+        bg.addColorStop(0,    '#3f97e0');
+        bg.addColorStop(0.55, '#7cc3ef');
+        bg.addColorStop(1,    '#cdeaf9');
+      }
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
 
+      if (!isEvening) drawSun(w, h);
+
       // Storm glow from last lightning origin
-      if (lt.glowA > 0) {
+      if (isEvening && lt.glowA > 0) {
         const gg = ctx.createRadialGradient(lt.glowX, lt.glowY, 0, lt.glowX, lt.glowY, w * 0.55);
         gg.addColorStop(0, `rgba(100, 150, 255, ${lt.glowA * 0.22})`);
         gg.addColorStop(1, 'rgba(50, 80, 200, 0)');
@@ -191,7 +281,7 @@ const MainPage = ({ onStart }) => {
         lt.glowA = Math.max(0, lt.glowA - 0.007);
       }
 
-      // Stars (only below cloud layer)
+      // Stars (evening only, below cloud layer)
       stars.forEach(p => {
         p.alpha += p.twinkleSpeed * p.twinkleDir;
         if (p.alpha > 0.35)  { p.alpha = 0.35; p.twinkleDir = -1; }
@@ -208,26 +298,28 @@ const MainPage = ({ onStart }) => {
         ctx.restore();
       });
 
-      // Rain (diagonal, top-right → bottom-left slant)
-      const SLANT = 0.30;
-      rain.forEach(r => {
-        r.y += r.speed;
-        r.x += r.speed * SLANT;
-        if (r.y > 1.05) { r.y = -r.len - 0.02; r.x = Math.random(); }
-        if (r.x > 1.08) { r.x = Math.random() - 0.1; }
-        ctx.save();
-        ctx.globalAlpha = r.alpha;
-        ctx.strokeStyle = '#8aaedd';
-        ctx.lineWidth = 0.9;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(r.x * w, r.y * h);
-        ctx.lineTo((r.x + r.len * SLANT) * w, (r.y + r.len) * h);
-        ctx.stroke();
-        ctx.restore();
-      });
+      // Rain (diagonal, top-right → bottom-left slant) — evening storm only
+      if (isEvening) {
+        const SLANT = 0.30;
+        rain.forEach(r => {
+          r.y += r.speed;
+          r.x += r.speed * SLANT;
+          if (r.y > 1.05) { r.y = -r.len - 0.02; r.x = Math.random(); }
+          if (r.x > 1.08) { r.x = Math.random() - 0.1; }
+          ctx.save();
+          ctx.globalAlpha = r.alpha;
+          ctx.strokeStyle = '#8aaedd';
+          ctx.lineWidth = 0.9;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(r.x * w, r.y * h);
+          ctx.lineTo((r.x + r.len * SLANT) * w, (r.y + r.len) * h);
+          ctx.stroke();
+          ctx.restore();
+        });
+      }
 
-      // Storm clouds
+      // Clouds
       clouds.forEach(c => {
         c.x += c.speed;
         if (c.x > 1.35) c.x = -0.55;
@@ -237,49 +329,51 @@ const MainPage = ({ onStart }) => {
         ctx.restore();
       });
 
-      // Spawn lightning
-      const now = Date.now();
-      if (now >= lt.nextAt) {
-        const sx = (0.15 + Math.random() * 0.70) * w;
-        const sy = (0.06 + Math.random() * 0.12) * h;
-        const ex = sx + (Math.random() - 0.5) * w * 0.28;
-        const ey = (0.42 + Math.random() * 0.38) * h;
+      // Lightning — evening storm only
+      if (isEvening) {
+        const now = Date.now();
+        if (now >= lt.nextAt) {
+          const sx = (0.15 + Math.random() * 0.70) * w;
+          const sy = (0.06 + Math.random() * 0.12) * h;
+          const ex = sx + (Math.random() - 0.5) * w * 0.28;
+          const ey = (0.42 + Math.random() * 0.38) * h;
 
-        const main   = makeBoltPoints(sx, sy, ex, ey, 75, 14);
-        const mid    = main[Math.floor(main.length / 2)];
-        const branch = Math.random() < 0.70
-          ? makeBoltPoints(mid.x, mid.y, mid.x + (Math.random() - 0.5) * w * 0.22, mid.y + Math.random() * h * 0.22, 45, 8)
-          : null;
+          const main   = makeBoltPoints(sx, sy, ex, ey, 75, 14);
+          const mid    = main[Math.floor(main.length / 2)];
+          const branch = Math.random() < 0.70
+            ? makeBoltPoints(mid.x, mid.y, mid.x + (Math.random() - 0.5) * w * 0.22, mid.y + Math.random() * h * 0.22, 45, 8)
+            : null;
 
-        const dur = 110 + Math.random() * 100;
-        lt.queue.push({ main, branch, startTime: now, endTime: now + dur });
+          const dur = 110 + Math.random() * 100;
+          lt.queue.push({ main, branch, startTime: now, endTime: now + dur });
 
-        // Second flicker
-        if (Math.random() < 0.55) {
-          const d2 = dur + 90 + Math.random() * 60;
-          lt.queue.push({ main, branch, startTime: now + d2, endTime: now + d2 + dur * 0.65 });
+          // Second flicker
+          if (Math.random() < 0.55) {
+            const d2 = dur + 90 + Math.random() * 60;
+            lt.queue.push({ main, branch, startTime: now + d2, endTime: now + d2 + dur * 0.65 });
+          }
+
+          // Screen flash
+          if (flashRef.current) {
+            flashRef.current.classList.add('active');
+            setTimeout(() => flashRef.current?.classList.remove('active'), 90);
+          }
+
+          lt.glowX = sx;
+          lt.glowY = sy;
+          lt.glowA = 1;
+          lt.nextAt = now + 3800 + Math.random() * 7500;
         }
 
-        // Screen flash
-        if (flashRef.current) {
-          flashRef.current.classList.add('active');
-          setTimeout(() => flashRef.current?.classList.remove('active'), 90);
-        }
-
-        lt.glowX = sx;
-        lt.glowY = sy;
-        lt.glowA = 1;
-        lt.nextAt = now + 3800 + Math.random() * 7500;
+        // Draw active bolts
+        lt.queue = lt.queue.filter(b => now < b.endTime);
+        lt.queue.forEach(b => {
+          if (now < b.startTime) return;
+          const alpha = Math.max(0, 1 - (now - b.startTime) / (b.endTime - b.startTime));
+          drawBolt(ctx, b.main, 2.5, alpha);
+          if (b.branch) drawBolt(ctx, b.branch, 1.4, alpha * 0.65);
+        });
       }
-
-      // Draw active bolts
-      lt.queue = lt.queue.filter(b => now < b.endTime);
-      lt.queue.forEach(b => {
-        if (now < b.startTime) return;
-        const alpha = Math.max(0, 1 - (now - b.startTime) / (b.endTime - b.startTime));
-        drawBolt(ctx, b.main, 2.5, alpha);
-        if (b.branch) drawBolt(ctx, b.branch, 1.4, alpha * 0.65);
-      });
 
       frameRef.current = requestAnimationFrame(draw);
     };
@@ -289,16 +383,22 @@ const MainPage = ({ onStart }) => {
       cancelAnimationFrame(frameRef.current);
       window.removeEventListener('resize', resize);
     };
-  }, []);
+  }, [timeOfDay]);
 
   return (
-    <div className="main-page">
+    <div className={`main-page time-${timeOfDay}`}>
       <canvas ref={canvasRef} className="main-canvas" />
+      <div className="main-scrim" aria-hidden="true" />
       <div ref={flashRef} className="lightning-overlay" />
 
       <button className="main-about-btn" onClick={() => setShowAbout(true)}>
         <span className="main-about-icon">ⓘ</span> About
       </button>
+
+      <div className="main-greeting">
+        <span className="main-greeting-icon" aria-hidden="true">{GREETINGS[timeOfDay].icon}</span>
+        {GREETINGS[timeOfDay].text}
+      </div>
 
       <div className="frac-bubbles-layer" aria-hidden="true">
         {FRAC_BUBBLES.map(b => (
@@ -336,7 +436,7 @@ const MainPage = ({ onStart }) => {
         <div className="main-features">
           {FEATURES.map(f => (
             <div className="main-feature" key={f.label}>
-              <span className="main-feature-icon">{f.icon}</span>
+              <img className="main-feature-icon" src={f.icon} alt="" />
               <span className="main-feature-label">{f.label}</span>
               <span className="main-feature-desc">{f.desc}</span>
             </div>
@@ -375,7 +475,9 @@ const MainPage = ({ onStart }) => {
                 <div className="about-sections">
                   {ABOUT_SECTIONS.map(sec => (
                     <div className="about-section" key={sec.title}>
-                      <div className="about-icon-circle">{sec.icon}</div>
+                      <div className="about-icon-circle about-icon-circle--img">
+                        <img className="about-icon-img" src={sec.icon} alt="" />
+                      </div>
                       <div>
                         <h3 className="about-section-title">{sec.title}</h3>
                         <p className="about-section-text">{sec.body}</p>
@@ -384,7 +486,9 @@ const MainPage = ({ onStart }) => {
                   ))}
 
                   <div className="about-section">
-                    <div className="about-icon-circle">🏆</div>
+                    <div className="about-icon-circle about-icon-circle--img">
+                      <img className="about-icon-img" src="/PlayerAssets/trophy.png" alt="" />
+                    </div>
                     <div>
                       <h3 className="about-section-title">Why WizardFrac?</h3>
                       <ul className="about-why-list">
