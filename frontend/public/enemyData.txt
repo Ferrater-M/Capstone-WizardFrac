@@ -78,3 +78,12 @@ name:DIS_ENEMY_BIG2
 level:5
 hp:99
 +++
+
+===
+hybridIsland
+---
+type:enemy
+name:enemy1
+level:1
+hp:5
++++
