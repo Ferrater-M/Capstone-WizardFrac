@@ -125,6 +125,7 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle' }) => {
     if (isDrawing) {
       setIsDrawing(false);
       if (mode === 'infinity') checkForInfinity();
+      else if (mode === 'triangle') checkForTriangle();
       else checkForCircle();
     }
   };
@@ -164,6 +165,43 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle' }) => {
       return;
     }
     clearCanvas();
+  };
+
+  // ── triangle (◁) detection — lenient: closed loop, apex left-centre, flat right edge ──
+  const checkForTriangle = () => {
+    if (points.length < 15) { clearCanvas(); return; }
+
+    const xs = points.map(p => p.x), ys = points.map(p => p.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const w = maxX - minX, h = maxY - minY;
+
+    if (w < 40 || h < 40) { clearCanvas(); return; }
+
+    // Closed-ish loop — start and end should land near each other
+    const se = Math.hypot(points[0].x - points[points.length - 1].x, points[0].y - points[points.length - 1].y);
+    if (se > Math.max(w, h) * 0.6) { clearCanvas(); return; }
+
+    // Apex — the leftmost point — should sit roughly mid-height
+    const apex = points.reduce((a, p) => (p.x < a.x ? p : a), points[0]);
+    const midY = (minY + maxY) / 2;
+    if (Math.abs(apex.y - midY) > h * 0.4) { clearCanvas(); return; }
+
+    // Flat right edge — points near maxX should span most of the height
+    const nearRight = points.filter(p => p.x > maxX - w * 0.3);
+    if (nearRight.length < 4) { clearCanvas(); return; }
+    const rightMinY = Math.min(...nearRight.map(p => p.y));
+    const rightMaxY = Math.max(...nearRight.map(p => p.y));
+    if (rightMaxY - rightMinY < h * 0.55) { clearCanvas(); return; }
+
+    clearCanvas();
+    playSfx('/SoundEffects/confirmDrawing.wav');
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    setMagicCircle({ x: cx, y: cy, r: Math.max(w, h) / 2 });
+    setTimeout(() => {
+      setMagicCircle(null);
+      onCircleDetected({ centerX: cx, centerY: cy });
+    }, 900);
   };
 
   // ── infinity (∞) detection — lenient: just needs a self-crossing + wider-than-tall ──
@@ -242,7 +280,11 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle' }) => {
 
         {magicCircle && (
           <img
-            src={mode === 'infinity' ? '/InteractableUI/DissimilarMagicCircle.png' : '/InteractableUI/SimilarMagicCircle.png'}
+            src={
+              mode === 'infinity' ? '/InteractableUI/DissimilarMagicCircle.png' :
+              mode === 'triangle' ? '/InteractableUI/MixedMagicCircle.png' :
+              '/InteractableUI/SimilarMagicCircle.png'
+            }
             alt="magic circle"
             style={{
               position: 'absolute',

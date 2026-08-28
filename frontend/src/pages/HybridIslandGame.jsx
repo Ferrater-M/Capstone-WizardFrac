@@ -1,10 +1,279 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { playSfx } from '../utils/audio';
+import DrawingCanvas from '../components/DrawingCanvas';
 import ButterflyDiagramCanvas from '../components/ButterflyDiagramCanvas';
 import ButterflyStepPanel from '../components/ButterflyStepPanel';
 import MixedButterflyTutorial from '../components/MixedButterflyTutorial';
 import GameMenuModal from '../components/GameMenuModal';
 import './game.css';
+
+// Rising background particles inside the interactive card — identical set/timing to
+// the one used inside circleContainerRef on Similar/Dissimilar Island.
+const RISE_PARTICLES = [
+  { left: '3%',  size: 8,  dur: '2.2s', delay: '0s'    },
+  { left: '10%', size: 5,  dur: '1.7s', delay: '-0.5s' },
+  { left: '17%', size: 10, dur: '2.5s', delay: '-1.2s' },
+  { left: '24%', size: 6,  dur: '1.9s', delay: '-0.8s' },
+  { left: '31%', size: 9,  dur: '2.3s', delay: '-1.6s' },
+  { left: '38%', size: 5,  dur: '2.0s', delay: '-0.3s' },
+  { left: '45%', size: 11, dur: '2.6s', delay: '-2.0s' },
+  { left: '52%', size: 6,  dur: '1.8s', delay: '-0.9s' },
+  { left: '59%', size: 8,  dur: '2.4s', delay: '-1.5s' },
+  { left: '66%', size: 4,  dur: '1.6s', delay: '-2.3s' },
+  { left: '73%', size: 7,  dur: '2.1s', delay: '-0.6s' },
+  { left: '80%', size: 5,  dur: '1.9s', delay: '-1.8s' },
+  { left: '87%', size: 9,  dur: '2.3s', delay: '-1.1s' },
+  { left: '93%', size: 6,  dur: '2.0s', delay: '-2.5s' },
+  { left: '8%',  size: 4,  dur: '1.8s', delay: '-3.0s' },
+  { left: '28%', size: 7,  dur: '2.2s', delay: '-0.4s' },
+  { left: '42%', size: 5,  dur: '1.7s', delay: '-1.9s' },
+  { left: '62%', size: 10, dur: '2.4s', delay: '-0.7s' },
+  { left: '77%', size: 6,  dur: '2.1s', delay: '-2.8s' },
+  { left: '91%', size: 8,  dur: '1.9s', delay: '-1.3s' },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GestureGate — inlined local component
+// The book + "Draw a ___ to continue!" prompt + DrawingCanvas, gating entry into
+// a solving phase. Identical chrome/timing to the circleContainerRef intro on
+// Similar/Dissimilar Island; only the gesture `mode` (and therefore the magic
+// circle it summons) changes.
+// ─────────────────────────────────────────────────────────────────────────────
+const GestureGate = ({ mode, hintText, onDetected }) => {
+  const [showHint, setShowHint] = useState(true);
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {/* Rising particles */}
+      {RISE_PARTICLES.map((p, i) => (
+        <div key={i} style={{
+          position: 'absolute', bottom: 4, left: p.left,
+          width: p.size, height: p.size,
+          background: '#703737',
+          pointerEvents: 'none', zIndex: 1,
+          animation: `particleRise ${p.dur} ease-out ${p.delay} infinite`,
+        }} />
+      ))}
+
+      {/* Solid background + inner border, matching the card chrome */}
+      <div style={{ position: 'absolute', inset: 0, background: '#e8d5b4', zIndex: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', inset: 8, border: '1px solid #703737', zIndex: 0, pointerEvents: 'none' }} />
+      {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i) => (
+        <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:12, height:12, background:'#703737', ...(t!==null?{top:t}:{bottom:-6}), ...(l!==null?{left:l}:{right:-6}) }}/>
+      ))}
+      {[[4,4],[null,4],[4,null],[null,null]].map(([t,l],i) => (
+        <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:6, height:6, background:'#703737', ...(t!==null?{top:t}:{bottom:4}), ...(l!==null?{left:l}:{right:4}) }}/>
+      ))}
+
+      {/* Book */}
+      <style>{`
+        @keyframes bookFloat {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50%       { transform: translateX(-50%) translateY(-7px); }
+        }
+      `}</style>
+      <img
+        src="/InteractableUI/BookUI.png"
+        alt="book"
+        style={{
+          position: 'absolute', bottom: 14, left: '50%',
+          width: '140%', objectFit: 'contain',
+          pointerEvents: 'none', zIndex: 1,
+          animation: 'bookFloat 6s ease-in-out infinite',
+        }}
+      />
+
+      {showHint && (
+        <p style={{
+          position: 'absolute', bottom: 16, left: '50%',
+          transform: 'translateX(-50%)', margin: 0,
+          color: '#ffffff', fontSize: '13px', fontWeight: 900, whiteSpace: 'nowrap',
+          textShadow: '0 0 8px rgba(0,0,0,1), 0 0 16px rgba(0,0,0,1), 3px 3px 0px rgba(0,0,0,1)',
+          zIndex: 3, pointerEvents: 'none',
+        }}>{hintText}</p>
+      )}
+
+      <div style={{ position: 'absolute', inset: 0, zIndex: 3 }} onPointerDown={() => { if (showHint) setShowHint(false); }}>
+        <DrawingCanvas mode={mode} onCircleDetected={onDetected} />
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NumeratorCombinePanel — inlined local component
+// The "similar" route — used once the two forged fractions share a denominator.
+// Combine the numerators, then simplify. Mirrors Similar Island's own
+// combine-then-simplify mechanic, styled with Hybrid's token/hint UI.
+//
+// Props:
+//   problem         – { numerator1, numerator2, denominator1, operator }
+//   onAnswerSubmit  – ({ numerator, denominator }) called once solved
+// ─────────────────────────────────────────────────────────────────────────────
+const NumeratorCombinePanel = ({ problem, onAnswerSubmit, onWrongAnswer }) => {
+  const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+  const { numerator1: n1, numerator2: n2, denominator1: d, operator } = problem;
+  const rawResult = operator === '+' ? n1 + n2 : n1 - n2;
+  const divisor = gcd(Math.abs(rawResult), d) || 1;
+  const simplifiedNum = rawResult / divisor;
+  const simplifiedDen = d / divisor;
+  const isWhole = simplifiedDen === 1;
+
+  const [phase, setPhase] = useState('combine'); // 'combine' | 'simplify' | 'done'
+  const [inputVal, setInputVal] = useState('');
+  const [simpNum, setSimpNum] = useState('');
+  const [simpDen, setSimpDen] = useState('');
+  const [inputError, setInputError] = useState(false);
+  const [hintMsg, setHintMsg] = useState('');
+
+  useEffect(() => {
+    setInputVal(''); setSimpNum(''); setSimpDen('');
+    setInputError(false); setHintMsg('');
+  }, [phase]);
+
+  const checkCombine = () => {
+    const val = parseInt(inputVal);
+    if (val === rawResult) {
+      setPhase('simplify');
+    } else {
+      setInputError(true);
+      setHintMsg(`${n1} ${operator} ${n2} is not ${val}. Think again!`);
+      setInputVal('');
+      onWrongAnswer?.(`${n1} ${operator} ${n2} = ${rawResult}, not ${val}.`, String(val), 'WRONG_COMBINE');
+      setTimeout(() => { setInputError(false); setHintMsg(''); }, 1800);
+    }
+  };
+
+  const checkSimplify = () => {
+    const numOk = parseInt(simpNum) === simplifiedNum;
+    const denOk = isWhole || parseInt(simpDen) === simplifiedDen;
+    if (numOk && denOk) {
+      setPhase('done');
+      onAnswerSubmit({ numerator: simplifiedNum, denominator: simplifiedDen });
+    } else {
+      setInputError(true);
+      const target = isWhole ? `${simplifiedNum}` : `${simplifiedNum}/${simplifiedDen}`;
+      setHintMsg(`Not fully simplified. ${rawResult}/${d} reduces to ${target}.`);
+      onWrongAnswer?.(`Simplify ${rawResult}/${d} to ${target}.`, isWhole ? simpNum : `${simpNum}/${simpDen}`, 'WRONG_SIMPLIFY');
+      setTimeout(() => { setInputError(false); setHintMsg(''); }, 1800);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key !== 'Enter') return;
+    if (phase === 'combine') checkCombine();
+    else if (phase === 'simplify') checkSimplify();
+  };
+
+  const token = (extra = {}) => ({
+    width: 52, height: 52, borderRadius: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 24, fontWeight: 800, border: '3px solid #703737', fontFamily: '"Press Start 2P", monospace',
+    background: '#e8d5b4', color: '#222', userSelect: 'none', ...extra,
+  });
+
+  const hintText =
+    hintMsg ? hintMsg :
+    phase === 'combine'  ? `Combine the numerators: ${n1} ${operator} ${n2}` :
+    phase === 'simplify' ? `Simplify ${rawResult}/${d} fully` :
+    `✓ ${isWhole ? simplifiedNum : `${simplifiedNum}/${simplifiedDen}`} — solved!`;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, width: '100%' }}>
+      <div style={{ fontSize: 15, color: '#703737', fontFamily: '"Press Start 2P", monospace', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>
+        ✧ {phase === 'combine' ? 'Combine Numerators' : phase === 'simplify' ? 'Simplify the Result' : 'Spell Ready!'}
+      </div>
+
+      {/* Fraction visual */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+          <div style={token()}>{n1}</div>
+          <div style={{ width: 52, height: 3, background: '#eaeaea', borderRadius: 2 }} />
+          <div style={token({ borderColor: '#cbb796', color: '#a89578' })}>{d}</div>
+        </div>
+        <span style={{ fontSize: 24, fontWeight: 800, color: '#222' }}>{operator}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+          <div style={token()}>{n2}</div>
+          <div style={{ width: 52, height: 3, background: '#eaeaea', borderRadius: 2 }} />
+          <div style={token({ borderColor: '#cbb796', color: '#a89578' })}>{d}</div>
+        </div>
+      </div>
+
+      {/* Hint */}
+      <div style={{
+        fontSize: 13, fontFamily: '"Press Start 2P", monospace', color: hintMsg ? '#b91c1c' : '#222',
+        background: '#e8d5b4', borderRadius: 0, padding: '8px 14px',
+        border: `2px solid ${hintMsg ? '#b91c1c' : '#703737'}`,
+        minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        textAlign: 'center',
+      }}>
+        {hintText}
+      </div>
+
+      {/* Input row */}
+      {phase === 'combine' && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span style={{ color: '#222', fontWeight: 700, fontSize: 15, fontFamily: '"Press Start 2P", monospace' }}>
+            {n1} {operator} {n2} =
+          </span>
+          <input
+            autoFocus type="number" value={inputVal}
+            onChange={e => setInputVal(e.target.value)} onKeyDown={handleKeyDown}
+            style={{
+              width: 68, height: 44, textAlign: 'center', fontSize: 20, fontWeight: 800,
+              fontFamily: '"Press Start 2P", monospace', background: 'transparent',
+              border: `3px dashed ${inputError ? '#b91c1c' : '#222'}`, borderRadius: 0, color: '#222', outline: 'none',
+            }}
+          />
+          <button onClick={checkCombine} style={{
+            padding: '8px 16px', background: '#703737', color: '#e8d5b4', fontFamily: '"Press Start 2P", monospace',
+            border: '4px solid #703737', borderRadius: 0, fontWeight: 800, fontSize: 13, cursor: 'pointer',
+          }}>✧ Combine</button>
+        </div>
+      )}
+
+      {phase === 'simplify' && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {isWhole ? (
+            <input
+              autoFocus type="number" value={simpNum} onChange={e => setSimpNum(e.target.value)} onKeyDown={handleKeyDown}
+              style={{
+                width: 68, height: 44, textAlign: 'center', fontSize: 20, fontWeight: 800,
+                fontFamily: '"Press Start 2P", monospace', background: 'transparent',
+                border: `3px dashed ${inputError ? '#b91c1c' : '#222'}`, borderRadius: 0, color: '#222', outline: 'none',
+              }}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+              <input
+                autoFocus type="number" value={simpNum} onChange={e => setSimpNum(e.target.value)} onKeyDown={handleKeyDown}
+                style={{
+                  width: 60, height: 40, textAlign: 'center', fontSize: 18, fontWeight: 800,
+                  fontFamily: '"Press Start 2P", monospace', background: 'transparent',
+                  border: `3px dashed ${inputError ? '#b91c1c' : '#222'}`, borderRadius: 0, color: '#222', outline: 'none',
+                }}
+              />
+              <div style={{ width: 60, height: 3, background: '#222', borderRadius: 2 }} />
+              <input
+                type="number" value={simpDen} onChange={e => setSimpDen(e.target.value)} onKeyDown={handleKeyDown}
+                style={{
+                  width: 60, height: 40, textAlign: 'center', fontSize: 18, fontWeight: 800,
+                  fontFamily: '"Press Start 2P", monospace', background: 'transparent',
+                  border: `3px dashed ${inputError ? '#b91c1c' : '#222'}`, borderRadius: 0, color: '#222', outline: 'none',
+                }}
+              />
+            </div>
+          )}
+          <button onClick={checkSimplify} style={{
+            padding: '8px 16px', background: '#703737', color: '#e8d5b4', fontFamily: '"Press Start 2P", monospace',
+            border: '4px solid #703737', borderRadius: 0, fontWeight: 800, fontSize: 13, cursor: 'pointer',
+          }}>✧ Cast Spell</button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Detects frame count from a horizontal sprite sheet.
 // Square frames (most common): width is an exact multiple of height → frame count = width / height.
@@ -33,29 +302,55 @@ const FractionBox = ({ whole, num, den }) => (
   </div>
 );
 
+// Where N / W / D sit on MixedMagicCircle.png, as a fraction of its rendered box —
+// read off the labeled reference circle.
+const CIRCLE_SIZE = 340;
+const NODE_POS = {
+  n: { x: 0.66, y: 0.16 },
+  w: { x: 0.34, y: 0.50 },
+  d: { x: 0.66, y: 0.84 },
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
-// MixedForgePanel — inlined local component
-// Handles the drag-to-convert mechanic for both mixed fractions before the
-// butterfly solving phase begins.
+// ForgeCircleStage — inlined local component
+// Draw the triangle → MixedMagicCircle appears → the current fraction's whole,
+// numerator, and denominator fly onto the circle's W / N / D slots — same
+// bezier-arc/rAF motion, spinning-sparkle bubble, and landing burst as the
+// numerator fly-in on Similar Island — then drag the denominator onto the whole
+// number, then the product onto the numerator, same as before, just staged
+// inside the circle instead of a separate GUI box. The book stays visible
+// underneath throughout, matching Similar/Dissimilar Island.
 //
 // Props:
 //   problem         – full problem object
-//   onForgeComplete – ({ imp1: {n,d}, imp2: {n,d} }) called when both done
+//   onForgeComplete – ({ imp1: {n,d}, imp2: {n,d} }) called when both fractions are done
 // ─────────────────────────────────────────────────────────────────────────────
-const MixedForgePanel = ({ problem, onForgeComplete, onWrongAnswer }) => {
+const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer }) => {
+  const [showHint, setShowHint] = useState(true);
+  const [gestureDone, setGestureDone] = useState(false);
   const [fracIndex, setFracIndex] = useState(0);
   const initFrac = () => ({ step: 'drag_den', product: null, improper_n: null });
   const [fracs, setFracs] = useState([initFrac(), initFrac()]);
+  const [bubbles, setBubbles] = useState(null); // { w:{left,top,opacity}, n:{...}, d:{...} }
+  const [revealed, setRevealed] = useState({ w: false, n: false, d: false });
+  const [bursts, setBursts] = useState([]); // [{id,left,top}]
   const [inputVal, setInputVal] = useState('');
   const [inputError, setInputError] = useState(false);
-  const [hintMsg, setHintMsg] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [floatPos, setFloatPos] = useState({ x: 0, y: 0 });
   const [dragTarget, setDragTarget] = useState(null);
   const [dropHighlight, setDropHighlight] = useState(false);
 
-  const wholeRef = useRef(null);
-  const numRef   = useRef(null);
+  const wholeRef  = useRef(null);
+  const numRef    = useRef(null);
+  const circleRef = useRef(null);
+  const bubbleWRef = useRef(null);
+  const bubbleNRef = useRef(null);
+  const bubbleDRef = useRef(null);
+  const flyAnimRefs = useRef([]);
+  const burstPidRef = useRef(0);
+
+  const allLanded = revealed.w && revealed.n && revealed.d;
 
   const p      = problem;
   const isFirst = fracIndex === 0;
@@ -74,8 +369,85 @@ const MixedForgePanel = ({ problem, onForgeComplete, onWrongAnswer }) => {
   useEffect(() => {
     setInputVal('');
     setInputError(false);
-    setHintMsg('');
   }, [frac.step, fracIndex]);
+
+  // Fly the numbers in whenever a fraction becomes current — mirrors handleCircleDetected
+  // on Similar Island: bubbles fade in at a shared source point, pause, then arc out
+  // along a randomized quadratic-bezier path via requestAnimationFrame (smooth, not
+  // stepped), landing with a sparkle burst before the real interactive token appears.
+  useEffect(() => {
+    if (!gestureDone || !circleRef.current) return;
+
+    flyAnimRefs.current.forEach(id => cancelAnimationFrame(id));
+    flyAnimRefs.current = [];
+    setRevealed({ w: false, n: false, d: false });
+
+    const SIZE = 48;
+    const cRect = circleRef.current.getBoundingClientRect();
+    const dest = (key) => ({
+      x: cRect.left + NODE_POS[key].x * cRect.width - SIZE / 2,
+      y: cRect.top  + NODE_POS[key].y * cRect.height - SIZE / 2,
+    });
+    const src = { x: cRect.left + cRect.width / 2 - SIZE / 2, y: cRect.top - 70 };
+
+    const items = [
+      { key: 'w', ref: bubbleWRef, to: dest('w'), delay: 0 },
+      { key: 'n', ref: bubbleNRef, to: dest('n'), delay: 150 },
+      { key: 'd', ref: bubbleDRef, to: dest('d'), delay: 300 },
+    ];
+
+    setBubbles({
+      w: { left: src.x, top: src.y, opacity: 0 },
+      n: { left: src.x, top: src.y, opacity: 0 },
+      d: { left: src.x, top: src.y, opacity: 0 },
+    });
+
+    const timers = [];
+    items.forEach(({ key, ref, to, delay }) => {
+      const ctrl = {
+        x: (src.x + to.x) / 2 + (Math.random() - 0.5) * 160,
+        y: Math.min(src.y, to.y) - 70 - Math.random() * 90,
+      };
+
+      timers.push(setTimeout(() => {
+        setBubbles(prev => prev && ({ ...prev, [key]: { ...prev[key], opacity: 1 } }));
+        playSfx('/SoundEffects/sparkleSound.wav');
+
+        timers.push(setTimeout(() => {
+          playSfx('/SoundEffects/numberMove.wav');
+          const duration = 900;
+          const start = performance.now();
+          const bezier = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
+          const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+
+          const frame = (now) => {
+            const raw = Math.min((now - start) / duration, 1);
+            const t = easeInOut(raw);
+            if (ref.current) {
+              ref.current.style.left = bezier(t, src.x, ctrl.x, to.x) + 'px';
+              ref.current.style.top  = bezier(t, src.y, ctrl.y, to.y) + 'px';
+            }
+            if (raw < 1) {
+              flyAnimRefs.current.push(requestAnimationFrame(frame));
+            } else {
+              if (ref.current) ref.current.style.opacity = '0';
+              playSfx('/SoundEffects/sparkleExplode.wav');
+              const bid = burstPidRef.current++;
+              setBursts(prev => [...prev, { id: bid, left: to.x + SIZE / 2, top: to.y + SIZE / 2 }]);
+              setTimeout(() => setBursts(prev => prev.filter(b => b.id !== bid)), 800);
+              timers.push(setTimeout(() => {
+                setRevealed(prev => ({ ...prev, [key]: true }));
+                playSfx('/SoundEffects/circleAppear.wav');
+              }, 300));
+            }
+          };
+          flyAnimRefs.current.push(requestAnimationFrame(frame));
+        }, 500));
+      }, delay + 200));
+    });
+
+    return () => timers.forEach(clearTimeout);
+  }, [gestureDone, fracIndex]);
 
   // ── drag ──
   const getTargetRef = () => dragTarget === 'den' ? wholeRef : numRef;
@@ -139,10 +511,9 @@ const MixedForgePanel = ({ problem, onForgeComplete, onWrongAnswer }) => {
       updateFrac({ product: correct, step: 'ask_sum' });
     } else {
       setInputError(true);
-      setHintMsg(`${d} × ${w} is not ${val}. Think again!`);
       setInputVal('');
       onWrongAnswer?.(`${d} × ${w} = ${correct}, not ${val}.`, String(val), 'WRONG_PRODUCT');
-      setTimeout(() => { setInputError(false); setHintMsg(''); }, 1800);
+      setTimeout(() => setInputError(false), 1800);
     }
   };
 
@@ -153,10 +524,9 @@ const MixedForgePanel = ({ problem, onForgeComplete, onWrongAnswer }) => {
       updateFrac({ improper_n: correct, step: 'done' });
     } else {
       setInputError(true);
-      setHintMsg(`${frac.product} + ${n} is not ${val}. Think again!`);
       setInputVal('');
       onWrongAnswer?.(`${frac.product} + ${n} = ${correct}, not ${val}.`, String(val), 'WRONG_SUM');
-      setTimeout(() => { setInputError(false); setHintMsg(''); }, 1800);
+      setTimeout(() => setInputError(false), 1800);
     }
   };
 
@@ -178,16 +548,24 @@ const MixedForgePanel = ({ problem, onForgeComplete, onWrongAnswer }) => {
     }
   };
 
+  const handleGestureDetected = () => {
+    playSfx('/SoundEffects/circleAppear.wav');
+    setGestureDone(true);
+  };
+
   // ── token styles ──
   const token = (extra = {}) => ({
-    width: 52, height: 52, borderRadius: 0,
+    position: 'absolute', width: 52, height: 52, borderRadius: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 24, fontWeight: 800, border: '3px solid', fontFamily: '"Press Start 2P", monospace',
-    userSelect: 'none', transition: 'all 0.2s', ...extra,
+    userSelect: 'none', transition: 'border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s',
+    zIndex: 3, ...extra,
   });
 
+  const landedPos = (key) => ({ left: NODE_POS[key].x * CIRCLE_SIZE - 26, top: NODE_POS[key].y * CIRCLE_SIZE - 26 });
+
   const wholeStyle = () => {
-    const base = token({ background: '#e8d5b4', borderColor: '#703737', color: '#222' });
+    const base = token({ background: '#e8d5b4', borderColor: '#703737', color: '#222', ...landedPos('w') });
     if (frac.step === 'ask_sum' || frac.step === 'ask_sum_input')
       return { ...base, background: '#dff0d8', borderColor: '#4caf50', color: '#1a3a1a', cursor: 'grab' };
     if (dropHighlight && dragTarget === 'den')
@@ -196,7 +574,7 @@ const MixedForgePanel = ({ problem, onForgeComplete, onWrongAnswer }) => {
   };
 
   const numStyle = () => {
-    const base = token({ background: '#e8d5b4', borderColor: '#703737', color: '#222' });
+    const base = token({ background: '#e8d5b4', borderColor: '#703737', color: '#222', ...landedPos('n') });
     if (dropHighlight && dragTarget === 'product')
       return { ...base, borderColor: '#b91c1c', transform: 'scale(1.1)', boxShadow: '0 0 0 3px rgba(185,28,28,0.35)' };
     if (frac.step === 'done')
@@ -212,139 +590,200 @@ const MixedForgePanel = ({ problem, onForgeComplete, onWrongAnswer }) => {
       cursor: draggable ? 'grab' : 'default',
       opacity: isDragging && dragTarget === 'den' ? 0.35 : 1,
       animation: draggable ? 'forgePulseDen 1.5s ease-in-out infinite' : 'none',
+      ...landedPos('d'),
     });
   };
 
-  const hintText =
-    hintMsg ? hintMsg :
-    frac.step === 'drag_den'      ? `Drag the denominator (${d}) onto the whole number (${w})` :
-    frac.step === 'ask_product'   ? `What is ${d} × ${w}?` :
-    frac.step === 'ask_sum'       ? `Now drag ${frac.product} up to the numerator (${n})` :
-    frac.step === 'ask_sum_input' ? `What is ${frac.product} + ${n}?` :
-    `✓ ${frac.improper_n}/${d} — forged!`;
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, width: '100%' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {/* Book — always visible underneath, identical to the pre-draw state */}
       <style>{`
+        @keyframes bookFloat {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50%       { transform: translateX(-50%) translateY(-7px); }
+        }
         @keyframes forgePulseDen {
           0%,100% { box-shadow: 0 0 0 0 rgba(112,55,55,0.6); }
           50%      { box-shadow: 0 0 0 8px rgba(112,55,55,0); }
         }
       `}</style>
+      <img
+        src="/InteractableUI/BookUI.png"
+        alt="book"
+        style={{
+          position: 'absolute', bottom: 14, left: '50%',
+          width: '140%', objectFit: 'contain',
+          pointerEvents: 'none', zIndex: 1,
+          animation: 'bookFloat 6s ease-in-out infinite',
+        }}
+      />
 
-      {/* Step label */}
-      <div style={{ fontSize: 15, color: '#703737', fontFamily: '"Press Start 2P", monospace', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>
-        ⚒ {frac.step !== 'done' ? `Converting fraction ${fracIndex + 1} of 2` : `Fraction ${fracIndex + 1} forged!`}
-      </div>
-
-      {/* Progress dots */}
-      <div style={{ display: 'flex', gap: 8 }}>
-        {[0, 1].map(i => (
-          <div key={i} style={{
-            width: 10, height: 10, borderRadius: 0,
-            background: i < fracIndex ? '#4caf50' : i === fracIndex ? '#703737' : '#cbb796',
-            transition: 'all 0.3s',
-          }} />
-        ))}
-      </div>
-
-      {/* Fraction visual */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {/* Whole number token */}
+      {!gestureDone ? (
+        <>
+          {showHint && (
+            <p style={{
+              position: 'absolute', bottom: 16, left: '50%',
+              transform: 'translateX(-50%)', margin: 0,
+              color: '#ffffff', fontSize: '13px', fontWeight: 900, whiteSpace: 'nowrap',
+              textShadow: '0 0 8px rgba(0,0,0,1), 0 0 16px rgba(0,0,0,1), 3px 3px 0px rgba(0,0,0,1)',
+              zIndex: 3, pointerEvents: 'none',
+            }}>Draw a triangle to continue!</p>
+          )}
+          <div style={{ position: 'absolute', inset: 0, zIndex: 3 }} onPointerDown={() => { if (showHint) setShowHint(false); }}>
+            <DrawingCanvas mode="triangle" onCircleDetected={handleGestureDetected} />
+          </div>
+        </>
+      ) : (
         <div
-          ref={wholeRef}
-          style={wholeStyle()}
-          onMouseDown={frac.step === 'ask_sum' ? (e) => startDrag(e, 'product') : undefined}
-          onTouchStart={frac.step === 'ask_sum' ? (e) => startDrag(e, 'product') : undefined}
-        >
-          {(frac.step === 'ask_sum' || frac.step === 'ask_sum_input') ? frac.product : w}
-        </div>
-
-        {/* Numerator / bar / denominator */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-          <div ref={numRef} style={numStyle()}>
-            {frac.step === 'done' ? frac.improper_n : n}
-          </div>
-          <div style={{ width: 52, height: 3, background: '#eaeaea', borderRadius: 2 }} />
-          <div
-            style={denStyle()}
-            onMouseDown={frac.step === 'drag_den' ? (e) => startDrag(e, 'den') : undefined}
-            onTouchStart={frac.step === 'drag_den' ? (e) => startDrag(e, 'den') : undefined}
-          >
-            {d}
-          </div>
-        </div>
-      </div>
-
-      {/* Hint */}
-      <div style={{
-        fontSize: 13, fontFamily: '"Press Start 2P", monospace', color: hintMsg ? '#b91c1c' : '#222',
-        background: '#e8d5b4', borderRadius: 0, padding: '8px 14px',
-        border: `2px solid ${hintMsg ? '#b91c1c' : '#703737'}`,
-        minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 0.3s', textAlign: 'center',
-      }}>
-        {hintText}
-      </div>
-
-      {/* Input row */}
-      {(frac.step === 'ask_product' || frac.step === 'ask_sum_input') && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ color: '#222', fontWeight: 700, fontSize: 15, fontFamily: '"Press Start 2P", monospace' }}>
-            {frac.step === 'ask_product' ? `${d} × ${w} =` : `${frac.product} + ${n} =`}
-          </span>
-          <input
-            autoFocus
-            type="number"
-            value={inputVal}
-            onChange={e => setInputVal(e.target.value)}
-            onKeyDown={handleKeyDown}
-            style={{
-              width: 68, height: 44, textAlign: 'center',
-              fontSize: 20, fontWeight: 800, fontFamily: '"Press Start 2P", monospace',
-              background: 'transparent',
-              border: `3px dashed ${inputError ? '#b91c1c' : '#222'}`,
-              borderRadius: 0, color: '#222', outline: 'none',
-            }}
-          />
-          <button
-            onClick={frac.step === 'ask_product' ? checkProduct : checkSum}
-            style={{
-              padding: '8px 16px', background: '#703737', color: '#e8d5b4', fontFamily: '"Press Start 2P", monospace',
-              border: '4px solid #703737', borderRadius: 0, fontWeight: 800, fontSize: 13, cursor: 'pointer',
-            }}
-          >
-            ⚒ Forge
-          </button>
-        </div>
-      )}
-
-      {/* Done — continue */}
-      {frac.step === 'done' && (
-        <button
-          onClick={advanceFraction}
+          ref={circleRef}
           style={{
-            padding: '10px 28px', background: '#703737', color: '#e8d5b4', fontFamily: '"Press Start 2P", monospace',
-            border: '4px solid #703737', borderRadius: 0, fontWeight: 800, fontSize: 13, cursor: 'pointer',
+            position: 'absolute', top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: CIRCLE_SIZE, height: CIRCLE_SIZE, zIndex: 2,
           }}
         >
-          {fracIndex === 0 ? 'Next Fraction →' : 'Start Solving →'}
-        </button>
+          <img
+            src="/InteractableUI/MixedMagicCircle.png"
+            alt="magic circle"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', animation: 'magicFloat 4s ease-in-out infinite', zIndex: 1 }}
+          />
+
+          {/* Whole number token — only once its bubble has landed */}
+          {revealed.w && (
+            <div
+              ref={wholeRef}
+              style={wholeStyle()}
+              onMouseDown={frac.step === 'ask_sum' ? (e) => startDrag(e, 'product') : undefined}
+              onTouchStart={frac.step === 'ask_sum' ? (e) => startDrag(e, 'product') : undefined}
+            >
+              {(frac.step === 'ask_sum' || frac.step === 'ask_sum_input') ? frac.product : w}
+            </div>
+          )}
+
+          {/* Numerator token */}
+          {revealed.n && (
+            <div ref={numRef} style={numStyle()}>
+              {frac.step === 'done' ? frac.improper_n : n}
+            </div>
+          )}
+
+          {/* Denominator token */}
+          {revealed.d && (
+            <div
+              style={denStyle()}
+              onMouseDown={frac.step === 'drag_den' ? (e) => startDrag(e, 'den') : undefined}
+              onTouchStart={frac.step === 'drag_den' ? (e) => startDrag(e, 'den') : undefined}
+            >
+              {d}
+            </div>
+          )}
+
+          {/* Input row — floating in the open space below the circle's nodes */}
+          {allLanded && (frac.step === 'ask_product' || frac.step === 'ask_sum_input') && (
+            <div style={{
+              position: 'absolute', top: CIRCLE_SIZE * 0.60, left: '50%', transform: 'translateX(-50%)',
+              display: 'flex', gap: 8, alignItems: 'center', whiteSpace: 'nowrap', zIndex: 4,
+            }}>
+              <input
+                autoFocus type="number" value={inputVal}
+                onChange={e => setInputVal(e.target.value)} onKeyDown={handleKeyDown}
+                style={{
+                  width: 60, height: 40, textAlign: 'center', fontSize: 18, fontWeight: 800,
+                  fontFamily: '"Press Start 2P", monospace', background: 'rgba(232,213,180,0.9)',
+                  border: `3px dashed ${inputError ? '#b91c1c' : '#703737'}`, borderRadius: 0, color: '#222', outline: 'none',
+                }}
+              />
+              <button
+                onClick={frac.step === 'ask_product' ? checkProduct : checkSum}
+                style={{
+                  padding: '6px 12px', background: '#703737', color: '#e8d5b4', fontFamily: '"Press Start 2P", monospace',
+                  border: '3px solid #703737', borderRadius: 0, fontWeight: 800, fontSize: 12, cursor: 'pointer',
+                }}
+              >⚒</button>
+            </div>
+          )}
+
+          {/* Done — continue */}
+          {allLanded && frac.step === 'done' && (
+            <button
+              onClick={advanceFraction}
+              style={{
+                position: 'absolute', top: CIRCLE_SIZE * 0.60, left: '50%', transform: 'translateX(-50%)',
+                padding: '8px 20px', background: '#703737', color: '#e8d5b4', fontFamily: '"Press Start 2P", monospace',
+                border: '3px solid #703737', borderRadius: 0, fontWeight: 800, fontSize: 12, cursor: 'pointer',
+                whiteSpace: 'nowrap', zIndex: 4,
+              }}
+            >
+              {fracIndex === 0 ? 'Next Fraction →' : 'Start Solving →'}
+            </button>
+          )}
+        </div>
       )}
 
-      {/* Floating drag token */}
-      {isDragging && (
-        <div style={{
-          position: 'fixed', left: floatPos.x, top: floatPos.y,
-          width: 52, height: 52, borderRadius: 0,
-          background: '#e8d5b4', border: '3px solid #703737',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 24, fontWeight: 800, color: '#703737', fontFamily: '"Press Start 2P", monospace',
-          pointerEvents: 'none', zIndex: 9999,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-        }}>
-          {dragTarget === 'den' ? d : frac.product}
-        </div>
+      {/* Fixed-position overlays (flying bubbles, landing bursts, drag preview) are
+          portaled straight to document.body. They're positioned in true viewport
+          coordinates (getBoundingClientRect / clientX/clientY), but this component
+          sits inside an ancestor with `transform: scale(...)` (the panel's
+          viewport-fit wrapper) — even at scale 1, a non-`none` transform makes that
+          ancestor the containing block for `position: fixed` descendants, which
+          would otherwise silently mis-place everything here. */}
+      {createPortal(
+        <>
+          {/* Flying number bubbles — spinning sparkle behind a plain number, no
+              border, matching the numerator fly-in on Similar/Dissimilar Island */}
+          {bubbles && (['w', 'n', 'd']).map(key => (
+            <div
+              key={key}
+              ref={key === 'w' ? bubbleWRef : key === 'n' ? bubbleNRef : bubbleDRef}
+              style={{
+                position: 'fixed',
+                left: bubbles[key].left, top: bubbles[key].top,
+                width: 48, height: 48,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 9999, pointerEvents: 'none',
+                opacity: bubbles[key].opacity,
+                transition: 'opacity 0.3s ease',
+              }}
+            >
+              <img
+                src="/OtherEffects/BlueSparkle.png"
+                alt=""
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite', pointerEvents: 'none' }}
+              />
+              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '0 0 6px rgba(0,0,0,0.9)' }}>
+                {key === 'w' ? w : key === 'n' ? n : d}
+              </span>
+            </div>
+          ))}
+
+          {/* Landing bursts */}
+          {bursts.map(b => (
+            <img
+              key={b.id} src="/OtherEffects/BlueSparkle.png" alt=""
+              style={{
+                position: 'fixed', left: b.left, top: b.top,
+                width: 72, height: 72, pointerEvents: 'none', zIndex: 9998,
+                animation: 'sparkBurst 0.8s ease-out forwards',
+              }}
+            />
+          ))}
+
+          {/* Floating drag token */}
+          {isDragging && (
+            <div style={{
+              position: 'fixed', left: floatPos.x, top: floatPos.y,
+              width: 52, height: 52, borderRadius: 0,
+              background: '#e8d5b4', border: '3px solid #703737',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 24, fontWeight: 800, color: '#703737', fontFamily: '"Press Start 2P", monospace',
+              pointerEvents: 'none', zIndex: 9999,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            }}>
+              {dragTarget === 'den' ? d : frac.product}
+            </div>
+          )}
+        </>,
+        document.body
       )}
     </div>
   );
@@ -377,7 +816,9 @@ const HybridIslandGame = ({
   const [hasSeenMixedTutorial, setHasSeenMixedTutorial] = useState(false);
 
   const [problem,          setProblem]          = useState(() => generateProblem());
-  const [forgePhase,       setForgePhase]       = useState(() => problem.isMixed ? 'forge' : 'butterfly');
+  // stage: 'forge' -> 'route-gesture' -> 'similar' | 'butterfly'
+  // ('forge' itself gates on the triangle-draw gesture internally, see ForgeCircleStage)
+  const [stage,            setStage]            = useState(() => problem.isMixed ? 'forge' : 'route-gesture');
   const [butterflyProblem, setButterflyProblem] = useState(problem);
   const [bgShift] = useState(null);
   const [envParticles,     setEnvParticles]     = useState([]);
@@ -425,7 +866,7 @@ const HybridIslandGame = ({
     obs.observe(el);
     measure();
     return () => obs.disconnect();
-  }, [forgePhase]);
+  }, [stage]);
 
   // ── sprite / combat visuals (mirrors Similar/Dissimilar Island) ──
   const [wizardAnim,      setWizardAnim]      = useState('idle');
@@ -554,9 +995,19 @@ const HybridIslandGame = ({
   function generateProblem() {
     const isMixed  = true;
     const operator = Math.random() > 0.5 ? '+' : '-';
-    const d1       = Math.floor(Math.random() * 6) + 2;
-    let   d2       = Math.floor(Math.random() * 6) + 2;
-    while (d2 === d1) d2 = Math.floor(Math.random() * 6) + 2;
+    // Whether the two forged fractions end up sharing a denominator ("similar", routed
+    // to the numerator-combine mechanic) or not ("dissimilar", routed to the butterfly
+    // cross-multiply mechanic) is decided here, since forging an improper fraction never
+    // changes its denominator.
+    const sameDenominator = Math.random() < 0.5;
+    const d1 = Math.floor(Math.random() * 6) + 2;
+    let   d2;
+    if (sameDenominator) {
+      d2 = d1;
+    } else {
+      d2 = Math.floor(Math.random() * 6) + 2;
+      while (d2 === d1) d2 = Math.floor(Math.random() * 6) + 2;
+    }
     const n1 = Math.floor(Math.random() * (d1 - 1)) + 1;
     const n2 = Math.floor(Math.random() * (d2 - 1)) + 1;
     const w1 = isMixed ? Math.floor(Math.random() * 3) + 1 : 0;
@@ -573,6 +1024,12 @@ const HybridIslandGame = ({
   const getCorrectAnswerStr = (p = butterflyProblem) => {
     const imp1 = p.whole1 * p.denominator1 + p.numerator1;
     const imp2 = p.whole2 * p.denominator2 + p.numerator2;
+    if (p.denominator1 === p.denominator2) {
+      const result = p.operator === '+' ? imp1 + imp2 : imp1 - imp2;
+      const divisor = gcd(Math.abs(result), p.denominator1) || 1;
+      const sn = result / divisor, sd = p.denominator1 / divisor;
+      return sd === 1 ? `${sn}` : `${sn}/${sd}`;
+    }
     const cross1 = imp1 * p.denominator2;
     const cross2 = imp2 * p.denominator1;
     const commonDenom = p.denominator1 * p.denominator2;
@@ -688,6 +1145,12 @@ const HybridIslandGame = ({
     }, 800);
   };
 
+  // ── gesture gates ──
+  const handleRouteGestureDetected = () => {
+    playSfx('/SoundEffects/circleAppear.wav');
+    setStage(butterflyProblem.denominator1 === butterflyProblem.denominator2 ? 'similar' : 'butterfly');
+  };
+
   // ── forge complete ──
   const handleForgeComplete = ({ imp1, imp2 }) => {
     const patched = {
@@ -696,7 +1159,7 @@ const HybridIslandGame = ({
       operator: problem.operator, isMixed: false,
     };
     setButterflyProblem(patched);
-    setForgePhase('butterfly');
+    setStage('route-gesture');
     setCurrentStep(1);
     setCurrentHint('');
   };
@@ -735,7 +1198,7 @@ const HybridIslandGame = ({
       const next = generateProblem();
       setProblem(next);
       setButterflyProblem(next);
-      setForgePhase(next.isMixed ? 'forge' : 'butterfly');
+      setStage(next.isMixed ? 'forge' : 'route-gesture');
       setFeedback('');
       setFeedbackType('');
       setCurrentStep(1);
@@ -776,6 +1239,8 @@ const HybridIslandGame = ({
       setTimeout(() => { setEnemyAttacking(false); setFeedback(''); setFeedbackType(''); }, 4000);
     }
   };
+
+  const isSimilarCase = butterflyProblem.denominator1 === butterflyProblem.denominator2;
 
   // ── render ──
   return (
@@ -955,34 +1420,44 @@ const HybridIslandGame = ({
                   overflow: 'hidden',
                 }}>
                   {corners('#703737')}
-                  <div
-                    ref={cardContentRef}
-                    style={{
-                      transform: `scale(${contentScale})`,
-                      transformOrigin: 'center center',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px',
-                    }}
-                  >
-                    {forgePhase === 'forge' ? (
-                      <MixedForgePanel problem={problem} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} />
-                    ) : (
-                      <>
-                        <ButterflyDiagramCanvas problem={butterflyProblem} currentStep={currentStep} />
-                        <ButterflyStepPanel
-                          ref={butterflyPanelRef}
-                          problem={butterflyProblem}
-                          onAnswerSubmit={handleAnswerSubmit}
-                          onWrongAnswer={handleWrongAnswer}
-                          onStepCorrect={() => setCurrentHint('')}
-                          onStepChange={(step) => setCurrentStep(step)}
-                        />
-                      </>
-                    )}
-                  </div>
+                  {stage === 'forge' ? (
+                    <ForgeCircleStage problem={problem} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} />
+                  ) : stage === 'route-gesture' ? (
+                    <GestureGate
+                      mode={isSimilarCase ? 'circle' : 'infinity'}
+                      hintText={isSimilarCase ? 'Draw a circle to continue!' : 'Draw an infinity to continue!'}
+                      onDetected={handleRouteGestureDetected}
+                    />
+                  ) : (
+                    <div
+                      ref={cardContentRef}
+                      style={{
+                        transform: `scale(${contentScale})`,
+                        transformOrigin: 'center center',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px',
+                      }}
+                    >
+                      {stage === 'similar' ? (
+                        <NumeratorCombinePanel problem={butterflyProblem} onAnswerSubmit={handleAnswerSubmit} onWrongAnswer={handleWrongAnswer} />
+                      ) : (
+                        <>
+                          <ButterflyDiagramCanvas problem={butterflyProblem} currentStep={currentStep} />
+                          <ButterflyStepPanel
+                            ref={butterflyPanelRef}
+                            problem={butterflyProblem}
+                            onAnswerSubmit={handleAnswerSubmit}
+                            onWrongAnswer={handleWrongAnswer}
+                            onStepCorrect={() => setCurrentHint('')}
+                            onStepChange={(step) => setCurrentStep(step)}
+                          />
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Cast Spell button — butterfly phase only */}
-                {forgePhase === 'butterfly' && (
+                {/* Cast Spell button — butterfly phase only (Forge and Similar have their own inline submit buttons) */}
+                {stage === 'butterfly' && (
                   <button
                     onClick={() => butterflyPanelRef.current?.submitCurrentStep()}
                     style={{
