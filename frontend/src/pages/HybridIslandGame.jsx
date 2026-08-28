@@ -981,23 +981,25 @@ const ForgeCircleStage = ({ problem, playerHealth, onForgeComplete, onWrongAnswe
     if (dragKey === 'product') {
       // W itself (now showing the product) is the thing being dragged onto N —
       // pulses in sync with N (the target, see numStyle) at the same live rate.
-      return { ...base, borderColor: '#ffffff', cursor: 'grabbing', zIndex: 6, opacity: 0.9, animation: magnetPulse(),
+      // Border stays the interactable-ui cream throughout — only the fill and
+      // text animate white, via the keyframes themselves (see magnetPulse()).
+      return { ...base, cursor: 'grabbing', zIndex: 6, opacity: 0.9, animation: magnetPulse(),
         left: base.left + dragOffset.dx, top: base.top + dragOffset.dy };
     }
     if (frac.step === 'ask_sum' || frac.step === 'ask_sum_input')
-      return { ...base, borderColor: '#ffffff', animation: 'forgeSteadyPulse 1.1s ease-in-out infinite', cursor: 'grab' };
+      return { ...base, animation: 'forgeSteadyPulse 1.1s ease-in-out infinite', cursor: 'grab' };
     if (dragKey === 'den')
-      return { ...base, borderColor: '#ffffff', animation: magnetPulse() };
+      return { ...base, animation: magnetPulse() };
     return base;
   };
 
   const numStyle = () => {
     const base = token({ background: '#333333', borderColor: '#e8d5b4', color: '#e8d5b4', animation: FAST_FADE, ...landedPos('n') });
     if (dragKey === 'product')
-      return { ...base, borderColor: '#ffffff', animation: magnetPulse() };
+      return { ...base, animation: magnetPulse() };
     if (frac.step === 'done') {
-      if (shattering) return { ...base, borderColor: '#ffffff', opacity: 0, animation: 'none' };
-      return { ...base, borderColor: '#ffffff', animation: 'forgeSteadyPulse 1.1s ease-in-out infinite' };
+      if (shattering) return { ...base, opacity: 0, animation: 'none' };
+      return { ...base, animation: 'forgeSteadyPulse 1.1s ease-in-out infinite' };
     }
     return base;
   };
@@ -1042,18 +1044,20 @@ const ForgeCircleStage = ({ problem, playerHealth, onForgeComplete, onWrongAnswe
         /* Proximity glow while dragging D onto W (or the product onto N) —
            both the dragged token and its target share this same pulse, with
            the duration set live from how close they are (see magnetPulse()).
-           Only touches box-shadow so it layers cleanly alongside the shared
-           magnetVibrate shake (which only touches transform) without either
-           one clobbering the other. */
+           Fill and text pulse white along with the glow; the border is NOT
+           touched here (stays the interactable-ui cream, set once on the
+           element itself) — and this only touches transform-free properties
+           so it layers cleanly alongside the shared magnetVibrate shake
+           (which only touches transform) without either clobbering the other. */
         @keyframes forgeMagnetPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
-          50%       { box-shadow: 0 0 14px 6px rgba(255,255,255,0.85); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); background: #333333; color: #e8d5b4; }
+          50%       { box-shadow: 0 0 14px 6px rgba(255,255,255,0.85); background: #ffffff; color: #ffffff; }
         }
-        /* Fixed-rate white glow for a successfully-dropped token — replaces the
-           old flat static green border with an ongoing "still correct" pulse. */
+        /* Fixed-rate white glow for a successfully-dropped token — fill and
+           text pulse white with it, border stays cream. */
         @keyframes forgeSteadyPulse {
-          0%, 100% { box-shadow: 0 0 4px 1px rgba(255,255,255,0.5); }
-          50%       { box-shadow: 0 0 16px 7px rgba(255,255,255,0.95); }
+          0%, 100% { box-shadow: 0 0 4px 1px rgba(255,255,255,0.5); background: #333333; color: #e8d5b4; }
+          50%       { box-shadow: 0 0 16px 7px rgba(255,255,255,0.95); background: #ffffff; color: #ffffff; }
         }
       `}</style>
       <img
@@ -1133,9 +1137,9 @@ const ForgeCircleStage = ({ problem, playerHealth, onForgeComplete, onWrongAnswe
                     autoFocus type="text" inputMode="numeric" value={inputVal}
                     onChange={e => setInputVal(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown}
                     style={{
-                      width: '100%', height: '100%', textAlign: 'center', fontSize: 17, fontWeight: 800,
+                      width: '100%', height: '100%', textAlign: 'center', fontSize: 20, fontWeight: 800,
                       fontFamily: '"Press Start 2P", monospace', background: 'transparent',
-                      border: 'none', outline: 'none', color: inputError ? '#ff8a8a' : '#ffffff', padding: 0,
+                      border: 'none', outline: 'none', color: inputError ? '#ff8a8a' : 'inherit', padding: 0,
                     }}
                   />
                 ) : frac.step === 'ask_sum' ? frac.product : w}
@@ -1150,9 +1154,9 @@ const ForgeCircleStage = ({ problem, playerHealth, onForgeComplete, onWrongAnswe
                     autoFocus type="text" inputMode="numeric" value={inputVal}
                     onChange={e => setInputVal(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown}
                     style={{
-                      width: '100%', height: '100%', textAlign: 'center', fontSize: 17, fontWeight: 800,
+                      width: '100%', height: '100%', textAlign: 'center', fontSize: 20, fontWeight: 800,
                       fontFamily: '"Press Start 2P", monospace', background: 'transparent',
-                      border: 'none', outline: 'none', color: inputError ? '#ff8a8a' : '#ffffff', padding: 0,
+                      border: 'none', outline: 'none', color: inputError ? '#ff8a8a' : 'inherit', padding: 0,
                     }}
                   />
                 ) : frac.step === 'done' ? frac.improper_n : n}
@@ -1939,6 +1943,21 @@ const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAn
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <style>{`
+        /* Landing-sparkle burst, local to this stage — the shared global
+           sparkBurst keeps opacity and scale on the same ease-out curve, so
+           by the time it's grown large enough to read as "exploding" it has
+           already faded to near-invisible, sitting right on top of a token
+           that's now got its own dark background. This keeps it bright while
+           it grows, then drops off fast only right at the very end, so the
+           pop is actually visible. */
+        @keyframes hybridLandBurst {
+          0%   { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+          15%  { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
+          60%  { transform: translate(-50%, -50%) scale(2.4); opacity: 0.9; }
+          100% { transform: translate(-50%, -50%) scale(3.4); opacity: 0; }
+        }
+      `}</style>
       {riseParticles()}
       <img
         src="/InteractableUI/BookUI.png"
@@ -2000,12 +2019,17 @@ const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAn
 
             {['n1', 'n2', 'd1', 'd2'].map(renderNode)}
 
-            {/* Landing sparkle at each label the instant its fly-in arrives */}
+            {/* Landing sparkle at each label the instant its fly-in arrives —
+                hybridLandBurst's own keyframe already bakes in
+                translate(-50%,-50%) to self-center on left/top, so
+                s.left/s.top (already the token's true center) must be used
+                directly here, not pre-offset — doing both double-shifted the
+                sparkle up-left. */}
             {explodeSparkles.map(s => (
               <img key={s.id} src="/OtherEffects/BlueSparkle.png" alt="" style={{
-                position: 'absolute', left: s.left - 20, top: s.top - 20,
+                position: 'absolute', left: s.left, top: s.top,
                 width: 40, height: 40, pointerEvents: 'none', zIndex: 6,
-                animation: 'sparkBurst 0.8s ease-out forwards',
+                animation: 'hybridLandBurst 0.8s ease-out forwards',
               }} />
             ))}
 
