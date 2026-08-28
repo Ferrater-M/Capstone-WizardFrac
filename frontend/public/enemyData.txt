@@ -10,7 +10,7 @@ hp:3
 ===
 similarIsland
 ---
-type:enemy
+type:normal
 name:Slime
 level:2
 hp:3
@@ -19,7 +19,7 @@ hp:3
 ===
 similarIsland
 ---
-type:enemy
+type:normal
 name:Slime
 level:3
 hp:3
@@ -28,7 +28,7 @@ hp:3
 ===
 similarIsland
 ---
-type:enemy
+type:normal
 name:Slime
 level:4
 hp:3
@@ -37,7 +37,7 @@ hp:3
 ===
 similarIsland
 ---
-type:enemy
+type:normal
 name:Slime
 level:5
 hp:3
@@ -82,7 +82,7 @@ hp:99
 ===
 hybridIsland
 ---
-type:enemy
+type:normal
 name:enemy1
 level:1
 hp:5
