@@ -1,15 +1,81 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { playSfx } from '../utils/audio';
+import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
-import ButterflyDiagramCanvas from '../components/ButterflyDiagramCanvas';
-import ButterflyStepPanel from '../components/ButterflyStepPanel';
 import MixedButterflyTutorial from '../components/MixedButterflyTutorial';
 import GameMenuModal from '../components/GameMenuModal';
 import './game.css';
 
-// Rising background particles inside the interactive card — identical set/timing to
-// the one used inside circleContainerRef on Similar/Dissimilar Island.
+// Pixel-corner bracket decoration — identical to Similar/Dissimilar Island's `corners()`.
+// Module-level (not nested in HybridIslandGame) so every stage component below can use
+// it too, on panels/cards as well as on buttons.
+const corners = (color) => (
+  <>
+    <div style={{ position: 'absolute', inset: 5, border: `1px solid ${color}`, pointerEvents: 'none' }} />
+    {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i) => (
+      <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:10, height:10, background:color, ...(t!==null?{top:t}:{bottom:-6}), ...(l!==null?{left:l}:{right:-6}) }}/>
+    ))}
+    {[[3,3],[null,3],[3,null],[null,null]].map(([t,l],i) => (
+      <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:5, height:5, background:color, ...(t!==null?{top:t}:{bottom:3}), ...(l!==null?{left:l}:{right:3}) }}/>
+    ))}
+  </>
+);
+
+// Same bracket decoration but without the inset hairline border — matches the Cast
+// Spell/Confirm/Hint button chrome on Similar/Dissimilar Island exactly (just the 8
+// corner squares, no inner outline, since the button already has its own solid border).
+const buttonCorners = (color) => (
+  <>
+    {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i) => (
+      <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:10, height:10, background:color, ...(t!==null?{top:t}:{bottom:-6}), ...(l!==null?{left:l}:{right:-6}) }}/>
+    ))}
+    {[[3,3],[null,3],[3,null],[null,null]].map(([t,l],i) => (
+      <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:5, height:5, background:color, ...(t!==null?{top:t}:{bottom:3}), ...(l!==null?{left:l}:{right:3}) }}/>
+    ))}
+  </>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SolveButtonRow — the bottom-centre Confirm/Cast-Spell + Hint pair, styled and
+// positioned exactly like Similar/Dissimilar Island's own row (bottom:12,
+// left:50%, same padding/border/corner-bracket chrome). `onHint` is optional —
+// pass it to show the Hint button beside the confirm button; the hint text only
+// ever appears when that button is actually clicked, never automatically.
+// ─────────────────────────────────────────────────────────────────────────────
+const SolveButtonRow = ({ label, onConfirm, confirmEnabled, onHint }) => (
+  <div style={{ position: 'absolute', bottom: 12, left: '50%', display: 'flex', gap: 10, zIndex: 4, animation: 'nAreaFadeIn 0.5s ease-out forwards' }}>
+    <button
+      onClick={onConfirm}
+      disabled={!confirmEnabled}
+      style={{
+        padding: '4px 56px', background: '#703737', border: '4px solid #703737', borderRadius: 0,
+        boxShadow: 'none', position: 'relative', fontSize: 11, fontWeight: 700,
+        fontFamily: '"Press Start 2P", monospace', whiteSpace: 'nowrap',
+        cursor: confirmEnabled ? 'pointer' : 'not-allowed', color: '#e8d5b4',
+        opacity: confirmEnabled ? 1 : 0.45, backdropFilter: 'blur(6px)',
+      }}
+    >
+      {buttonCorners('#703737')}
+      {label}
+    </button>
+    {onHint && (
+      <button
+        onClick={onHint}
+        style={{
+          padding: '4px 16px', fontSize: 13, fontWeight: 700, fontFamily: '"Press Start 2P", monospace',
+          background: '#703737', border: '4px solid #703737', borderRadius: 0, boxShadow: 'none',
+          position: 'relative', color: '#e8d5b4', cursor: 'pointer', backdropFilter: 'blur(6px)',
+        }}
+      >
+        {buttonCorners('#703737')}
+        Hint
+      </button>
+    )}
+  </div>
+);
+
+// Rising square particles along the bottom of the interactable card — identical
+// set/timing to the one Similar/Dissimilar Island render inside circleContainerRef.
 const RISE_PARTICLES = [
   { left: '3%',  size: 8,  dur: '2.2s', delay: '0s'    },
   { left: '10%', size: 5,  dur: '1.7s', delay: '-0.5s' },
@@ -32,45 +98,290 @@ const RISE_PARTICLES = [
   { left: '77%', size: 6,  dur: '2.1s', delay: '-2.8s' },
   { left: '91%', size: 8,  dur: '1.9s', delay: '-1.3s' },
 ];
+const riseParticles = () => RISE_PARTICLES.map((p, i) => (
+  <div key={i} style={{
+    position: 'absolute', bottom: 4, left: p.left,
+    width: p.size, height: p.size,
+    background: '#703737',
+    pointerEvents: 'none', zIndex: 1,
+    animation: `particleRise ${p.dur} ease-out ${p.delay} infinite`,
+  }} />
+));
+
+// Falling square particles along the bottom of the problem-statement banner —
+// identical set/timing to Similar/Dissimilar Island's own problem box.
+const FALL_PARTICLES = [
+  { left: '5%',  size: 8,  dur: '2.2s', delay: '0s'    },
+  { left: '12%', size: 5,  dur: '1.6s', delay: '-0.4s' },
+  { left: '20%', size: 10, dur: '2.6s', delay: '-1.2s' },
+  { left: '28%', size: 6,  dur: '1.8s', delay: '-0.7s' },
+  { left: '36%', size: 9,  dur: '2.4s', delay: '-1.8s' },
+  { left: '44%', size: 4,  dur: '1.5s', delay: '-0.3s' },
+  { left: '52%', size: 11, dur: '2.8s', delay: '-2.1s' },
+  { left: '60%', size: 5,  dur: '1.7s', delay: '-0.9s' },
+  { left: '68%', size: 8,  dur: '2.3s', delay: '-1.5s' },
+  { left: '76%', size: 6,  dur: '1.9s', delay: '-0.6s' },
+  { left: '84%', size: 10, dur: '2.5s', delay: '-2.4s' },
+  { left: '92%', size: 4,  dur: '1.6s', delay: '-0.2s' },
+  { left: '16%', size: 7,  dur: '2.1s', delay: '-1.1s' },
+  { left: '48%', size: 5,  dur: '1.8s', delay: '-0.8s' },
+  { left: '72%', size: 9,  dur: '2.7s', delay: '-1.6s' },
+  { left: '88%', size: 6,  dur: '2.0s', delay: '-2.0s' },
+];
+const fallParticles = () => FALL_PARTICLES.map((p, i) => (
+  <div key={i} style={{
+    position: 'absolute', bottom: -4, left: p.left,
+    width: p.size, height: p.size,
+    background: '#703737',
+    pointerEvents: 'none',
+    animation: `particleFall ${p.dur} ease-out ${p.delay} infinite`,
+  }} />
+));
+
+// Raw pixel offsets inside the floating wrapper (top:32 within the 400×440 circle
+// box) — identical to Similar Island's own layout. Fly-in destinations and the
+// D-bubble travel use fractions of the container instead, since those are
+// position:fixed and computed from the container's real rendered rect.
+const SIMILAR_DEN_DEST_FY = 255 / 440;
+const SIMILAR_DBUBBLE_START_FY = 252 / 440;
+const SIMILAR_DBUBBLE_END_FY = (32 + 129) / 440;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GestureGate — inlined local component
-// The book + "Draw a ___ to continue!" prompt + DrawingCanvas, gating entry into
-// a solving phase. Identical chrome/timing to the circleContainerRef intro on
-// Similar/Dissimilar Island; only the gesture `mode` (and therefore the magic
-// circle it summons) changes.
+// SimilarCircleStage — inlined local component
+// The "similar" route — used once the two forged fractions share a denominator.
+// Draw a circle → SimilarMagicCircle appears → the (shared) denominator flies in
+// from both fractions and lands once → combine the numerators (Cast Spell) →
+// the landed denominator bubble travels up to the numerator slot → simplify the
+// result (Check). Ported faithfully from SimilarIslandGame.jsx: same positions,
+// timings, bubble/sparkle visuals, and — notably — no soft-strike system here,
+// since Similar Island costs a life immediately on any wrong answer, matching
+// Hybrid's own onWrongAnswer already.
+//
+// Props:
+//   problem        – the forged pair of improper fractions, equal denominators:
+//                     {numerator1, numerator2, denominator1, operator}
+//   onAnswerSubmit – ({numerator, denominator}) called once the simplified answer is correct
+//   onWrongAnswer  – (hint, submittedValue, errorType) called on any wrong answer
 // ─────────────────────────────────────────────────────────────────────────────
-const GestureGate = ({ mode, hintText, onDetected }) => {
+const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestHint, onGestureStart }) => {
+  const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+  const { numerator1: n1, numerator2: n2, denominator1: d, operator } = problem;
+  const rawResult = operator === '+' ? n1 + n2 : n1 - n2;
+  const divisor = gcd(Math.abs(rawResult), d) || 1;
+  const simplifiedNum = rawResult / divisor;
+  const simplifiedDen = d / divisor;
+  const isWhole = simplifiedDen === 1;
+
   const [showHint, setShowHint] = useState(true);
+  const [circleDetected, setCircleDetected] = useState(false);
+
+  const [bubbles, setBubbles] = useState(null);
+  const [denVisible, setDenVisible] = useState(false);
+  const [nVisible, setNVisible] = useState(false);
+  const [showDenSparkle, setShowDenSparkle] = useState(false);
+  const [showNSparkle, setShowNSparkle] = useState(false);
+  const [dBubble, setDBubble] = useState(null);
+
+  const [magicN, setMagicN] = useState('');
+  const [finalAnswerVisible, setFinalAnswerVisible] = useState(false);
+  const [checkButtonReady, setCheckButtonReady] = useState(false);
+  const [simplifiedInput, setSimplifiedInput] = useState('');
+  const [simplifiedDenInput, setSimplifiedDenInput] = useState('');
+
+  const circleRef = useRef(null);
+  const bubble1Ref = useRef(null);
+  const bubble2Ref = useRef(null);
+  const dBubbleRef = useRef(null);
+  const actionLocked = useRef(false);
+
+  const handleCircleDetected = () => {
+    playSfx('/SoundEffects/circleAppear.wav');
+    setCircleDetected(true);
+    onGestureStart?.();
+  };
+
+  // circleRef only mounts once circleDetected flips and the magic circle renders —
+  // an effect (unlike the click handler itself) runs after that commit, so the
+  // ref is guaranteed real by the time this fires. Mirrors ButterflyCircleStage's
+  // own triggerNumberFlyIn/useEffect pairing exactly.
+  const triggerDenominatorFlyIn = () => {
+    if (!circleRef.current) return;
+    const SIZE = 48;
+    const cRect = circleRef.current.getBoundingClientRect();
+    const getSrc = (tag) => {
+      const el = document.querySelector(`[data-fly="${tag}"]`);
+      if (!el) return { left: cRect.left, top: cRect.top };
+      const r = el.getBoundingClientRect();
+      return { left: r.left + r.width / 2 - SIZE / 2, top: r.top + r.height / 2 - SIZE / 2 };
+    };
+    const s1 = getSrc('conv0-d');
+    const s2 = getSrc('conv1-d');
+    const dLeft = cRect.left + cRect.width * 0.5 - SIZE / 2;
+    const dTop  = cRect.top + SIMILAR_DEN_DEST_FY * cRect.height - SIZE / 2;
+
+    const rndCtrl = (sx, sy) => ({
+      x: (sx + dLeft) / 2 + (Math.random() - 0.5) * 400,
+      y: (sy + dTop) / 2 - 80 - Math.random() * 200,
+    });
+    const ctrl1 = rndCtrl(s1.left, s1.top);
+    const ctrl2 = rndCtrl(s2.left, s2.top);
+
+    setBubbles({ b1: { ...s1, opacity: 0 }, b2: { ...s2, opacity: 0 } });
+
+    setTimeout(() => {
+      setBubbles(prev => prev && ({ b1: { ...s1, opacity: 1 }, b2: { ...s2, opacity: 1 } }));
+      playSfx('/SoundEffects/sparkleSound.wav');
+    }, 500);
+
+    setTimeout(() => {
+      playSfx('/SoundEffects/numberMove.wav');
+      const duration = 900, start = performance.now();
+      const bezier = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
+      const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+
+      const frame = (now) => {
+        const raw = Math.min((now - start) / duration, 1);
+        const t = easeInOut(raw);
+        if (bubble1Ref.current) { bubble1Ref.current.style.left = bezier(t, s1.left, ctrl1.x, dLeft) + 'px'; bubble1Ref.current.style.top = bezier(t, s1.top, ctrl1.y, dTop) + 'px'; }
+        if (bubble2Ref.current) { bubble2Ref.current.style.left = bezier(t, s2.left, ctrl2.x, dLeft) + 'px'; bubble2Ref.current.style.top = bezier(t, s2.top, ctrl2.y, dTop) + 'px'; }
+        if (raw < 1) {
+          requestAnimationFrame(frame);
+        } else {
+          setBubbles(null);
+          setDenVisible(true);
+          setShowDenSparkle(true);
+          setTimeout(() => setShowDenSparkle(false), 800);
+          const explodeSound = new Audio('/SoundEffects/sparkleExplode.wav');
+          explodeSound.volume = getSfxVolume();
+          explodeSound.play().catch(() => {});
+          explodeSound.addEventListener('ended', () => {
+            setTimeout(() => {
+              setNVisible(true);
+              playSfx('/SoundEffects/circleAppear.wav');
+            }, 200);
+          });
+        }
+      };
+      requestAnimationFrame(frame);
+    }, 2000);
+  };
+
+  useEffect(() => {
+    if (!circleDetected) return;
+    const t = setTimeout(triggerDenominatorFlyIn, 1200);
+    return () => clearTimeout(t);
+  }, [circleDetected]);
+
+  const checkCombine = () => {
+    if (actionLocked.current || !magicN) return;
+    actionLocked.current = true;
+    const val = parseInt(magicN);
+    if (val === rawResult) {
+      // Travel the landed denominator bubble up to the numerator slot
+      if (circleRef.current) {
+        const cRect = circleRef.current.getBoundingClientRect();
+        const SZ = 44;
+        const sx = cRect.left + cRect.width * 0.5 - SZ / 2;
+        const sy = cRect.top + SIMILAR_DBUBBLE_START_FY * cRect.height - SZ / 2;
+        const ex = sx;
+        const ey = cRect.top + SIMILAR_DBUBBLE_END_FY * cRect.height - SZ / 2;
+        // Shine first (fade in + sparkle sound), then a short pause before it
+        // actually starts traveling — matching the fly-in bubbles elsewhere,
+        // instead of snapping straight into motion the instant it appears.
+        setDBubble({ x: sx, y: sy, opacity: 0 });
+        setTimeout(() => {
+          setDBubble(prev => prev && ({ ...prev, opacity: 1 }));
+          playSfx('/SoundEffects/sparkleSound.wav');
+        }, 50);
+
+        setTimeout(() => {
+          playSfx('/SoundEffects/numberMove.wav');
+          const dur = 800, t0 = performance.now();
+          const ease = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+          const anim = (now) => {
+            const raw = Math.min((now - t0) / dur, 1);
+            const t = ease(raw);
+            if (dBubbleRef.current) { dBubbleRef.current.style.left = ex + 'px'; dBubbleRef.current.style.top = (sy + (ey - sy) * t) + 'px'; }
+            if (raw < 1) {
+              requestAnimationFrame(anim);
+            } else {
+              setShowNSparkle(true);
+              setTimeout(() => setShowNSparkle(false), 800);
+              const explode = new Audio('/SoundEffects/sparkleExplode.wav');
+              explode.volume = getSfxVolume();
+              explode.play().catch(() => {});
+              explode.addEventListener('ended', () => {
+                setDBubble(null);
+                setFinalAnswerVisible(true);
+                setTimeout(() => { setCheckButtonReady(true); actionLocked.current = false; }, 600);
+                playSfx('/SoundEffects/circleAppear.wav');
+              });
+            }
+          };
+          requestAnimationFrame(anim);
+        }, 550);
+      } else {
+        actionLocked.current = false;1
+      }
+    } else {
+      setMagicN('');
+      onWrongAnswer?.(`${n1} ${operator} ${n2} = ${rawResult}, not ${val}.`, String(val), 'WRONG_COMBINE');
+      actionLocked.current = false;
+    }
+  };
+
+  const checkSimplify = () => {
+    if (actionLocked.current || !checkButtonReady) return;
+    if (isWhole ? !simplifiedInput : !(simplifiedInput && simplifiedDenInput)) return;
+    actionLocked.current = true;
+    const numOk = parseInt(simplifiedInput) === simplifiedNum;
+    const denOk = isWhole || parseInt(simplifiedDenInput) === simplifiedDen;
+    const submitted = isWhole ? simplifiedInput : `${simplifiedInput}/${simplifiedDenInput}`;
+    setSimplifiedInput(''); setSimplifiedDenInput('');
+    if (numOk && denOk) {
+      onAnswerSubmit({ numerator: simplifiedNum, denominator: simplifiedDen });
+    } else {
+      const target = isWhole ? `${simplifiedNum}` : `${simplifiedNum}/${simplifiedDen}`;
+      onWrongAnswer?.(`Simplify ${rawResult}/${d} to ${target}.`, submitted, 'WRONG_SIMPLIFY');
+    }
+    actionLocked.current = false;
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key !== 'Enter') return;
+    if (!finalAnswerVisible) checkCombine();
+    else checkSimplify();
+  };
+
+  // Matches Similar Island's own magicN/simplified-answer inputs exactly — dark
+  // dashed border on a transparent field, not the grey/white-dashed treatment
+  // used for the token boxes elsewhere in Hybrid.
+  const magicNFieldStyle = {
+    width: 90, height: 64, fontSize: 32, fontWeight: 800, textAlign: 'center',
+    border: '3px dashed #222', borderRadius: 0, background: 'transparent', color: '#222',
+    outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace',
+    WebkitAppearance: 'none', MozAppearance: 'none',
+  };
+  const wholeFieldStyle = {
+    width: 90, height: 64, fontSize: 28, fontWeight: 800, textAlign: 'center',
+    border: '3px dashed #222', borderRadius: 0, background: 'transparent', color: '#222',
+    outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace',
+    WebkitAppearance: 'none', MozAppearance: 'none',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.7)', textShadow: '0 0 8px rgba(0,0,0,0.9)',
+  };
+  const fracFieldStyle = { ...wholeFieldStyle, height: 54 };
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      {/* Rising particles */}
-      {RISE_PARTICLES.map((p, i) => (
-        <div key={i} style={{
-          position: 'absolute', bottom: 4, left: p.left,
-          width: p.size, height: p.size,
-          background: '#703737',
-          pointerEvents: 'none', zIndex: 1,
-          animation: `particleRise ${p.dur} ease-out ${p.delay} infinite`,
-        }} />
-      ))}
-
-      {/* Solid background + inner border, matching the card chrome */}
-      <div style={{ position: 'absolute', inset: 0, background: '#e8d5b4', zIndex: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', inset: 8, border: '1px solid #703737', zIndex: 0, pointerEvents: 'none' }} />
-      {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i) => (
-        <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:12, height:12, background:'#703737', ...(t!==null?{top:t}:{bottom:-6}), ...(l!==null?{left:l}:{right:-6}) }}/>
-      ))}
-      {[[4,4],[null,4],[4,null],[null,null]].map(([t,l],i) => (
-        <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:6, height:6, background:'#703737', ...(t!==null?{top:t}:{bottom:4}), ...(l!==null?{left:l}:{right:4}) }}/>
-      ))}
-
-      {/* Book */}
+      {riseParticles()}
+      {/* nAreaFadeIn (shared/global) bakes in its own translateX(-50%), meant for an
+          element that isn't already explicitly centered — using it here on top of
+          this component's own centering transform double-shifts the input left.
+          This local variant keeps the same fade/slide without that extra shift. */}
       <style>{`
-        @keyframes bookFloat {
-          0%, 100% { transform: translateX(-50%) translateY(0); }
-          50%       { transform: translateX(-50%) translateY(-7px); }
+        @keyframes similarNFadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
       <img
@@ -84,192 +395,118 @@ const GestureGate = ({ mode, hintText, onDetected }) => {
         }}
       />
 
-      {showHint && (
-        <p style={{
-          position: 'absolute', bottom: 16, left: '50%',
-          transform: 'translateX(-50%)', margin: 0,
-          color: '#ffffff', fontSize: '13px', fontWeight: 900, whiteSpace: 'nowrap',
-          textShadow: '0 0 8px rgba(0,0,0,1), 0 0 16px rgba(0,0,0,1), 3px 3px 0px rgba(0,0,0,1)',
-          zIndex: 3, pointerEvents: 'none',
-        }}>{hintText}</p>
-      )}
-
-      <div style={{ position: 'absolute', inset: 0, zIndex: 3 }} onPointerDown={() => { if (showHint) setShowHint(false); }}>
-        <DrawingCanvas mode={mode} onCircleDetected={onDetected} />
-      </div>
-    </div>
-  );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// NumeratorCombinePanel — inlined local component
-// The "similar" route — used once the two forged fractions share a denominator.
-// Combine the numerators, then simplify. Mirrors Similar Island's own
-// combine-then-simplify mechanic, styled with Hybrid's token/hint UI.
-//
-// Props:
-//   problem         – { numerator1, numerator2, denominator1, operator }
-//   onAnswerSubmit  – ({ numerator, denominator }) called once solved
-// ─────────────────────────────────────────────────────────────────────────────
-const NumeratorCombinePanel = ({ problem, onAnswerSubmit, onWrongAnswer }) => {
-  const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
-  const { numerator1: n1, numerator2: n2, denominator1: d, operator } = problem;
-  const rawResult = operator === '+' ? n1 + n2 : n1 - n2;
-  const divisor = gcd(Math.abs(rawResult), d) || 1;
-  const simplifiedNum = rawResult / divisor;
-  const simplifiedDen = d / divisor;
-  const isWhole = simplifiedDen === 1;
-
-  const [phase, setPhase] = useState('combine'); // 'combine' | 'simplify' | 'done'
-  const [inputVal, setInputVal] = useState('');
-  const [simpNum, setSimpNum] = useState('');
-  const [simpDen, setSimpDen] = useState('');
-  const [inputError, setInputError] = useState(false);
-  const [hintMsg, setHintMsg] = useState('');
-
-  useEffect(() => {
-    setInputVal(''); setSimpNum(''); setSimpDen('');
-    setInputError(false); setHintMsg('');
-  }, [phase]);
-
-  const checkCombine = () => {
-    const val = parseInt(inputVal);
-    if (val === rawResult) {
-      setPhase('simplify');
-    } else {
-      setInputError(true);
-      setHintMsg(`${n1} ${operator} ${n2} is not ${val}. Think again!`);
-      setInputVal('');
-      onWrongAnswer?.(`${n1} ${operator} ${n2} = ${rawResult}, not ${val}.`, String(val), 'WRONG_COMBINE');
-      setTimeout(() => { setInputError(false); setHintMsg(''); }, 1800);
-    }
-  };
-
-  const checkSimplify = () => {
-    const numOk = parseInt(simpNum) === simplifiedNum;
-    const denOk = isWhole || parseInt(simpDen) === simplifiedDen;
-    if (numOk && denOk) {
-      setPhase('done');
-      onAnswerSubmit({ numerator: simplifiedNum, denominator: simplifiedDen });
-    } else {
-      setInputError(true);
-      const target = isWhole ? `${simplifiedNum}` : `${simplifiedNum}/${simplifiedDen}`;
-      setHintMsg(`Not fully simplified. ${rawResult}/${d} reduces to ${target}.`);
-      onWrongAnswer?.(`Simplify ${rawResult}/${d} to ${target}.`, isWhole ? simpNum : `${simpNum}/${simpDen}`, 'WRONG_SIMPLIFY');
-      setTimeout(() => { setInputError(false); setHintMsg(''); }, 1800);
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key !== 'Enter') return;
-    if (phase === 'combine') checkCombine();
-    else if (phase === 'simplify') checkSimplify();
-  };
-
-  const token = (extra = {}) => ({
-    width: 52, height: 52, borderRadius: 0,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 24, fontWeight: 800, border: '3px solid #703737', fontFamily: '"Press Start 2P", monospace',
-    background: '#e8d5b4', color: '#222', userSelect: 'none', ...extra,
-  });
-
-  const hintText =
-    hintMsg ? hintMsg :
-    phase === 'combine'  ? `Combine the numerators: ${n1} ${operator} ${n2}` :
-    phase === 'simplify' ? `Simplify ${rawResult}/${d} fully` :
-    `✓ ${isWhole ? simplifiedNum : `${simplifiedNum}/${simplifiedDen}`} — solved!`;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, width: '100%' }}>
-      <div style={{ fontSize: 15, color: '#703737', fontFamily: '"Press Start 2P", monospace', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>
-        ✧ {phase === 'combine' ? 'Combine Numerators' : phase === 'simplify' ? 'Simplify the Result' : 'Spell Ready!'}
-      </div>
-
-      {/* Fraction visual */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-          <div style={token()}>{n1}</div>
-          <div style={{ width: 52, height: 3, background: '#eaeaea', borderRadius: 2 }} />
-          <div style={token({ borderColor: '#cbb796', color: '#a89578' })}>{d}</div>
-        </div>
-        <span style={{ fontSize: 24, fontWeight: 800, color: '#222' }}>{operator}</span>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-          <div style={token()}>{n2}</div>
-          <div style={{ width: 52, height: 3, background: '#eaeaea', borderRadius: 2 }} />
-          <div style={token({ borderColor: '#cbb796', color: '#a89578' })}>{d}</div>
-        </div>
-      </div>
-
-      {/* Hint */}
-      <div style={{
-        fontSize: 13, fontFamily: '"Press Start 2P", monospace', color: hintMsg ? '#b91c1c' : '#222',
-        background: '#e8d5b4', borderRadius: 0, padding: '8px 14px',
-        border: `2px solid ${hintMsg ? '#b91c1c' : '#703737'}`,
-        minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        textAlign: 'center',
-      }}>
-        {hintText}
-      </div>
-
-      {/* Input row */}
-      {phase === 'combine' && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ color: '#222', fontWeight: 700, fontSize: 15, fontFamily: '"Press Start 2P", monospace' }}>
-            {n1} {operator} {n2} =
-          </span>
-          <input
-            autoFocus type="number" value={inputVal}
-            onChange={e => setInputVal(e.target.value)} onKeyDown={handleKeyDown}
-            style={{
-              width: 68, height: 44, textAlign: 'center', fontSize: 20, fontWeight: 800,
-              fontFamily: '"Press Start 2P", monospace', background: 'transparent',
-              border: `3px dashed ${inputError ? '#b91c1c' : '#222'}`, borderRadius: 0, color: '#222', outline: 'none',
-            }}
-          />
-          <button onClick={checkCombine} style={{
-            padding: '8px 16px', background: '#703737', color: '#e8d5b4', fontFamily: '"Press Start 2P", monospace',
-            border: '4px solid #703737', borderRadius: 0, fontWeight: 800, fontSize: 13, cursor: 'pointer',
-          }}>✧ Combine</button>
-        </div>
-      )}
-
-      {phase === 'simplify' && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {isWhole ? (
-            <input
-              autoFocus type="number" value={simpNum} onChange={e => setSimpNum(e.target.value)} onKeyDown={handleKeyDown}
-              style={{
-                width: 68, height: 44, textAlign: 'center', fontSize: 20, fontWeight: 800,
-                fontFamily: '"Press Start 2P", monospace', background: 'transparent',
-                border: `3px dashed ${inputError ? '#b91c1c' : '#222'}`, borderRadius: 0, color: '#222', outline: 'none',
-              }}
+      {!circleDetected ? (
+        <>
+          {showHint && (
+            <p style={{
+              position: 'absolute', bottom: 16, left: '50%',
+              transform: 'translateX(-50%)', margin: 0,
+              color: '#ffffff', fontSize: '13px', fontWeight: 900, whiteSpace: 'nowrap',
+              textShadow: '0 0 8px rgba(0,0,0,1), 0 0 16px rgba(0,0,0,1), 3px 3px 0px rgba(0,0,0,1)',
+              zIndex: 3, pointerEvents: 'none',
+            }}>Draw a circle to continue!</p>
+          )}
+          <div style={{ position: 'absolute', inset: 0, zIndex: 3 }} onPointerDown={() => { if (showHint) setShowHint(false); }}>
+            <DrawingCanvas mode="circle" onCircleDetected={handleCircleDetected} />
+          </div>
+        </>
+      ) : (
+        <div ref={circleRef} style={{ position: 'absolute', inset: 0, zIndex: 2 }}>
+          <div style={{
+            position: 'absolute', top: 32, left: 0, right: 0, height: '300px',
+            animation: 'magicFloat 4s ease-in-out infinite', zIndex: 2,
+          }}>
+            <img
+              src="/InteractableUI/SimilarMagicCircle.png"
+              alt="magic circle"
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', animation: 'problemFadeIn 0.5s ease-out' }}
             />
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-              <input
-                autoFocus type="number" value={simpNum} onChange={e => setSimpNum(e.target.value)} onKeyDown={handleKeyDown}
-                style={{
-                  width: 60, height: 40, textAlign: 'center', fontSize: 18, fontWeight: 800,
-                  fontFamily: '"Press Start 2P", monospace', background: 'transparent',
-                  border: `3px dashed ${inputError ? '#b91c1c' : '#222'}`, borderRadius: 0, color: '#222', outline: 'none',
-                }}
-              />
-              <div style={{ width: 60, height: 3, background: '#222', borderRadius: 2 }} />
-              <input
-                type="number" value={simpDen} onChange={e => setSimpDen(e.target.value)} onKeyDown={handleKeyDown}
-                style={{
-                  width: 60, height: 40, textAlign: 'center', fontSize: 18, fontWeight: 800,
-                  fontFamily: '"Press Start 2P", monospace', background: 'transparent',
-                  border: `3px dashed ${inputError ? '#b91c1c' : '#222'}`, borderRadius: 0, color: '#222', outline: 'none',
-                }}
-              />
+
+            {/* Landed denominator */}
+            <div style={{
+              position: 'absolute', left: '50%', top: '235px', transform: 'translateX(-50%)',
+              width: 40, height: 36, fontSize: 14, fontWeight: 900, textAlign: 'center',
+              background: 'transparent', color: '#ffffff', zIndex: 2,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: denVisible && !finalAnswerVisible && !dBubble ? 1 : 0,
+              transition: 'opacity 0.3s ease',
+            }}>
+              {denVisible ? d : ''}
+            </div>
+
+            {showDenSparkle && <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', left: '50%', top: '249px', width: 72, height: 72, pointerEvents: 'none', zIndex: 3, animation: 'sparkBurst 0.8s ease-out forwards' }} />}
+            {showNSparkle && <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', left: '50%', top: '129px', width: 72, height: 72, pointerEvents: 'none', zIndex: 3, animation: 'sparkBurst 0.8s ease-out forwards' }} />}
+
+            {nVisible && (
+              <div style={{
+                position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+                top: !finalAnswerVisible ? '78px' : (isWhole ? '62px' : '36px'),
+                zIndex: 2, opacity: dBubble ? 0 : 1, transition: 'opacity 0.3s ease',
+                pointerEvents: dBubble ? 'none' : 'auto',
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'similarNFadeIn 0.5s ease-out forwards' }}>
+                  {!finalAnswerVisible ? (
+                    <input
+                      autoFocus type="text" inputMode="numeric" value={magicN}
+                      onChange={e => setMagicN(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleKeyDown}
+                      placeholder="?" style={magicNFieldStyle}
+                    />
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animation: 'problemFadeIn 0.4s ease-out' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap' }}>Final Answer:</span>
+                      {isWhole ? (
+                        <input autoFocus type="text" inputMode="numeric" value={simplifiedInput} onChange={e => setSimplifiedInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleKeyDown} style={wholeFieldStyle} />
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                          <input autoFocus type="text" inputMode="numeric" value={simplifiedInput} onChange={e => setSimplifiedInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleKeyDown} style={fracFieldStyle} />
+                          <div style={{ width: 90, height: 3, background: '#222', borderRadius: 2 }} />
+                          <input type="text" inputMode="numeric" value={simplifiedDenInput} onChange={e => setSimplifiedDenInput(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown} style={fracFieldStyle} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {createPortal(
+        <>
+          {bubbles && (['b1', 'b2']).map(key => {
+            const b = bubbles[key];
+            if (!b) return null;
+            return (
+              <div key={key} ref={key === 'b1' ? bubble1Ref : bubble2Ref} style={{
+                position: 'fixed', left: b.left, top: b.top, width: 48, height: 48,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 9999, pointerEvents: 'none', opacity: b.opacity, transition: 'opacity 0.3s ease',
+              }}>
+                <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite', pointerEvents: 'none' }} />
+                <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '0 0 6px rgba(0,0,0,0.9)' }}>{d}</span>
+              </div>
+            );
+          })}
+          {dBubble && (
+            <div ref={dBubbleRef} style={{ position: 'fixed', left: dBubble.x, top: dBubble.y, width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, pointerEvents: 'none', opacity: dBubble.opacity, transition: 'opacity 0.3s ease' }}>
+              <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite' }} />
+              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '0 0 6px rgba(0,0,0,0.9)' }}>{d}</span>
             </div>
           )}
-          <button onClick={checkSimplify} style={{
-            padding: '8px 16px', background: '#703737', color: '#e8d5b4', fontFamily: '"Press Start 2P", monospace',
-            border: '4px solid #703737', borderRadius: 0, fontWeight: 800, fontSize: 13, cursor: 'pointer',
-          }}>✧ Cast Spell</button>
-        </div>
+        </>,
+        document.body
+      )}
+
+      {circleDetected && nVisible && (
+        <SolveButtonRow
+          label={!finalAnswerVisible ? 'Cast Spell' : 'Check'}
+          onConfirm={!finalAnswerVisible ? checkCombine : checkSimplify}
+          confirmEnabled={!finalAnswerVisible ? !!magicN : (checkButtonReady && (isWhole ? !!simplifiedInput : !!(simplifiedInput && simplifiedDenInput)))}
+          onHint={onRequestHint ? () => onRequestHint(
+            !finalAnswerVisible ? `${n1} ${operator} ${n2} = ?` : `Simplify ${rawResult}/${d}.`
+          ) : undefined}
+        />
       )}
     </div>
   );
@@ -289,22 +526,28 @@ const detectFrameCount = (width, height) => {
   return Math.max(1, Math.round(width / height));
 };
 
-const FractionBox = ({ whole, num, den }) => (
+// `tag` (e.g. "frac0"/"frac1") marks each digit with a data-fly attribute so the
+// forge circle's fly-in animation can find the exact on-screen spot each number
+// should launch from, instead of a generic point.
+const FractionBox = ({ whole, num, den, tag }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
     {whole > 0 && (
-      <span style={{ fontSize: 28, fontWeight: 800, color: '#222' }}>{whole}</span>
+      <span data-fly={tag ? `${tag}-w` : undefined} style={{ fontSize: 28, fontWeight: 800, color: '#222' }}>{whole}</span>
     )}
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <span style={{ fontSize: 28, fontWeight: 800, color: '#222', minWidth: 40, textAlign: 'center' }}>{num}</span>
+      <span data-fly={tag ? `${tag}-n` : undefined} style={{ fontSize: 28, fontWeight: 800, color: '#222', minWidth: 40, textAlign: 'center' }}>{num}</span>
       <div style={{ width: 50, height: 3, background: '#222', borderRadius: 2, margin: '3px 0' }} />
-      <span style={{ fontSize: 28, fontWeight: 800, color: '#222', minWidth: 40, textAlign: 'center' }}>{den}</span>
+      <span data-fly={tag ? `${tag}-d` : undefined} style={{ fontSize: 28, fontWeight: 800, color: '#222', minWidth: 40, textAlign: 'center' }}>{den}</span>
     </div>
   </div>
 );
 
 // Where N / W / D sit on MixedMagicCircle.png, as a fraction of its rendered box —
-// read off the labeled reference circle.
-const CIRCLE_SIZE = 340;
+// read off the labeled reference circle. CIRCLE_SIZE/TOKEN_SIZE/FLY_SIZE shrunk
+// down from their original 340/52/48 per user request.
+const CIRCLE_SIZE = 260;
+const TOKEN_SIZE = 42;
+const FLY_SIZE = 40;
 const NODE_POS = {
   n: { x: 0.66, y: 0.16 },
   w: { x: 0.34, y: 0.50 },
@@ -325,7 +568,7 @@ const NODE_POS = {
 //   problem         – full problem object
 //   onForgeComplete – ({ imp1: {n,d}, imp2: {n,d} }) called when both fractions are done
 // ─────────────────────────────────────────────────────────────────────────────
-const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer }) => {
+const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHint, onGestureStart }) => {
   const [showHint, setShowHint] = useState(true);
   const [gestureDone, setGestureDone] = useState(false);
   const [fracIndex, setFracIndex] = useState(0);
@@ -336,19 +579,28 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer }) => {
   const [bursts, setBursts] = useState([]); // [{id,left,top}]
   const [inputVal, setInputVal] = useState('');
   const [inputError, setInputError] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [floatPos, setFloatPos] = useState({ x: 0, y: 0 });
-  const [dragTarget, setDragTarget] = useState(null);
-  const [dropHighlight, setDropHighlight] = useState(false);
+  // 'den' while dragging D onto W; 'product' while dragging W (now showing the
+  // product) onto N — mirrors Dissimilar Island's magnet-zone drag exactly.
+  const [dragKey, setDragKey] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ dx: 0, dy: 0 });
+  const [magnetActive, setMagnetActive] = useState(false);
+  // Shatter-and-fade on the improper numerator when "Next Fraction →" is pressed,
+  // before the next mixed fraction starts converting.
+  const [shattering, setShattering] = useState(false);
+  const [shatterPieces, setShatterPieces] = useState([]);
+  const shatterPidRef = useRef(0);
 
   const wholeRef  = useRef(null);
   const numRef    = useRef(null);
+  const denRef    = useRef(null);
   const circleRef = useRef(null);
   const bubbleWRef = useRef(null);
   const bubbleNRef = useRef(null);
   const bubbleDRef = useRef(null);
   const flyAnimRefs = useRef([]);
   const burstPidRef = useRef(0);
+  const dragRef = useRef(null);
+  const magnetSoundRef = useRef(null);
 
   const allLanded = revealed.w && revealed.n && revealed.d;
 
@@ -372,122 +624,164 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer }) => {
   }, [frac.step, fracIndex]);
 
   // Fly the numbers in whenever a fraction becomes current — mirrors handleCircleDetected
-  // on Similar Island: bubbles fade in at a shared source point, pause, then arc out
-  // along a randomized quadratic-bezier path via requestAnimationFrame (smooth, not
-  // stepped), landing with a sparkle burst before the real interactive token appears.
+  // on Similar Island: each bubble launches from the exact spot its digit is shown in
+  // the problem banner above (via the FractionBox data-fly tags), fades in, pauses,
+  // then arcs out along a randomized quadratic-bezier path via requestAnimationFrame
+  // (smooth, not stepped), landing with a sparkle burst before the real interactive
+  // token appears.
   useEffect(() => {
     if (!gestureDone || !circleRef.current) return;
 
-    flyAnimRefs.current.forEach(id => cancelAnimationFrame(id));
-    flyAnimRefs.current = [];
-    setRevealed({ w: false, n: false, d: false });
-
-    const SIZE = 48;
-    const cRect = circleRef.current.getBoundingClientRect();
-    const dest = (key) => ({
-      x: cRect.left + NODE_POS[key].x * cRect.width - SIZE / 2,
-      y: cRect.top  + NODE_POS[key].y * cRect.height - SIZE / 2,
-    });
-    const src = { x: cRect.left + cRect.width / 2 - SIZE / 2, y: cRect.top - 70 };
-
-    const items = [
-      { key: 'w', ref: bubbleWRef, to: dest('w'), delay: 0 },
-      { key: 'n', ref: bubbleNRef, to: dest('n'), delay: 150 },
-      { key: 'd', ref: bubbleDRef, to: dest('d'), delay: 300 },
-    ];
-
-    setBubbles({
-      w: { left: src.x, top: src.y, opacity: 0 },
-      n: { left: src.x, top: src.y, opacity: 0 },
-      d: { left: src.x, top: src.y, opacity: 0 },
-    });
-
     const timers = [];
-    items.forEach(({ key, ref, to, delay }) => {
-      const ctrl = {
-        x: (src.x + to.x) / 2 + (Math.random() - 0.5) * 160,
-        y: Math.min(src.y, to.y) - 70 - Math.random() * 90,
+
+    const runFlyIn = () => {
+      if (!circleRef.current) return;
+
+      flyAnimRefs.current.forEach(id => cancelAnimationFrame(id));
+      flyAnimRefs.current = [];
+      setRevealed({ w: false, n: false, d: false });
+
+      const SIZE = FLY_SIZE;
+      const cRect = circleRef.current.getBoundingClientRect();
+      const dest = (key) => ({
+        x: cRect.left + NODE_POS[key].x * cRect.width - SIZE / 2,
+        y: cRect.top  + NODE_POS[key].y * cRect.height - SIZE / 2,
+      });
+      const fallbackSrc = { x: cRect.left + cRect.width / 2 - SIZE / 2, y: cRect.top - 70 };
+      const srcFor = (key) => {
+        const el = document.querySelector(`[data-fly="frac${fracIndex}-${key}"]`);
+        if (!el) return fallbackSrc;
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2 - SIZE / 2, y: r.top + r.height / 2 - SIZE / 2 };
       };
 
-      timers.push(setTimeout(() => {
-        setBubbles(prev => prev && ({ ...prev, [key]: { ...prev[key], opacity: 1 } }));
-        playSfx('/SoundEffects/sparkleSound.wav');
+      const items = [
+        { key: 'w', ref: bubbleWRef, to: dest('w'), delay: 0 },
+        { key: 'n', ref: bubbleNRef, to: dest('n'), delay: 150 },
+        { key: 'd', ref: bubbleDRef, to: dest('d'), delay: 300 },
+      ];
+
+      setBubbles({
+        w: { left: srcFor('w').x, top: srcFor('w').y, opacity: 0 },
+        n: { left: srcFor('n').x, top: srcFor('n').y, opacity: 0 },
+        d: { left: srcFor('d').x, top: srcFor('d').y, opacity: 0 },
+      });
+
+      items.forEach(({ key, ref, to, delay }) => {
+        const src = srcFor(key);
+        const ctrl = {
+          x: (src.x + to.x) / 2 + (Math.random() - 0.5) * 160,
+          y: Math.min(src.y, to.y) - 70 - Math.random() * 90,
+        };
 
         timers.push(setTimeout(() => {
-          playSfx('/SoundEffects/numberMove.wav');
-          const duration = 900;
-          const start = performance.now();
-          const bezier = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
-          const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+          setBubbles(prev => prev && ({ ...prev, [key]: { ...prev[key], opacity: 1 } }));
+          playSfx('/SoundEffects/sparkleSound.wav');
 
-          const frame = (now) => {
-            const raw = Math.min((now - start) / duration, 1);
-            const t = easeInOut(raw);
-            if (ref.current) {
-              ref.current.style.left = bezier(t, src.x, ctrl.x, to.x) + 'px';
-              ref.current.style.top  = bezier(t, src.y, ctrl.y, to.y) + 'px';
-            }
-            if (raw < 1) {
-              flyAnimRefs.current.push(requestAnimationFrame(frame));
-            } else {
-              if (ref.current) ref.current.style.opacity = '0';
-              playSfx('/SoundEffects/sparkleExplode.wav');
-              const bid = burstPidRef.current++;
-              setBursts(prev => [...prev, { id: bid, left: to.x + SIZE / 2, top: to.y + SIZE / 2 }]);
-              setTimeout(() => setBursts(prev => prev.filter(b => b.id !== bid)), 800);
-              timers.push(setTimeout(() => {
-                setRevealed(prev => ({ ...prev, [key]: true }));
-                playSfx('/SoundEffects/circleAppear.wav');
-              }, 300));
-            }
-          };
-          flyAnimRefs.current.push(requestAnimationFrame(frame));
-        }, 500));
-      }, delay + 200));
-    });
+          timers.push(setTimeout(() => {
+            playSfx('/SoundEffects/numberMove.wav');
+            const duration = 900;
+            const start = performance.now();
+            const bezier = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
+            const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+
+            const frame = (now) => {
+              const raw = Math.min((now - start) / duration, 1);
+              const t = easeInOut(raw);
+              if (ref.current) {
+                ref.current.style.left = bezier(t, src.x, ctrl.x, to.x) + 'px';
+                ref.current.style.top  = bezier(t, src.y, ctrl.y, to.y) + 'px';
+              }
+              if (raw < 1) {
+                flyAnimRefs.current.push(requestAnimationFrame(frame));
+              } else {
+                if (ref.current) ref.current.style.opacity = '0';
+                playSfx('/SoundEffects/sparkleExplode.wav');
+                const bid = burstPidRef.current++;
+                setBursts(prev => [...prev, { id: bid, left: to.x + SIZE / 2, top: to.y + SIZE / 2 }]);
+                setTimeout(() => setBursts(prev => prev.filter(b => b.id !== bid)), 800);
+                timers.push(setTimeout(() => {
+                  setRevealed(prev => ({ ...prev, [key]: true }));
+                  playSfx('/SoundEffects/circleAppear.wav');
+                }, 300));
+              }
+            };
+            flyAnimRefs.current.push(requestAnimationFrame(frame));
+          }, 1500));
+        }, delay + 200));
+      });
+    };
+
+    // A small pause after the triangle is actually drawn before anything starts
+    // moving — but NOT when merely advancing to the next fraction (fracIndex
+    // flipping 0→1 via "Next Fraction →"), since that isn't a fresh gesture draw.
+    timers.push(setTimeout(runFlyIn, fracIndex === 0 ? 500 : 0));
 
     return () => timers.forEach(clearTimeout);
   }, [gestureDone, fracIndex]);
 
-  // ── drag ──
-  const getTargetRef = () => dragTarget === 'den' ? wholeRef : numRef;
+  // ── drag — magnet-zone snap, vibration, and particle burst, ported from
+  // Dissimilar Island's D1/D2 drag mechanic (same threshold, same magnet.wav
+  // pitch-bend, same sparkle burst on a successful merge). ──
+  const MAGNET_THRESHOLD = 60;
 
-  const moveFlt = (x, y) => setFloatPos({ x: x - 28, y: y - 28 });
-
-  const isOverTarget = (x, y) => {
-    const ref = getTargetRef();
-    if (!ref.current) return false;
-    const r = ref.current.getBoundingClientRect();
-    return x >= r.left - 12 && x <= r.right + 12 && y >= r.top - 12 && y <= r.bottom + 12;
-  };
-
-  const startDrag = (e, type) => {
+  const startDrag = (e, key) => {
     e.preventDefault();
-    setDragTarget(type);
-    setIsDragging(true);
+    e.stopPropagation();
     const cx = e.clientX ?? e.touches?.[0]?.clientX;
     const cy = e.clientY ?? e.touches?.[0]?.clientY;
-    moveFlt(cx, cy);
+    dragRef.current = { key, startX: cx, startY: cy, near: false };
+    setDragKey(key);
+    setDragOffset({ dx: 0, dy: 0 });
+    const audio = new Audio('/SoundEffects/magnet.wav');
+    audio.loop = true;
+    audio.playbackRate = 0.5;
+    audio.volume = getSfxVolume();
+    audio.play().catch(() => {});
+    magnetSoundRef.current = audio;
   };
 
   const onMove = (e) => {
-    if (!isDragging) return;
+    const d = dragRef.current;
+    if (!d) return;
     const cx = e.clientX ?? e.touches?.[0]?.clientX;
     const cy = e.clientY ?? e.touches?.[0]?.clientY;
-    moveFlt(cx, cy);
-    setDropHighlight(isOverTarget(cx, cy));
+    const newDx = cx - d.startX, newDy = cy - d.startY;
+    setDragOffset({ dx: newDx, dy: newDy });
+    const targetRef = d.key === 'den' ? wholeRef : numRef;
+    let dist = Infinity;
+    if (targetRef.current) {
+      const r = targetRef.current.getBoundingClientRect();
+      dist = Math.hypot(cx - (r.left + r.width / 2), cy - (r.top + r.height / 2));
+    }
+    const near = dist < MAGNET_THRESHOLD;
+    d.near = near;
+    setMagnetActive(near);
+    if (magnetSoundRef.current) {
+      magnetSoundRef.current.playbackRate = 0.1 + Math.max(0, 1 - dist / 200) * 0.6;
+    }
   };
 
-  const onUp = (e) => {
-    if (!isDragging) return;
-    const cx = e.clientX ?? e.changedTouches?.[0]?.clientX;
-    const cy = e.clientY ?? e.changedTouches?.[0]?.clientY;
-    setIsDragging(false);
-    setDropHighlight(false);
-    if (isOverTarget(cx, cy)) {
-      if (dragTarget === 'den') updateFrac({ step: 'ask_product' });
-      else if (frac.step === 'ask_sum') updateFrac({ step: 'ask_sum_input' });
+  const onUp = () => {
+    const d = dragRef.current;
+    if (!d) return;
+    const { key, near } = d;
+    dragRef.current = null;
+    setDragKey(null);
+    setMagnetActive(false);
+    setDragOffset({ dx: 0, dy: 0 });
+    if (magnetSoundRef.current) { magnetSoundRef.current.pause(); magnetSoundRef.current = null; }
+    if (!near) return;
+    const targetRef = key === 'den' ? wholeRef : numRef;
+    if (targetRef.current) {
+      const r = targetRef.current.getBoundingClientRect();
+      playSfx('/SoundEffects/sparkleExplode.wav');
+      const bid = burstPidRef.current++;
+      setBursts(prev => [...prev, { id: bid, left: r.left + r.width / 2, top: r.top + r.height / 2 }]);
+      setTimeout(() => setBursts(prev => prev.filter(b => b.id !== bid)), 800);
     }
+    if (key === 'den') updateFrac({ step: 'ask_product' });
+    else if (frac.step === 'ask_sum') updateFrac({ step: 'ask_sum_input' });
   };
 
   useEffect(() => {
@@ -538,64 +832,112 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer }) => {
   };
 
   const advanceFraction = () => {
-    if (fracIndex === 0) {
-      setFracIndex(1);
-    } else {
-      onForgeComplete({
-        imp1: { n: fracs[0].improper_n, d: p.denominator1 },
-        imp2: { n: fracs[1].improper_n, d: p.denominator2 },
+    if (shattering) return;
+    setShattering(true);
+
+    // Shatter the improper numerator into a burst of fading fragments before the
+    // next mixed fraction starts converting — reuses the same fixed-position
+    // squareBurst particle technique as ButterflyCircleStage's own explosions.
+    if (numRef.current) {
+      const r = numRef.current.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const pid = shatterPidRef.current++;
+      const pieces = Array.from({ length: 10 }, (_, i) => {
+        const angle = (i / 10) * Math.PI * 2 + Math.random() * 0.3;
+        const dist = 50 + Math.random() * 45;
+        return {
+          id: pid * 100 + i,
+          left: cx, top: cy,
+          dx: Math.cos(angle) * dist, dy: Math.sin(angle) * dist,
+          size: Math.floor(Math.random() * 6 + 5),
+        };
       });
+      setShatterPieces(pieces);
+      playSfx('/SoundEffects/sparkleExplode.wav');
     }
+
+    setTimeout(() => {
+      setShatterPieces([]);
+      setShattering(false);
+      if (fracIndex === 0) {
+        setFracIndex(1);
+      } else {
+        onForgeComplete({
+          imp1: { n: fracs[0].improper_n, d: p.denominator1 },
+          imp2: { n: fracs[1].improper_n, d: p.denominator2 },
+        });
+      }
+    }, 650);
   };
 
   const handleGestureDetected = () => {
     playSfx('/SoundEffects/circleAppear.wav');
     setGestureDone(true);
+    onGestureStart?.();
   };
 
-  // ── token styles ──
+  // ── token styles — grey background, broken (dashed) white border, white numbers ──
   const token = (extra = {}) => ({
-    position: 'absolute', width: 52, height: 52, borderRadius: 0,
+    position: 'absolute', width: TOKEN_SIZE, height: TOKEN_SIZE, borderRadius: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 24, fontWeight: 800, border: '3px solid', fontFamily: '"Press Start 2P", monospace',
-    userSelect: 'none', transition: 'border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s',
+    fontSize: 20, fontWeight: 800, border: '3px dashed', fontFamily: '"Press Start 2P", monospace',
+    userSelect: 'none', transition: 'border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s, opacity 0.35s ease-out',
     zIndex: 3, ...extra,
   });
 
-  const landedPos = (key) => ({ left: NODE_POS[key].x * CIRCLE_SIZE - 26, top: NODE_POS[key].y * CIRCLE_SIZE - 26 });
+  const landedPos = (key) => ({ left: NODE_POS[key].x * CIRCLE_SIZE - TOKEN_SIZE / 2, top: NODE_POS[key].y * CIRCLE_SIZE - TOKEN_SIZE / 2 });
+
+  // A fast fade so a token doesn't just abruptly pop into existence the instant
+  // it lands inside the circle — quick enough it never gets in the way of the
+  // interaction states below, which override it outright when they apply.
+  const FAST_FADE = 'numFadeIn 0.2s ease-out both';
 
   const wholeStyle = () => {
-    const base = token({ background: '#e8d5b4', borderColor: '#703737', color: '#222', ...landedPos('w') });
+    const base = token({ background: '#555555', borderColor: '#ffffff', color: '#ffffff', animation: FAST_FADE, ...landedPos('w') });
+    if (dragKey === 'product') {
+      // W itself (now showing the product) is the thing being dragged onto N.
+      return { ...base, borderColor: '#4caf50', cursor: 'grabbing', zIndex: 6, opacity: 0.9, animation: 'none',
+        left: base.left + dragOffset.dx, top: base.top + dragOffset.dy };
+    }
     if (frac.step === 'ask_sum' || frac.step === 'ask_sum_input')
-      return { ...base, background: '#dff0d8', borderColor: '#4caf50', color: '#1a3a1a', cursor: 'grab' };
-    if (dropHighlight && dragTarget === 'den')
-      return { ...base, borderColor: '#b91c1c', transform: 'scale(1.1)', boxShadow: '0 0 0 3px rgba(185,28,28,0.35)' };
+      return { ...base, borderColor: '#4caf50', cursor: 'grab' };
+    if (dragKey === 'den' && magnetActive)
+      return { ...base, borderColor: '#b91c1c', animation: 'magnetVibrate 0.15s ease-in-out infinite' };
     return base;
   };
 
   const numStyle = () => {
-    const base = token({ background: '#e8d5b4', borderColor: '#703737', color: '#222', ...landedPos('n') });
-    if (dropHighlight && dragTarget === 'product')
-      return { ...base, borderColor: '#b91c1c', transform: 'scale(1.1)', boxShadow: '0 0 0 3px rgba(185,28,28,0.35)' };
-    if (frac.step === 'done')
-      return { ...base, background: '#dff0d8', borderColor: '#4caf50', color: '#1a3a1a' };
+    const base = token({ background: '#555555', borderColor: '#ffffff', color: '#ffffff', animation: FAST_FADE, ...landedPos('n') });
+    if (dragKey === 'product' && magnetActive)
+      return { ...base, borderColor: '#b91c1c', animation: 'magnetVibrate 0.15s ease-in-out infinite' };
+    if (frac.step === 'done') {
+      if (shattering) return { ...base, borderColor: '#4caf50', opacity: 0, animation: 'none' };
+      return { ...base, borderColor: '#4caf50' };
+    }
     return base;
   };
 
   const denStyle = () => {
     const draggable = frac.step === 'drag_den';
+    if (dragKey === 'den') {
+      const base = token({ background: '#555555', borderColor: '#ffffff', color: '#ffffff', ...landedPos('d') });
+      return { ...base, cursor: 'grabbing', zIndex: 6, opacity: 0.9, animation: 'none',
+        left: base.left + dragOffset.dx, top: base.top + dragOffset.dy };
+    }
     return token({
-      background: '#e8d5b4', borderColor: draggable ? '#703737' : '#cbb796',
-      color: draggable ? '#703737' : '#a89578',
+      background: '#555555', borderColor: draggable ? '#ffffff' : '#8a8a8a',
+      color: draggable ? '#ffffff' : '#aaaaaa',
       cursor: draggable ? 'grab' : 'default',
-      opacity: isDragging && dragTarget === 'den' ? 0.35 : 1,
-      animation: draggable ? 'forgePulseDen 1.5s ease-in-out infinite' : 'none',
+      // forgePulseDen only touches box-shadow, so it layers cleanly alongside the
+      // one-shot opacity/transform fade-in without either one clobbering the other.
+      animation: draggable ? `${FAST_FADE}, forgePulseDen 1.5s ease-in-out infinite` : FAST_FADE,
       ...landedPos('d'),
     });
   };
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {riseParticles()}
       {/* Book — always visible underneath, identical to the pre-draw state */}
       <style>{`
         @keyframes bookFloat {
@@ -605,6 +947,10 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer }) => {
         @keyframes forgePulseDen {
           0%,100% { box-shadow: 0 0 0 0 rgba(112,55,55,0.6); }
           50%      { box-shadow: 0 0 0 8px rgba(112,55,55,0); }
+        }
+        @keyframes magicCircleFadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
         }
       `}</style>
       <img
@@ -638,86 +984,110 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer }) => {
           ref={circleRef}
           style={{
             position: 'absolute', top: '50%', left: '50%',
-            transform: 'translate(-50%, -50%)',
+            transform: 'translate(-50%, calc(-50% - 20px))',
             width: CIRCLE_SIZE, height: CIRCLE_SIZE, zIndex: 2,
           }}
         >
-          <img
-            src="/InteractableUI/MixedMagicCircle.png"
-            alt="magic circle"
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', animation: 'magicFloat 4s ease-in-out infinite', zIndex: 1 }}
-          />
-
-          {/* Whole number token — only once its bubble has landed */}
-          {revealed.w && (
-            <div
-              ref={wholeRef}
-              style={wholeStyle()}
-              onMouseDown={frac.step === 'ask_sum' ? (e) => startDrag(e, 'product') : undefined}
-              onTouchStart={frac.step === 'ask_sum' ? (e) => startDrag(e, 'product') : undefined}
-            >
-              {(frac.step === 'ask_sum' || frac.step === 'ask_sum_input') ? frac.product : w}
-            </div>
-          )}
-
-          {/* Numerator token */}
-          {revealed.n && (
-            <div ref={numRef} style={numStyle()}>
-              {frac.step === 'done' ? frac.improper_n : n}
-            </div>
-          )}
-
-          {/* Denominator token */}
-          {revealed.d && (
-            <div
-              style={denStyle()}
-              onMouseDown={frac.step === 'drag_den' ? (e) => startDrag(e, 'den') : undefined}
-              onTouchStart={frac.step === 'drag_den' ? (e) => startDrag(e, 'den') : undefined}
-            >
-              {d}
-            </div>
-          )}
-
-          {/* Input row — floating in the open space below the circle's nodes */}
-          {allLanded && (frac.step === 'ask_product' || frac.step === 'ask_sum_input') && (
-            <div style={{
-              position: 'absolute', top: CIRCLE_SIZE * 0.60, left: '50%', transform: 'translateX(-50%)',
-              display: 'flex', gap: 8, alignItems: 'center', whiteSpace: 'nowrap', zIndex: 4,
-            }}>
-              <input
-                autoFocus type="number" value={inputVal}
-                onChange={e => setInputVal(e.target.value)} onKeyDown={handleKeyDown}
-                style={{
-                  width: 60, height: 40, textAlign: 'center', fontSize: 18, fontWeight: 800,
-                  fontFamily: '"Press Start 2P", monospace', background: 'rgba(232,213,180,0.9)',
-                  border: `3px dashed ${inputError ? '#b91c1c' : '#703737'}`, borderRadius: 0, color: '#222', outline: 'none',
-                }}
-              />
-              <button
-                onClick={frac.step === 'ask_product' ? checkProduct : checkSum}
-                style={{
-                  padding: '6px 12px', background: '#703737', color: '#e8d5b4', fontFamily: '"Press Start 2P", monospace',
-                  border: '3px solid #703737', borderRadius: 0, fontWeight: 800, fontSize: 12, cursor: 'pointer',
-                }}
-              >⚒</button>
-            </div>
-          )}
-
-          {/* Done — continue */}
-          {allLanded && frac.step === 'done' && (
-            <button
-              onClick={advanceFraction}
+          {/* Floating wrapper — carries magicFloat so the circle image AND its number
+              tokens bob together as one unit, instead of the numbers sitting static
+              while only the image underneath floats. */}
+          <div style={{ position: 'absolute', inset: 0, animation: 'magicFloat 4s ease-in-out infinite' }}>
+            <img
+              src="/InteractableUI/MixedMagicCircle.png"
+              alt="magic circle"
               style={{
-                position: 'absolute', top: CIRCLE_SIZE * 0.60, left: '50%', transform: 'translateX(-50%)',
-                padding: '8px 20px', background: '#703737', color: '#e8d5b4', fontFamily: '"Press Start 2P", monospace',
-                border: '3px solid #703737', borderRadius: 0, fontWeight: 800, fontSize: 12, cursor: 'pointer',
-                whiteSpace: 'nowrap', zIndex: 4,
+                position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', zIndex: 1,
+                animation: 'magicCircleFadeIn 0.6s ease-out forwards',
               }}
-            >
-              {fracIndex === 0 ? 'Next Fraction →' : 'Start Solving →'}
-            </button>
-          )}
+            />
+
+            {/* Whole number token — only once its bubble has landed. Once D has been
+                dragged onto it, the box itself becomes the product input (in place,
+                not a separate field elsewhere); once the product is confirmed, it
+                shows the product and becomes the thing you drag onto N next — then
+                hides once it's been dragged into (consumed by) N. */}
+            {revealed.w && frac.step !== 'ask_sum_input' && frac.step !== 'done' && (
+              <div
+                ref={wholeRef}
+                style={wholeStyle()}
+                onMouseDown={frac.step === 'ask_sum' ? (e) => startDrag(e, 'product') : undefined}
+                onTouchStart={frac.step === 'ask_sum' ? (e) => startDrag(e, 'product') : undefined}
+              >
+                {frac.step === 'ask_product' ? (
+                  <input
+                    autoFocus type="text" inputMode="numeric" value={inputVal}
+                    onChange={e => setInputVal(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown}
+                    style={{
+                      width: '100%', height: '100%', textAlign: 'center', fontSize: 17, fontWeight: 800,
+                      fontFamily: '"Press Start 2P", monospace', background: 'transparent',
+                      border: 'none', outline: 'none', color: inputError ? '#ff8a8a' : '#ffffff', padding: 0,
+                    }}
+                  />
+                ) : frac.step === 'ask_sum' ? frac.product : w}
+              </div>
+            )}
+
+            {/* Numerator token — becomes the sum input once W (the product) lands on it */}
+            {revealed.n && (
+              <div ref={numRef} style={numStyle()}>
+                {frac.step === 'ask_sum_input' ? (
+                  <input
+                    autoFocus type="text" inputMode="numeric" value={inputVal}
+                    onChange={e => setInputVal(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown}
+                    style={{
+                      width: '100%', height: '100%', textAlign: 'center', fontSize: 17, fontWeight: 800,
+                      fontFamily: '"Press Start 2P", monospace', background: 'transparent',
+                      border: 'none', outline: 'none', color: inputError ? '#ff8a8a' : '#ffffff', padding: 0,
+                    }}
+                  />
+                ) : frac.step === 'done' ? frac.improper_n : n}
+              </div>
+            )}
+
+            {/* Denominator token — hidden once it's been dragged into (consumed by) W */}
+            {revealed.d && (frac.step === 'drag_den' || dragKey === 'den') && (
+              <div
+                ref={denRef}
+                style={denStyle()}
+                onMouseDown={frac.step === 'drag_den' ? (e) => startDrag(e, 'den') : undefined}
+                onTouchStart={frac.step === 'drag_den' ? (e) => startDrag(e, 'den') : undefined}
+              >
+                {d}
+              </div>
+            )}
+          </div>
         </div>
+      )}
+
+      {/* Bottom-centre row — same anchor + chrome as Cast Spell/Confirm on Similar/Dissimilar Island.
+          Visible as soon as the circle is up (even mid fly-in), just disabled until there's
+          actually something to confirm — instead of popping in only once landed. */}
+      {gestureDone && frac.step !== 'done' && (
+        <SolveButtonRow
+          label="Forge"
+          onConfirm={frac.step === 'ask_product' ? checkProduct : frac.step === 'ask_sum_input' ? checkSum : () => {}}
+          confirmEnabled={allLanded && (frac.step === 'ask_product' || frac.step === 'ask_sum_input') && !!inputVal}
+          onHint={onRequestHint ? () => onRequestHint(
+            frac.step === 'ask_sum_input' ? `${frac.product} + ${n} = ?` : `${d} × ${w} = ?`
+          ) : undefined}
+        />
+      )}
+
+      {gestureDone && allLanded && frac.step === 'done' && (
+        <button
+          onClick={advanceFraction}
+          disabled={shattering}
+          style={{
+            position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+            padding: '4px 24px', background: '#703737', color: '#e8d5b4', fontFamily: '"Press Start 2P", monospace',
+            border: '4px solid #703737', borderRadius: 0, boxShadow: 'none', fontWeight: 700, fontSize: 11,
+            cursor: shattering ? 'not-allowed' : 'pointer', opacity: shattering ? 0.45 : 1,
+            whiteSpace: 'nowrap', zIndex: 4,
+          }}
+        >
+          {buttonCorners('#703737')}
+          {fracIndex === 0 ? 'Next Fraction →' : 'Start Solving →'}
+        </button>
       )}
 
       {/* Fixed-position overlays (flying bubbles, landing bursts, drag preview) are
@@ -738,7 +1108,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer }) => {
               style={{
                 position: 'fixed',
                 left: bubbles[key].left, top: bubbles[key].top,
-                width: 48, height: 48,
+                width: FLY_SIZE, height: FLY_SIZE,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 zIndex: 9999, pointerEvents: 'none',
                 opacity: bubbles[key].opacity,
@@ -750,7 +1120,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer }) => {
                 alt=""
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite', pointerEvents: 'none' }}
               />
-              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '0 0 6px rgba(0,0,0,0.9)' }}>
+              <span style={{ position: 'relative', zIndex: 1, fontSize: 15, fontWeight: 900, color: '#fff', textShadow: '0 0 6px rgba(0,0,0,0.9)' }}>
                 {key === 'w' ? w : key === 'n' ? n : d}
               </span>
             </div>
@@ -762,28 +1132,926 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer }) => {
               key={b.id} src="/OtherEffects/BlueSparkle.png" alt=""
               style={{
                 position: 'fixed', left: b.left, top: b.top,
-                width: 72, height: 72, pointerEvents: 'none', zIndex: 9998,
+                width: 58, height: 58, pointerEvents: 'none', zIndex: 9998,
                 animation: 'sparkBurst 0.8s ease-out forwards',
               }}
             />
           ))}
 
-          {/* Floating drag token */}
-          {isDragging && (
-            <div style={{
-              position: 'fixed', left: floatPos.x, top: floatPos.y,
-              width: 52, height: 52, borderRadius: 0,
-              background: '#e8d5b4', border: '3px solid #703737',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 24, fontWeight: 800, color: '#703737', fontFamily: '"Press Start 2P", monospace',
-              pointerEvents: 'none', zIndex: 9999,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-            }}>
-              {dragTarget === 'den' ? d : frac.product}
-            </div>
-          )}
+          {/* Numerator shatter — plays right when "Next Fraction →" is pressed */}
+          {shatterPieces.map(piece => (
+            <div key={piece.id} style={{
+              position: 'fixed', left: piece.left, top: piece.top,
+              width: piece.size, height: piece.size, background: '#ffffff',
+              pointerEvents: 'none', zIndex: 9998,
+              '--dx': piece.dx + 'px', '--dy': piece.dy + 'px',
+              animation: 'squareBurst 0.6s ease-out forwards',
+            }} />
+          ))}
         </>,
         document.body
+      )}
+    </div>
+  );
+};
+
+const numFontSize = (val, boxSize) => {
+  const len = String(Math.abs(val ?? 0)).length;
+  if (boxSize >= 40) return len <= 1 ? 21 : len === 2 ? 15 : 10;
+  return len <= 1 ? 13 : len === 2 ? 10 : 8;
+};
+
+// Node rest positions/sizes inside the 400×440 card — identical coordinate space
+// and values to circleContainerRef on Dissimilar Island.
+const BUTTERFLY_BASE_POS = {
+  n1: { left: 106, top: 80,  size: 40 },
+  n2: { left: 248, top: 80,  size: 40 },
+  d1: { left: 110, top: 170, size: 32 },
+  d2: { left: 250, top: 170, size: 32 },
+};
+const BUTTERFLY_MAGNET_THRESHOLD = 60;
+// Fly-in destinations as fractions of the card, matching Dissimilar's LABEL_POS
+// (adds the floating layer's top:32 offset and half the 40px landing box).
+const BUTTERFLY_LABEL_POS = {
+  n1: { fx: (106 + 20) / 400, fy: (32 + 80  + 20) / 440 },
+  d1: { fx: (110 + 20) / 400, fy: (32 + 170 + 20) / 440 },
+  n2: { fx: (248 + 20) / 400, fy: (32 + 80  + 20) / 440 },
+  d2: { fx: (250 + 20) / 400, fy: (32 + 170 + 20) / 440 },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ButterflyCircleStage — inlined local component
+// The "dissimilar" route: draw ∞ → DissimilarMagicCircle appears → N1/N2/D1/D2
+// fly onto the circle → drag D1/D2 to combine into SD (denominator product) →
+// drag D1/D2 into the opposite numerator's zone to unlock its cross-product
+// input → once SD + both cross-products are correct, the CENTER node unlocks
+// for the combined numerator → then the simplified final answer, floating over
+// the fading circle. Ported faithfully from DissimilarIslandGame.jsx so this
+// mechanic is the exact same experience on both islands — same positions,
+// timings, animations, sounds, and the 3-strike/soft-fail system.
+//
+// Props:
+//   problem        – the forged pair of improper fractions: {numerator1, denominator1, numerator2, denominator2, operator}
+//   playerHealth   – current lives, used to decide whether a hard fail resets or lets defeat take over
+//   onAnswerSubmit – ({numerator, denominator}) called once the final answer is confirmed correct
+//   onWrongAnswer  – (hint, submittedValue, errorType) called on a hard fail / wrong final answer
+// ─────────────────────────────────────────────────────────────────────────────
+const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAnswer, onRequestHint, onGestureStart }) => {
+  const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+
+  const [showHint, setShowHint] = useState(true);
+  const [circleDetected, setCircleDetected] = useState(false);
+  const [interactableVisible, setInteractableVisible] = useState(true);
+
+  const [n1Visible, setN1Visible] = useState(false);
+  const [d1Visible, setD1Visible] = useState(false);
+  const [n2Visible, setN2Visible] = useState(false);
+  const [d2Visible, setD2Visible] = useState(false);
+  const [dragOffsets, setDragOffsets] = useState({ d1: { dx: 0, dy: 0 }, d2: { dx: 0, dy: 0 } });
+  const [inMagnetZone, setInMagnetZone] = useState({ n1: false, n2: false, d1: false, d2: false });
+  const [pulsatingWhite, setPulsatingWhite] = useState({ n1: false, n2: false, d1: false, d2: false });
+  const [dragScreenPos, setDragScreenPos] = useState(null);
+  const [denominatorPhase, setDenominatorPhase] = useState(null);
+  const [denExplosion, setDenExplosion] = useState(false);
+  const [sdBlinking, setSdBlinking] = useState(false);
+  const [sdInputVal, setSdInputVal] = useState('');
+  const [sdCorrect, setSdCorrect] = useState(false);
+  const [confirmPressed, setConfirmPressed] = useState(false);
+  const [sdParticles, setSdParticles] = useState([]);
+  const sdInputRef = useRef(null);
+  const sdParticleIvRef = useRef(null);
+
+  const [n1CrossPhase, setN1CrossPhase] = useState(null);
+  const [n2CrossPhase, setN2CrossPhase] = useState(null);
+  const [n1CrossVal, setN1CrossVal] = useState('');
+  const [n2CrossVal, setN2CrossVal] = useState('');
+  const [n1CrossCorrect, setN1CrossCorrect] = useState(false);
+  const [n2CrossCorrect, setN2CrossCorrect] = useState(false);
+  const [n1CrossConfirmed, setN1CrossConfirmed] = useState(false);
+  const [n2CrossConfirmed, setN2CrossConfirmed] = useState(false);
+  const [crossExplosion, setCrossExplosion] = useState(null);
+  const [n1CrossParticles, setN1CrossParticles] = useState([]);
+  const [n2CrossParticles, setN2CrossParticles] = useState([]);
+  const n1CrossInputRef = useRef(null);
+  const n2CrossInputRef = useRef(null);
+  const n1CrossParticleIvRef = useRef(null);
+  const n2CrossParticleIvRef = useRef(null);
+
+  const [centerPhase, setCenterPhase] = useState(null);
+  const [centerVal, setCenterVal] = useState('');
+  const [centerCorrect, setCenterCorrect] = useState(false);
+  const [centerConfirmed, setCenterConfirmed] = useState(false);
+  const [centerParticles, setCenterParticles] = useState([]);
+  const centerInputRef = useRef(null);
+  const centerParticleIvRef = useRef(null);
+
+  const [finalAnswerPhase, setFinalAnswerPhase] = useState(false);
+  const [finalNumInput, setFinalNumInput] = useState('');
+  const [finalDenInput, setFinalDenInput] = useState('');
+  const finalNumRef = useRef(null);
+
+  const [circleFailCount, setCircleFailCount] = useState(0);
+  const [circleMistakes, setCircleMistakes] = useState([]);
+  const [circleFailSequence, setCircleFailSequence] = useState(null);
+  const [circleShaking, setCircleShaking] = useState(false);
+
+  const circleRef = useRef(null);
+  const floatingDivRef = useRef(null);
+  const dragRef = useRef(null);
+  const actionLocked = useRef(false);
+  const n1OverlayRef = useRef(null); const d1OverlayRef = useRef(null);
+  const n2OverlayRef = useRef(null); const d2OverlayRef = useRef(null);
+  const [flyBubbles, setFlyBubbles] = useState(null);
+  const [explodeSparkles, setExplodeSparkles] = useState([]);
+  const sparklePidRef = useRef(0);
+  const bRef1 = useRef(null); const bRef2 = useRef(null);
+  const bRef3 = useRef(null); const bRef4 = useRef(null);
+  const magnetSoundRef = useRef(null);
+
+  const d1 = problem.denominator1, d2 = problem.denominator2;
+  const n1 = problem.numerator1,   n2 = problem.numerator2;
+
+  // ── fly-in ──
+  const triggerNumberFlyIn = () => {
+    if (!circleRef.current) return;
+    const cRect = circleRef.current.getBoundingClientRect();
+    const SIZE = 44;
+
+    const getSrc = (tag) => {
+      const el = document.querySelector(`[data-fly="${tag}"]`);
+      if (!el) return { left: cRect.left, top: cRect.top };
+      const r = el.getBoundingClientRect();
+      return { left: r.left + r.width / 2 - SIZE / 2, top: r.top + r.height / 2 - SIZE / 2 };
+    };
+    const sources = { n1: getSrc('conv0-n'), d1: getSrc('conv0-d'), n2: getSrc('conv1-n'), d2: getSrc('conv1-d') };
+
+    const dst = Object.fromEntries(
+      Object.entries(BUTTERFLY_LABEL_POS).map(([k, { fx, fy }]) => [k, {
+        x: cRect.left + fx * cRect.width  - SIZE / 2,
+        y: cRect.top  + fy * cRect.height - SIZE / 2,
+      }])
+    );
+
+    const ctrl = {};
+    ['n1', 'd1', 'n2', 'd2'].forEach(k => {
+      const s = sources[k], d = dst[k];
+      ctrl[k] = {
+        x: (s.left + d.x) / 2 + (Math.random() - 0.5) * 300,
+        y: Math.min(s.top, d.y) - 80 - Math.random() * 120,
+      };
+    });
+
+    const bezier    = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
+    const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+
+    const order   = ['n1', 'd1', 'n2', 'd2'];
+    const bRefs   = { n1: bRef1, d1: bRef2, n2: bRef3, d2: bRef4 };
+    const setters = { n1: setN1Visible, d1: setD1Visible, n2: setN2Visible, d2: setD2Visible };
+    const values  = { n1, d1, n2, d2 };
+
+    setFlyBubbles({});
+    order.forEach((key, idx) => {
+      setTimeout(() => {
+        setFlyBubbles(prev => prev !== null ? { ...prev, [key]: { ...sources[key], opacity: 1, value: values[key] } } : prev);
+        playSfx('/SoundEffects/sparkleSound.wav');
+      }, 500 + idx * 150);
+    });
+
+    let arrived = 0;
+    setTimeout(() => {
+      order.forEach((key, idx) => {
+        setTimeout(() => {
+          playSfx('/SoundEffects/numberMove.wav');
+          const s = sources[key], d = dst[key], c = ctrl[key];
+          const ref = bRefs[key];
+          const duration = 900, t0 = performance.now();
+
+          const frame = (now) => {
+            const raw = Math.min((now - t0) / duration, 1);
+            const t   = easeInOut(raw);
+            if (ref.current) {
+              ref.current.style.left = bezier(t, s.left, c.x, d.x) + 'px';
+              ref.current.style.top  = bezier(t, s.top,  c.y, d.y) + 'px';
+            }
+            if (raw < 1) {
+              requestAnimationFrame(frame);
+            } else {
+              if (ref.current) ref.current.style.opacity = '0';
+              playSfx('/SoundEffects/sparkleExplode.wav');
+              setters[key](true);
+              const pos = BUTTERFLY_BASE_POS[key];
+              const sid = sparklePidRef.current++;
+              setExplodeSparkles(prev => [...prev, { id: sid, left: pos.left + 20, top: pos.top + 20 }]);
+              setTimeout(() => setExplodeSparkles(prev => prev.filter(s => s.id !== sid)), 800);
+              arrived++;
+              if (arrived === order.length) setFlyBubbles(null);
+            }
+          };
+          requestAnimationFrame(frame);
+        }, idx * 150);
+      });
+    }, 2000);
+  };
+
+  const handleInfinityDetected = () => {
+    playSfx('/SoundEffects/circleAppear.wav');
+    setCircleDetected(true);
+    onGestureStart?.();
+  };
+
+  useEffect(() => {
+    if (!circleDetected) return;
+    const t = setTimeout(triggerNumberFlyIn, 1200);
+    return () => clearTimeout(t);
+  }, [circleDetected]);
+
+  // ── drag ──
+  const handleNumPointerDown = (e, key) => {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const elRect = e.currentTarget.getBoundingClientRect();
+    const toCenterDx = e.clientX - (elRect.left + elRect.width / 2);
+    const toCenterDy = e.clientY - (elRect.top + elRect.height / 2);
+    const floatTop = floatingDivRef.current?.getBoundingClientRect().top ?? 0;
+    dragRef.current = { key, startX: e.clientX, startY: e.clientY, startDx: dragOffsets[key].dx + toCenterDx, startDy: dragOffsets[key].dy + toCenterDy, startFloatTop: floatTop };
+    setDragScreenPos({ x: e.clientX, y: e.clientY, key });
+    const audio = new Audio('/SoundEffects/magnet.wav');
+    audio.loop = true;
+    audio.playbackRate = 0.5;
+    audio.volume = getSfxVolume();
+    audio.play().catch(() => {});
+    magnetSoundRef.current = audio;
+  };
+
+  const handleNumPointerMove = (e) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const floatTop = floatingDivRef.current?.getBoundingClientRect().top ?? d.startFloatTop;
+    const floatDrift = floatTop - d.startFloatTop;
+    const newDx = d.startDx + (e.clientX - d.startX);
+    const newDy = d.startDy + (e.clientY - d.startY) - floatDrift;
+    setDragOffsets(prev => ({ ...prev, [d.key]: { dx: newDx, dy: newDy } }));
+    setDragScreenPos(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : prev);
+    const b = BUTTERFLY_BASE_POS[d.key];
+    const myCx = b.left + b.size / 2 + newDx;
+    const myCy = b.top  + b.size / 2 + newDy;
+    const otherKey = d.key === 'd1' ? 'd2' : 'd1';
+    const RESTRICTED = { d1: 'n1', d2: 'n2' };
+    const ALLOWED_TARGETS = {
+      d1: [...(!n2CrossPhase ? ['n2'] : []), ...(!denominatorPhase && !sdBlinking ? ['d2'] : [])],
+      d2: [...(!n1CrossPhase ? ['n1'] : []), ...(!denominatorPhase && !sdBlinking ? ['d1'] : [])],
+    };
+    const newMagnet = { n1: false, n2: false, d1: false, d2: false };
+    const newPulse  = { n1: false, n2: false, d1: false, d2: false };
+    const dists = ['n1', 'n2', otherKey].map(tk => {
+      const t = BUTTERFLY_BASE_POS[tk];
+      const dist = Math.hypot(myCx - (t.left + t.size / 2), myCy - (t.top + t.size / 2));
+      if (dist < BUTTERFLY_MAGNET_THRESHOLD && !(confirmPressed && tk === otherKey)) {
+        newMagnet[d.key] = true;
+        if (RESTRICTED[d.key] !== tk) newMagnet[tk] = true;
+        if (ALLOWED_TARGETS[d.key].includes(tk)) { newPulse[d.key] = true; newPulse[tk] = true; }
+      }
+      return dist;
+    });
+    setInMagnetZone(newMagnet);
+    setPulsatingWhite(newPulse);
+    if (dragRef.current) {
+      dragRef.current.nearOtherDen = dists[2] < BUTTERFLY_MAGNET_THRESHOLD;
+      dragRef.current.nearCrossTarget = (d.key === 'd1' && dists[1] < BUTTERFLY_MAGNET_THRESHOLD) || (d.key === 'd2' && dists[0] < BUTTERFLY_MAGNET_THRESHOLD);
+      dragRef.current.currentDx = newDx;
+      dragRef.current.currentDy = newDy;
+    }
+    if (magnetSoundRef.current) {
+      const minDist = Math.min(...dists);
+      magnetSoundRef.current.playbackRate = 0.1 + Math.max(0, 1 - minDist / 200) * 0.6;
+    }
+  };
+
+  const handleNumPointerUp = () => {
+    const d = dragRef.current;
+    const nearOther = d?.nearOtherDen ?? false;
+    const nearCross = d?.nearCrossTarget ?? false;
+    const curDx = d?.currentDx ?? 0;
+    const curDy = d?.currentDy ?? 0;
+    const dragKey = d?.key;
+    setInMagnetZone({ n1: false, n2: false, d1: false, d2: false });
+    setPulsatingWhite({ n1: false, n2: false, d1: false, d2: false });
+    if (magnetSoundRef.current) { magnetSoundRef.current.pause(); magnetSoundRef.current = null; }
+    setDragScreenPos(null);
+    dragRef.current = null;
+    const canCross = nearCross && (dragKey === 'd1' ? !n2CrossPhase : !n1CrossPhase);
+    const canCombine = nearOther && !denominatorPhase && !sdBlinking;
+    if (canCross) {
+      triggerCrossProduct(dragKey, curDx, curDy);
+    } else {
+      if (d) setDragOffsets(prev => ({ ...prev, [dragKey]: { dx: 0, dy: 0 } }));
+      if (canCombine) triggerDenominatorCombine();
+    }
+  };
+
+  // ── SD (denominator product) ──
+  const triggerDenominatorCombine = () => {
+    if (denominatorPhase || sdBlinking) return;
+    setDenominatorPhase('glowing');
+    setTimeout(() => {
+      setDenominatorPhase('to-sd');
+      // Smooth bezier glide toward the center SD slot — mirrors the arc-returning
+      // animation below exactly (same easing/technique, opposite direction), instead
+      // of snapping the offset straight to its end value in one frame.
+      const bezierIn = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
+      const easeIn = t => 1 - Math.pow(1 - t, 3);
+      const d1El = d1OverlayRef.current, d2El = d2OverlayRef.current;
+      const dur = 500, t0 = performance.now();
+      const frame = (now) => {
+        const raw = Math.min((now - t0) / dur, 1);
+        const t = easeIn(raw);
+        if (d1El) { d1El.style.left = bezierIn(t, 110, 150, 181) + 'px'; d1El.style.top = bezierIn(t, 170, 130, 214) + 'px'; }
+        if (d2El) { d2El.style.left = bezierIn(t, 250, 210, 181) + 'px'; d2El.style.top = bezierIn(t, 170, 130, 214) + 'px'; }
+        if (raw < 1) { requestAnimationFrame(frame); }
+        else { setDragOffsets({ d1: { dx: 71, dy: 44 }, d2: { dx: -69, dy: 44 } }); }
+      };
+      requestAnimationFrame(frame);
+    }, 400);
+    setTimeout(() => {
+      setDenExplosion(true);
+      setSdBlinking(true);
+      playSfx('/SoundEffects/sparkleExplode.wav');
+      setTimeout(() => setDenExplosion(false), 900);
+      setDenominatorPhase('arc-returning');
+      const bezier = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
+      const ease   = t => 1 - Math.pow(1 - t, 3);
+      const d1El = d1OverlayRef.current, d2El = d2OverlayRef.current;
+      const dur = 650, t0 = performance.now();
+      const frame = (now) => {
+        const raw = Math.min((now - t0) / dur, 1);
+        const t   = ease(raw);
+        if (d1El) { d1El.style.left = bezier(t, 181, 100, 110) + 'px'; d1El.style.top = bezier(t, 214, 100, 170) + 'px'; }
+        if (d2El) { d2El.style.left = bezier(t, 181, 260, 250) + 'px'; d2El.style.top = bezier(t, 214, 100, 170) + 'px'; }
+        if (raw < 1) { requestAnimationFrame(frame); }
+        else {
+          setDragOffsets({ d1: { dx: 0, dy: 0 }, d2: { dx: 0, dy: 0 } });
+          setDenominatorPhase('sd-input');
+          setSdInputVal('');
+          setSdCorrect(false);
+          setConfirmPressed(false);
+          setSdParticles([]);
+          if (sdParticleIvRef.current) { clearInterval(sdParticleIvRef.current); sdParticleIvRef.current = null; }
+          setTimeout(() => sdInputRef.current?.focus(), 50);
+        }
+      };
+      requestAnimationFrame(frame);
+    }, 1720);
+  };
+
+  // ── cross products ──
+  const triggerCrossProduct = (dragKey, startDx, startDy) => {
+    const explodeKey = dragKey === 'd1' ? 'n2' : 'n1';
+    if (explodeKey === 'n2' && n2CrossPhase) return;
+    if (explodeKey === 'n1' && n1CrossPhase) return;
+    const base = BUTTERFLY_BASE_POS[dragKey];
+    setCrossExplosion(explodeKey);
+    playSfx('/SoundEffects/sparkleExplode.wav');
+    setTimeout(() => setCrossExplosion(null), 900);
+    const el = dragKey === 'd1' ? d1OverlayRef.current : d2OverlayRef.current;
+    const sx = base.left + startDx, sy = base.top + startDy;
+    const ex = base.left,          ey = base.top;
+    const cpX = (sx + ex) / 2 + (dragKey === 'd1' ? -50 : 50);
+    const cpY = Math.min(sy, ey) - 70;
+    const bez = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
+    const ease = t => 1 - Math.pow(1 - t, 3);
+    const dur = 600, t0 = performance.now();
+    const frame = now => {
+      const raw = Math.min((now - t0) / dur, 1), t = ease(raw);
+      if (el) { el.style.left = bez(t, sx, cpX, ex) + 'px'; el.style.top = bez(t, sy, cpY, ey) + 'px'; }
+      if (raw < 1) requestAnimationFrame(frame);
+      else setDragOffsets(prev => ({ ...prev, [dragKey]: { dx: 0, dy: 0 } }));
+    };
+    requestAnimationFrame(frame);
+    if (explodeKey === 'n1') {
+      setN1CrossPhase('blinking'); setN1CrossVal(''); setN1CrossCorrect(false); setN1CrossConfirmed(false);
+      setTimeout(() => n1CrossInputRef.current?.focus(), 50);
+    } else {
+      setN2CrossPhase('blinking'); setN2CrossVal(''); setN2CrossCorrect(false); setN2CrossConfirmed(false);
+      setTimeout(() => n2CrossInputRef.current?.focus(), 50);
+    }
+  };
+
+  const spawnCrossParticles = (setFn, ivRef, slBase, stBase, txBase, tyBase) => {
+    const spawn = () => {
+      const spread = 18, pid = Date.now(), ps = [];
+      for (let i = 0; i < 8; i++) {
+        ps.push({ id: pid + i, sl: slBase + (Math.random() - 0.5) * spread, st: stBase + (Math.random() - 0.5) * spread, tx: txBase + (Math.random() - 0.5) * spread, ty: tyBase + (Math.random() - 0.5) * spread, delay: Math.random() * 0.15, size: Math.floor(Math.random() * 5 + 4) });
+      }
+      setFn(ps);
+    };
+    spawn();
+    if (ivRef.current) clearInterval(ivRef.current);
+    ivRef.current = setInterval(spawn, 600);
+  };
+
+  // ── CENTER unlock ──
+  useEffect(() => {
+    if (sdCorrect && n1CrossCorrect && n2CrossCorrect && !centerPhase) {
+      setCenterPhase('blinking');
+      setCenterVal('');
+      setCenterCorrect(false);
+      setCenterConfirmed(false);
+      setTimeout(() => centerInputRef.current?.focus(), 100);
+    }
+  }, [sdCorrect, n1CrossCorrect, n2CrossCorrect]);
+
+  // ── final answer ──
+  useEffect(() => {
+    if (centerCorrect && !finalAnswerPhase) {
+      setTimeout(() => {
+        setFinalAnswerPhase(true);
+        setFinalNumInput(''); setFinalDenInput('');
+        setTimeout(() => finalNumRef.current?.focus(), 100);
+      }, 1200);
+    }
+  }, [centerCorrect]);
+
+  const crossSum = () => {
+    const n1s = d2 * n1, n2s = d1 * n2;
+    return problem.operator === '+' ? n1s + n2s : n1s - n2s;
+  };
+  const rawNum = crossSum();
+  const rawDen = d1 * d2;
+  const fG = gcd(Math.abs(rawNum), rawDen) || 1;
+  const fSNum = rawNum / fG, fSDen = rawDen / fG;
+  const fIsWhole = fSDen === 1;
+
+  // ── fail system ──
+  const resetCircleState = () => {
+    setCircleDetected(false);
+    setInteractableVisible(true);
+    setN1Visible(false); setD1Visible(false); setN2Visible(false); setD2Visible(false);
+    setDragOffsets({ d1: { dx: 0, dy: 0 }, d2: { dx: 0, dy: 0 } });
+    setDenominatorPhase(null); setDenExplosion(false); setSdBlinking(false);
+    setSdInputVal(''); setSdCorrect(false); setConfirmPressed(false);
+    setSdParticles([]); if (sdParticleIvRef.current) { clearInterval(sdParticleIvRef.current); sdParticleIvRef.current = null; }
+    setN1CrossPhase(null); setN2CrossPhase(null);
+    setN1CrossVal(''); setN2CrossVal('');
+    setN1CrossCorrect(false); setN2CrossCorrect(false);
+    setN1CrossConfirmed(false); setN2CrossConfirmed(false);
+    setCrossExplosion(null);
+    setN1CrossParticles([]); setN2CrossParticles([]);
+    if (n1CrossParticleIvRef.current) { clearInterval(n1CrossParticleIvRef.current); n1CrossParticleIvRef.current = null; }
+    if (n2CrossParticleIvRef.current) { clearInterval(n2CrossParticleIvRef.current); n2CrossParticleIvRef.current = null; }
+    setCenterPhase(null); setCenterVal(''); setCenterCorrect(false); setCenterConfirmed(false);
+    setCenterParticles([]); if (centerParticleIvRef.current) { clearInterval(centerParticleIvRef.current); centerParticleIvRef.current = null; }
+    setFinalAnswerPhase(false);
+    setCircleFailCount(0); setCircleMistakes([]); setCircleShaking(false);
+    setFlyBubbles(null);
+    setInMagnetZone({ n1: false, n2: false, d1: false, d2: false });
+    setPulsatingWhite({ n1: false, n2: false, d1: false, d2: false });
+  };
+
+  const triggerCircleFailSequence = (mistakes) => {
+    const willPlayerDie = playerHealth <= 1;
+    setCircleFailSequence('flashing');
+    playSfx('/SoundEffects/initialDissimilarFail.wav');
+
+    setTimeout(() => {
+      setCircleFailSequence('fading');
+      setInteractableVisible(false);
+    }, 2000);
+
+    setTimeout(() => {
+      setCircleFailSequence(null);
+      const last = mistakes[mistakes.length - 1];
+      const formula = last.label === 'SD' ? `${d1} × ${d2}`
+        : last.label === 'N1' ? `${d2} × ${n1}`
+        : last.label === 'N2' ? `${d1} × ${n2}`
+        : `${d2 * n1} ${problem.operator} ${d1 * n2}`;
+      const hint = `${formula} = ${last.correct}`;
+      const misconceptionType = last.label === 'SD' ? 'WRONG_DENOMINATOR_PRODUCT'
+        : last.label === 'N1' ? 'WRONG_CROSS_MULTIPLY_LEFT'
+        : last.label === 'N2' ? 'WRONG_CROSS_MULTIPLY_RIGHT'
+        : 'WRONG_CROSS_PRODUCT_COMBINATION';
+      onWrongAnswer?.(hint, last.entered, misconceptionType);
+    }, 2900);
+
+    setTimeout(() => {
+      if (willPlayerDie) return;
+      resetCircleState();
+    }, 7400);
+  };
+
+  const recordFail = (label, entered, correct, prevMistakes) => {
+    const updated = [...prevMistakes, { label, entered: String(entered), correct: String(correct) }];
+    setCircleMistakes(updated);
+    const newCount = circleFailCount + 1;
+    setCircleFailCount(newCount);
+    playSfx('/SoundEffects/dissimilarWrong.wav');
+    setCircleShaking(true);
+    setTimeout(() => setCircleShaking(false), 1000);
+    if (newCount >= 3) triggerCircleFailSequence(updated);
+    return updated;
+  };
+
+  // ── Confirm button ──
+  const sdActive     = denominatorPhase === 'sd-input' && !confirmPressed && !!sdInputVal && !circleFailSequence;
+  const n1Active      = n1CrossPhase === 'blinking' && !n1CrossConfirmed && !!n1CrossVal && !circleFailSequence;
+  const n2Active      = n2CrossPhase === 'blinking' && !n2CrossConfirmed && !!n2CrossVal && !circleFailSequence;
+  const centerActive  = centerPhase === 'blinking' && !centerConfirmed && !!centerVal && !circleFailSequence;
+  const finalActive   = finalAnswerPhase && (fIsWhole ? !!finalNumInput : !!finalNumInput && !!finalDenInput);
+  const confirmEnabled = sdActive || n1Active || n2Active || centerActive || finalActive;
+
+  const handleConfirm = () => {
+    if (sdActive) {
+      const sdAns = d1 * d2;
+      if (parseInt(sdInputVal) === sdAns) {
+        setConfirmPressed(true);
+        setSdCorrect(true);
+        playSfx('/SoundEffects/circleAppear.wav');
+        const spawnBatch = () => {
+          const spread = 18, pid = Date.now(), ps = [];
+          for (let i = 0; i < 7; i++) {
+            ps.push({ id: pid + i,      sl: 126 + (Math.random() - .5) * spread, st: 186 + (Math.random() - .5) * spread, tx: 71  + (Math.random() - .5) * spread, ty: 44 + (Math.random() - .5) * spread, delay: Math.random() * .18, size: Math.floor(Math.random() * 5 + 4) });
+            ps.push({ id: pid + i + 20, sl: 266 + (Math.random() - .5) * spread, st: 186 + (Math.random() - .5) * spread, tx: -69 + (Math.random() - .5) * spread, ty: 44 + (Math.random() - .5) * spread, delay: Math.random() * .18, size: Math.floor(Math.random() * 5 + 4) });
+          }
+          setSdParticles(ps);
+        };
+        spawnBatch();
+        if (sdParticleIvRef.current) clearInterval(sdParticleIvRef.current);
+        sdParticleIvRef.current = setInterval(spawnBatch, 600);
+      } else {
+        recordFail('SD', sdInputVal, sdAns, circleMistakes);
+      }
+    } else if (n1Active) {
+      const n1Ans = d2 * n1;
+      if (parseInt(n1CrossVal) === n1Ans) {
+        setN1CrossConfirmed(true);
+        setN1CrossCorrect(true);
+        playSfx('/SoundEffects/circleAppear.wav');
+        spawnCrossParticles(setN1CrossParticles, n1CrossParticleIvRef, 266, 186, -140, -86);
+      } else {
+        recordFail('N1', n1CrossVal, n1Ans, circleMistakes);
+      }
+    } else if (n2Active) {
+      const n2Ans = d1 * n2;
+      if (parseInt(n2CrossVal) === n2Ans) {
+        setN2CrossConfirmed(true);
+        setN2CrossCorrect(true);
+        playSfx('/SoundEffects/circleAppear.wav');
+        spawnCrossParticles(setN2CrossParticles, n2CrossParticleIvRef, 126, 186, 142, -86);
+      } else {
+        recordFail('N2', n2CrossVal, n2Ans, circleMistakes);
+      }
+    } else if (centerActive) {
+      setCenterConfirmed(true);
+      const ans = crossSum();
+      if (parseInt(centerVal) === ans) {
+        setCenterCorrect(true);
+        playSfx('/SoundEffects/circleAppear.wav');
+        const spawn = () => {
+          const pid = Date.now(), ps = [];
+          for (let i = 0; i < 10; i++) {
+            const a = (i / 10) * Math.PI * 2, r = 60 + Math.random() * 30, scatter = (Math.random() - .5) * 18;
+            ps.push({ id: pid + i, sl: 197 + Math.cos(a) * r, st: 148 + Math.sin(a) * r, tx: -Math.cos(a) * r + scatter, ty: -Math.sin(a) * r + scatter, delay: Math.random() * .15, size: Math.floor(Math.random() * 5 + 4) });
+          }
+          setCenterParticles(ps);
+        };
+        spawn();
+        if (centerParticleIvRef.current) clearInterval(centerParticleIvRef.current);
+        centerParticleIvRef.current = setInterval(spawn, 600);
+      } else {
+        triggerCircleFailSequence([...circleMistakes, { label: 'CENTER', entered: centerVal, correct: String(ans) }]);
+      }
+    } else if (finalActive) {
+      if (actionLocked.current) return;
+      actionLocked.current = true;
+      const correct = fIsWhole
+        ? parseInt(finalNumInput) === fSNum
+        : parseInt(finalNumInput) === fSNum && parseInt(finalDenInput) === fSDen;
+      setFinalAnswerPhase(false);
+      setInteractableVisible(false);
+      if (correct) {
+        setTimeout(() => {
+          actionLocked.current = false;
+          onAnswerSubmit({ numerator: fSNum, denominator: fSDen });
+        }, 500);
+      } else {
+        const enteredRawMatch = fIsWhole
+          ? parseInt(finalNumInput) === rawNum && rawDen === 1
+          : parseInt(finalNumInput) === rawNum && parseInt(finalDenInput) === rawDen;
+        const finalMisconceptionType = (fG > 1 && enteredRawMatch) ? 'FAILED_TO_SIMPLIFY' : 'INCORRECT_ANSWER';
+        setTimeout(() => {
+          actionLocked.current = false;
+          onWrongAnswer?.(`${fSNum}${fIsWhole ? '' : '/' + fSDen}`, `${finalNumInput}${finalDenInput ? '/' + finalDenInput : ''}`, finalMisconceptionType);
+          if (playerHealth > 1) setTimeout(resetCircleState, 4500);
+        }, 500);
+      }
+    }
+  };
+
+  // ── node overlay renderer (N1/N2/D1/D2, or their cross/SD-consuming replacement) ──
+  const renderNode = (key) => {
+    const visible = { n1: n1Visible, n2: n2Visible, d1: d1Visible, d2: d2Visible }[key];
+    if (!visible) return null;
+    const base = BUTTERFLY_BASE_POS[key];
+    const draggable = key === 'd1' || key === 'd2';
+    const offset = draggable ? dragOffsets[key] : { dx: 0, dy: 0 };
+    const vibrating = inMagnetZone[key];
+    const overlayRef = { n1: n1OverlayRef, d1: d1OverlayRef, n2: n2OverlayRef, d2: d2OverlayRef }[key];
+    const value = { n1, n2, d1, d2 }[key];
+
+    // Cross-product input takes over N1/N2's box once triggered
+    if (key === 'n1' || key === 'n2') {
+      const crossPhase   = key === 'n1' ? n1CrossPhase : n2CrossPhase;
+      const crossCorrect = key === 'n1' ? n1CrossCorrect : n2CrossCorrect;
+      const crossInputRef = key === 'n1' ? n1CrossInputRef : n2CrossInputRef;
+      const crossVal     = key === 'n1' ? n1CrossVal : n2CrossVal;
+      const setCrossVal  = key === 'n1' ? setN1CrossVal : setN2CrossVal;
+      const crossAnswer  = key === 'n1' ? d2 * n1 : d1 * n2;
+      if (crossPhase) {
+        return (
+          <div key={key} style={{
+            position: 'absolute', left: base.left, top: base.top, width: base.size, height: base.size,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#555555', border: '3px dashed #ffffff', borderRadius: 0, fontFamily: '"Press Start 2P", monospace',
+            animation: `sdBlink ${crossCorrect ? '2s' : '0.6s'} ease-in-out infinite`,
+            pointerEvents: 'auto', zIndex: 4,
+          }}>
+            {crossCorrect
+              ? <span style={{ fontSize: numFontSize(crossAnswer, base.size), fontWeight: 900, color: '#ffffff', fontFamily: '"Press Start 2P", monospace' }}>{crossAnswer}</span>
+              : <input
+                  ref={crossInputRef} type="text" inputMode="numeric" pattern="[0-9]*"
+                  value={crossVal} onChange={e => setCrossVal(e.target.value.replace(/\D/g, ''))}
+                  style={{ width: '100%', height: '100%', textAlign: 'center', fontSize: numFontSize(crossVal || 0, base.size), fontWeight: 900, color: '#ffffff', background: 'transparent', border: 'none', outline: 'none', fontFamily: '"Press Start 2P", monospace', padding: 0 }}
+                />
+            }
+          </div>
+        );
+      }
+    }
+
+    const dragEnabled = draggable && (!denominatorPhase || confirmPressed)
+      && !(sdCorrect && n1CrossCorrect && n2CrossCorrect)
+      && !((n1CrossPhase === 'blinking' && !n1CrossConfirmed) || (n2CrossPhase === 'blinking' && !n2CrossConfirmed));
+
+    return (
+      <div
+        key={key}
+        ref={overlayRef}
+        onPointerDown={dragEnabled ? (e) => handleNumPointerDown(e, key) : undefined}
+        onPointerMove={draggable ? handleNumPointerMove : undefined}
+        onPointerUp={draggable ? handleNumPointerUp : undefined}
+        style={{
+          position: 'absolute',
+          left: base.left + offset.dx, top: base.top + offset.dy,
+          width: base.size, height: base.size,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: numFontSize(value, base.size), fontWeight: 900, color: '#ffffff',
+          background: '#555555', border: '3px dashed #ffffff', borderRadius: 0,
+          fontFamily: '"Press Start 2P", monospace',
+          cursor: draggable ? 'grab' : 'default',
+          opacity: draggable && dragScreenPos?.key === key ? 0.25 : 1,
+          zIndex: 4, touchAction: 'none',
+          animation: (denominatorPhase === 'glowing' || denominatorPhase === 'to-sd') && draggable
+            ? 'denGlow 0.4s ease-in-out infinite'
+            : [
+                vibrating ? 'magnetVibrate 0.15s ease-in-out infinite' : null,
+                pulsatingWhite[key] ? 'pulsateWhite 0.5s ease-in-out infinite' : null,
+              ].filter(Boolean).join(', ') || 'none',
+        }}
+      >{value}</div>
+    );
+  };
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {riseParticles()}
+      <img
+        src="/InteractableUI/BookUI.png"
+        alt="book"
+        style={{
+          position: 'absolute', bottom: 14, left: '50%',
+          width: '140%', objectFit: 'contain',
+          pointerEvents: 'none', zIndex: 1,
+          animation: 'bookFloat 6s ease-in-out infinite',
+        }}
+      />
+
+      {!circleDetected ? (
+        <>
+          {showHint && (
+            <p style={{
+              position: 'absolute', bottom: 16, left: '50%',
+              transform: 'translateX(-50%)', margin: 0,
+              color: '#ffffff', fontSize: '13px', fontWeight: 900, whiteSpace: 'nowrap',
+              textShadow: '0 0 8px rgba(0,0,0,1), 0 0 16px rgba(0,0,0,1), 3px 3px 0px rgba(0,0,0,1)',
+              zIndex: 3, pointerEvents: 'none',
+            }}>Draw an infinity to continue!</p>
+          )}
+          <div style={{ position: 'absolute', inset: 0, zIndex: 3 }} onPointerDown={() => { if (showHint) setShowHint(false); }}>
+            <DrawingCanvas mode="infinity" onCircleDetected={handleInfinityDetected} />
+          </div>
+        </>
+      ) : (
+        <div
+          ref={circleRef}
+          style={{
+            position: 'absolute', inset: 0, zIndex: 2,
+            opacity: interactableVisible ? 1 : 0,
+            transition: 'opacity 0.4s ease',
+            animation: circleShaking ? 'circleShake 0.5s ease-in-out 2' : 'none',
+          }}
+        >
+          <div
+            ref={floatingDivRef}
+            style={{
+              position: 'absolute', top: 32, left: 0, right: 0, height: '300px',
+              animation: 'magicFloat 4s ease-in-out infinite',
+              opacity: circleFailSequence === 'fading' || finalAnswerPhase ? 0 : 1,
+              transition: (circleFailSequence === 'fading' || finalAnswerPhase) ? 'opacity 0.6s ease-out' : undefined,
+            }}
+          >
+            <img
+              src="/InteractableUI/DissimilarMagicCircle.png"
+              alt="magic circle"
+              style={{
+                position: 'absolute', top: 0, left: 0, right: 0, width: '100%', height: '100%',
+                objectFit: 'contain', pointerEvents: 'none',
+                animation: circleFailSequence === 'flashing' ? 'circleFlash 0.12s ease-in-out infinite'
+                  : circleFailCount === 2 ? 'circlePulse2 0.4s ease-in-out infinite'
+                  : circleFailCount === 1 ? 'circlePulse1 0.75s ease-in-out infinite'
+                  : 'problemFadeIn 0.5s ease-out',
+              }}
+            />
+
+            {['n1', 'n2', 'd1', 'd2'].map(renderNode)}
+
+            {/* Landing sparkle at each label the instant its fly-in arrives */}
+            {explodeSparkles.map(s => (
+              <img key={s.id} src="/OtherEffects/BlueSparkle.png" alt="" style={{
+                position: 'absolute', left: s.left - 20, top: s.top - 20,
+                width: 40, height: 40, pointerEvents: 'none', zIndex: 6,
+                animation: 'sparkBurst 0.8s ease-out forwards',
+              }} />
+            ))}
+
+            {/* Denominator-explosion particle ring */}
+            {denExplosion && [
+              { dx: '-80px', dy: '-80px', s: 10 }, { dx: '-20px', dy: '-95px', s: 7 }, { dx: '20px', dy: '-95px', s: 9 }, { dx: '80px', dy: '-80px', s: 8 },
+              { dx: '95px', dy: '-20px', s: 7 }, { dx: '95px', dy: '20px', s: 10 }, { dx: '80px', dy: '80px', s: 8 }, { dx: '20px', dy: '95px', s: 7 },
+              { dx: '-20px', dy: '95px', s: 9 }, { dx: '-80px', dy: '80px', s: 7 }, { dx: '-95px', dy: '20px', s: 10 }, { dx: '-95px', dy: '-20px', s: 8 },
+              { dx: '-50px', dy: '-110px', s: 6 }, { dx: '50px', dy: '-110px', s: 6 }, { dx: '110px', dy: '50px', s: 6 }, { dx: '-110px', dy: '50px', s: 6 },
+            ].map((dir, i) => (
+              <div key={i} style={{ position: 'absolute', left: 197, top: 230, width: dir.s, height: dir.s, background: '#ffffff', pointerEvents: 'none', zIndex: 6, '--dx': dir.dx, '--dy': dir.dy, animation: `squareBurst ${0.7 + (i % 3) * 0.1}s ease-out forwards` }} />
+            ))}
+
+            {/* Cross-explosion particle burst */}
+            {crossExplosion && (() => {
+              const cx = crossExplosion === 'n1' ? 126 : 268, cy = 100;
+              return [
+                { dx: '-70px', dy: '-70px', s: 9 }, { dx: '0px', dy: '-85px', s: 7 }, { dx: '70px', dy: '-70px', s: 9 },
+                { dx: '85px', dy: '0px', s: 7 }, { dx: '70px', dy: '70px', s: 9 }, { dx: '0px', dy: '85px', s: 7 },
+                { dx: '-70px', dy: '70px', s: 9 }, { dx: '-85px', dy: '0px', s: 7 },
+                { dx: '-45px', dy: '-95px', s: 6 }, { dx: '45px', dy: '-95px', s: 6 }, { dx: '95px', dy: '45px', s: 6 }, { dx: '-95px', dy: '45px', s: 6 },
+              ].map((d, i) => (
+                <div key={i} style={{ position: 'absolute', left: cx, top: cy, width: d.s, height: d.s, background: '#ffffff', pointerEvents: 'none', zIndex: 6, '--dx': d.dx, '--dy': d.dy, animation: `squareBurst ${0.7 + (i % 3) * 0.1}s ease-out forwards` }} />
+              ));
+            })()}
+
+            {/* SD slot */}
+            {n1Visible && d1Visible && n2Visible && d2Visible && (
+              denominatorPhase === 'sd-input' || sdBlinking ? (
+                <div style={{
+                  position: 'absolute', left: 177, top: 210, width: 40, height: 40,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: '#555555', border: '3px dashed #ffffff', borderRadius: 0,
+                  animation: `sdBlink ${sdCorrect ? '2s' : '0.6s'} ease-in-out infinite`,
+                  zIndex: 5,
+                }}>
+                  {sdCorrect
+                    ? <span style={{ fontSize: numFontSize(d1 * d2, 40), fontWeight: 900, color: '#ffffff', fontFamily: '"Press Start 2P", monospace' }}>{d1 * d2}</span>
+                    : denominatorPhase === 'sd-input' && (
+                      <input
+                        ref={sdInputRef} type="text" inputMode="numeric" pattern="[0-9]*"
+                        value={sdInputVal} onChange={e => setSdInputVal(e.target.value.replace(/\D/g, ''))}
+                        style={{ width: '100%', height: '100%', textAlign: 'center', fontSize: numFontSize(sdInputVal || 0, 40), fontWeight: 900, color: '#ffffff', background: 'transparent', border: 'none', outline: 'none', fontFamily: '"Press Start 2P", monospace', padding: 0 }}
+                      />
+                    )}
+                </div>
+              ) : (
+                <div style={{ position: 'absolute', left: 177, top: 210, width: 40, height: 40, border: '3px dashed #ffffff', borderRadius: 0, background: '#555555', boxShadow: '0 0 8px 3px rgba(0,0,0,0.7)', animation: 'numFadeIn 0.5s ease-out both', pointerEvents: 'none', zIndex: 3 }} />
+              )
+            )}
+
+            {/* SD success particles */}
+            {sdParticles.map(p => (
+              <div key={p.id} style={{ position: 'absolute', left: p.sl, top: p.st, width: p.size, height: p.size, background: '#ffffff', pointerEvents: 'none', zIndex: 6, '--tx': p.tx + 'px', '--ty': p.ty + 'px', animation: `sdToTarget 0.75s ${p.delay}s ease-out forwards` }} />
+            ))}
+            {/* Cross success particles */}
+            {[...n1CrossParticles, ...n2CrossParticles].map(p => (
+              <div key={p.id} style={{ position: 'absolute', left: p.sl, top: p.st, width: p.size, height: p.size, background: '#ffffff', pointerEvents: 'none', zIndex: 6, '--tx': p.tx + 'px', '--ty': p.ty + 'px', animation: `sdToTarget 0.75s ${p.delay}s ease-out forwards` }} />
+            ))}
+            {/* CENTER success particles */}
+            {centerParticles.map(p => (
+              <div key={p.id} style={{ position: 'absolute', left: p.sl, top: p.st, width: p.size, height: p.size, background: '#ffffff', pointerEvents: 'none', zIndex: 6, '--tx': p.tx + 'px', '--ty': p.ty + 'px', animation: `sdToTarget 0.75s ${p.delay}s ease-out forwards` }} />
+            ))}
+
+            {/* CENTER slot */}
+            {n1Visible && d1Visible && n2Visible && d2Visible && (
+              centerPhase ? (
+                <div style={{ position: 'absolute', left: 177, top: 128, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#555555', border: '3px dashed #ffffff', pointerEvents: 'auto', zIndex: 5, overflow: 'visible' }}>
+                  <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', width: 80, height: 80, left: -20, top: -20, animation: 'sparkleSpinPulse 2.4s ease-in-out infinite', pointerEvents: 'none' }} />
+                  {centerCorrect
+                    ? <span style={{ position: 'relative', zIndex: 1, fontSize: numFontSize(crossSum(), 40), fontWeight: 900, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '0 0 6px rgba(0,0,0,0.9)' }}>{crossSum()}</span>
+                    : <input
+                        ref={centerInputRef} type="text" inputMode="numeric" pattern="[0-9]*"
+                        value={centerVal} onChange={e => setCenterVal(e.target.value.replace(/\D/g, ''))}
+                        style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', textAlign: 'center', fontSize: numFontSize(centerVal || 0, 40), fontWeight: 900, color: '#fff', background: 'transparent', border: 'none', outline: 'none', fontFamily: '"Press Start 2P", monospace', padding: 0, textShadow: '0 0 6px rgba(0,0,0,0.9)' }}
+                      />
+                  }
+                </div>
+              ) : (
+                <div style={{ position: 'absolute', left: 177, top: 128, width: 40, height: 40, border: '3px dashed #ffffff', borderRadius: 0, background: '#555555', boxShadow: '0 0 8px 3px rgba(0,0,0,0.7)', animation: 'numFadeIn 0.5s ease-out both', pointerEvents: 'none', zIndex: 3 }} />
+              )
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Final answer — floats over the fading circle, its own magicFloat copy */}
+      {finalAnswerPhase && (() => {
+        const fieldStyle = { width: 60, height: 44, fontSize: 20, fontWeight: 800, textAlign: 'center', border: '3px dashed #ffffff', borderRadius: 0, background: '#555555', color: '#ffffff', outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace', WebkitAppearance: 'none' };
+        return (
+          <div style={{ position: 'absolute', top: '32px', left: 0, right: 0, height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'magicFloat 4s ease-in-out infinite', zIndex: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'numFadeIn 0.5s ease-out both' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap' }}>Final Answer:</span>
+              {fIsWhole ? (
+                <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput} onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput} onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
+                  <div style={{ width: 60, height: 3, background: '#ffffff', borderRadius: 2 }} />
+                  <input type="text" inputMode="numeric" value={finalDenInput} onChange={e => setFinalDenInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Drag ghost + Confirm button + fly-in bubbles/sparkles, portaled to escape the panel's transform */}
+      {createPortal(
+        <>
+          {dragScreenPos && (() => {
+            const info = { d1: { size: 32, val: d1 }, d2: { size: 32, val: d2 } }[dragScreenPos.key];
+            if (!info) return null;
+            const vibrating = inMagnetZone[dragScreenPos.key];
+            return (
+              <div style={{
+                position: 'fixed', left: dragScreenPos.x - info.size / 2, top: dragScreenPos.y - info.size / 2,
+                width: info.size, height: info.size, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: numFontSize(info.val, info.size), fontWeight: 900, color: '#e8d5b4',
+                border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333',
+                fontFamily: '"Press Start 2P", monospace', pointerEvents: 'none', zIndex: 9999,
+                animation: [
+                  vibrating ? 'magnetVibrate 0.15s ease-in-out infinite' : null,
+                  pulsatingWhite[dragScreenPos.key] ? 'pulsateWhite 0.5s ease-in-out infinite' : null,
+                ].filter(Boolean).join(', ') || 'none',
+              }}>{info.val}</div>
+            );
+          })()}
+
+          {flyBubbles && ([
+            { key: 'n1', ref: bRef1 }, { key: 'd1', ref: bRef2 },
+            { key: 'n2', ref: bRef3 }, { key: 'd2', ref: bRef4 },
+          ]).map(({ key, ref }) => {
+            const b = flyBubbles[key];
+            return b ? (
+              <div key={key} ref={ref} style={{
+                position: 'fixed', left: b.left, top: b.top, width: 44, height: 44,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 9999, pointerEvents: 'none', opacity: b.opacity, transition: 'opacity 0.3s ease',
+              }}>
+                <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite', pointerEvents: 'none' }} />
+                <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '0 0 6px rgba(0,0,0,0.9)', fontFamily: '"Press Start 2P", monospace' }}>{b.value}</span>
+              </div>
+            ) : null;
+          })}
+        </>,
+        document.body
+      )}
+
+      {/* Confirm button */}
+      {circleDetected && confirmEnabled && (
+        <SolveButtonRow
+          label={finalActive ? 'Cast Spell' : 'Confirm'}
+          onConfirm={handleConfirm}
+          confirmEnabled={confirmEnabled}
+          onHint={onRequestHint ? () => onRequestHint(
+            sdActive     ? `${d1} × ${d2} = ?`
+          : n1Active     ? `${d2} × ${n1} = ?`
+          : n2Active     ? `${d1} × ${n2} = ?`
+          : centerActive ? `${d2 * n1} ${problem.operator} ${d1 * n2} = ?`
+          :                `Simplify ${rawNum}/${rawDen}.`
+          ) : undefined}
+        />
       )}
     </div>
   );
@@ -806,7 +2074,6 @@ const HybridIslandGame = ({
   const [score,          setScore]          = useState(0);
   const [streak,         setStreak]         = useState(0);
   const [multiplier,     setMultiplier]     = useState(1.0);
-  const [currentStep,    setCurrentStep]    = useState(1);
   const [feedback,       setFeedback]       = useState('');
   const [feedbackType,   setFeedbackType]   = useState('');
   const [currentHint,    setCurrentHint]    = useState('');
@@ -816,21 +2083,32 @@ const HybridIslandGame = ({
   const [hasSeenMixedTutorial, setHasSeenMixedTutorial] = useState(false);
 
   const [problem,          setProblem]          = useState(() => generateProblem());
-  // stage: 'forge' -> 'route-gesture' -> 'similar' | 'butterfly'
-  // ('forge' itself gates on the triangle-draw gesture internally, see ForgeCircleStage)
-  const [stage,            setStage]            = useState(() => problem.isMixed ? 'forge' : 'route-gesture');
+  // stage: 'forge' -> 'similar' | 'butterfly'
+  // ('forge' gates on the triangle-draw gesture internally, see ForgeCircleStage;
+  // 'similar'/'butterfly' each gate their own circle/infinity-draw gesture too)
+  const [stage,            setStage]            = useState(() => problem.isMixed ? 'forge' : 'similar');
   const [butterflyProblem, setButterflyProblem] = useState(problem);
-  const [bgShift] = useState(null);
+  // uiVisible: hides the interactable card (and pulls player/enemy in close) the instant
+  // any answer is submitted — mirrors Similar/Dissimilar Island's interactableVisible.
+  const [uiVisible,        setUiVisible]        = useState(true);
+  // gestureActive: true only once the CURRENT stage's own draw gesture (triangle/
+  // circle/infinity) has actually succeeded — mirrors Similar/Dissimilar Island's
+  // `circleDetected`, so the player/enemy push-apart is tied to the gesture itself,
+  // not just to the card being generically visible from page load.
+  const [gestureActive,    setGestureActive]     = useState(false);
+  const [particleDigits] = useState(() => Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)));
+  const [bgShift,          setBgShift]          = useState(null);
+  const lastBgShiftRef = useRef(null);
   const [envParticles,     setEnvParticles]     = useState([]);
 
   // Bottom-anchored, scale-to-fit interactive panel (mirrors Similar/Dissimilar Island)
   // The card itself is a fixed 400x440 — identical to the circleContainerRef box on
-  // Similar/Dissimilar Island. PANEL_W/H describe the whole unit (card + Cast Spell
-  // button) for the outer viewport-fit scale.
-  const CARD_W = 400, CARD_H = 440, CARD_PAD = 16, CARD_BORDER = 4;
-  const CARD_INNER_W = CARD_W - 2 * (CARD_PAD + CARD_BORDER);
-  const CARD_INNER_H = CARD_H - 2 * (CARD_PAD + CARD_BORDER);
-  const PANEL_W = CARD_W, PANEL_H = 500;
+  // Similar/Dissimilar Island, zero padding so the inner stages (calibrated for a
+  // clean 400x440 canvas, same as circleContainerRef) get the exact space they expect.
+  // Cast Spell/Confirm/Check now live INSIDE that 400x440 box (bottom:12, matching
+  // Similar/Dissimilar), so the scale-fit no longer needs extra reserved height.
+  const CARD_W = 400, CARD_H = 440, CARD_BORDER = 4;
+  const PANEL_W = CARD_W, PANEL_H = CARD_H;
 
   const rectWrapperRef = useRef(null);
   const rectScaleRef = useRef(1);
@@ -847,26 +2125,6 @@ const HybridIslandGame = ({
     obs.observe(rectWrapperRef.current);
     return () => obs.disconnect();
   }, []);
-
-  // Fits Hybrid's own content (forge tokens / butterfly diagram, which are sized
-  // differently than Similar/Dissimilar's circle) into the standardized 400x440 card
-  // without changing the card's own dimensions.
-  const cardContentRef = useRef(null);
-  const [contentScale, setContentScale] = useState(1);
-
-  useEffect(() => {
-    const el = cardContentRef.current;
-    if (!el) return;
-    const measure = () => {
-      const w = el.scrollWidth, h = el.scrollHeight;
-      if (!w || !h) return;
-      setContentScale(Math.min(1, CARD_INNER_W / w, CARD_INNER_H / h));
-    };
-    const obs = new ResizeObserver(measure);
-    obs.observe(el);
-    measure();
-    return () => obs.disconnect();
-  }, [stage]);
 
   // ── sprite / combat visuals (mirrors Similar/Dissimilar Island) ──
   const [wizardAnim,      setWizardAnim]      = useState('idle');
@@ -888,8 +2146,69 @@ const HybridIslandGame = ({
   const enemyBoxRef  = useRef(null);
   const onHitRef     = useRef(null);
 
-  const butterflyPanelRef = useRef(null);
   const envPidRef = useRef(0);
+
+  // ── combat OST — mirrors Similar/Dissimilar Island: a random one of the three
+  // island-specific tracks on level start, switching to a random shared boss
+  // track once the enemy turns out to be a boss. Also feeds a bass-intensity
+  // analyser into `pulse`, driving the same glow-behind-the-problem effect. ──
+  const ostRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const pulseRafRef = useRef(null);
+  const [pulse, setPulse] = useState(0); // 0-1 bass intensity
+
+  const playOST = (src) => {
+    if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; }
+    const audio = new Audio(src);
+    audio.loop = true;
+    audio.volume = getMasterVolume();
+    audio.crossOrigin = 'anonymous';
+    audio.currentTime = 0;
+
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        analyserRef.current = audioCtxRef.current.createAnalyser();
+        analyserRef.current.fftSize = 512;
+        analyserRef.current.smoothingTimeConstant = 0.85;
+        analyserRef.current.connect(audioCtxRef.current.destination);
+      }
+      const src_ = audioCtxRef.current.createMediaElementSource(audio);
+      src_.connect(analyserRef.current);
+    } catch { /* ignore — pulse glow just stays off */ }
+
+    audio.play().then(() => audioCtxRef.current?.resume()).catch(() => {});
+    ostRef.current = audio;
+  };
+
+  // Bass-pulse RAF loop
+  useEffect(() => {
+    const tick = () => {
+      if (analyserRef.current) {
+        const data = new Uint8Array(analyserRef.current.frequencyBinCount);
+        analyserRef.current.getByteFrequencyData(data);
+        const bassAvg = data.slice(0, 8).reduce((a, b) => a + b, 0) / 8;
+        setPulse(bassAvg / 255);
+      }
+      pulseRafRef.current = requestAnimationFrame(tick);
+    };
+    pulseRafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(pulseRafRef.current);
+  }, []);
+
+  useEffect(() => {
+    const track = Math.floor(Math.random() * 3) + 1;
+    playOST(`/OSTFiles/hybridcombatOST${track}.mp3`);
+    return () => { if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; } };
+  }, [gameSession.level]);
+
+  useEffect(() => {
+    if (enemyData?.type === 'boss') {
+      const track = Math.floor(Math.random() * 2) + 1;
+      playOST(`/OSTFiles/bossOST${track}.mp3`);
+    }
+  }, [enemyData?.type]);
 
   const showMixedTutorial = problem.isMixed && !hasSeenMixedTutorial;
 
@@ -1057,16 +2376,16 @@ const HybridIslandGame = ({
       />
     ));
 
-  const corners = (color) => (
-    <>
-      <div style={{ position: 'absolute', inset: 5, border: `1px solid ${color}`, pointerEvents: 'none' }} />
-      {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i) => (
-        <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:10, height:10, background:color, ...(t!==null?{top:t}:{bottom:-6}), ...(l!==null?{left:l}:{right:-6}) }}/>
-      ))}
-      {[[3,3],[null,3],[3,null],[null,null]].map(([t,l],i) => (
-        <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:5, height:5, background:color, ...(t!==null?{top:t}:{bottom:3}), ...(l!==null?{left:l}:{right:3}) }}/>
-      ))}
-    </>
+  // The converted improper fraction shown under the problem once Forge is done —
+  // glowing white, no background/border, just the number and a thin glowing rule.
+  // Tagged data-fly="conv{idx}-n/d" so Similar/Butterfly's own fly-in launches
+  // from these (the numbers actually being used), not the original mixed digits.
+  const convertedFrac = (idx, num, den) => (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <span data-fly={`conv${idx}-n`} style={{ fontSize: 22, fontWeight: 800, color: '#ffffff', minWidth: 40, textAlign: 'center', textShadow: '0 0 6px rgba(255,255,255,0.9), 0 0 14px rgba(255,255,255,0.6)' }}>{num}</span>
+      <div style={{ width: 40, height: 2, background: '#ffffff', margin: '3px 0', boxShadow: '0 0 6px rgba(255,255,255,0.8)' }} />
+      <span data-fly={`conv${idx}-d`} style={{ fontSize: 22, fontWeight: 800, color: '#ffffff', minWidth: 40, textAlign: 'center', textShadow: '0 0 6px rgba(255,255,255,0.9), 0 0 14px rgba(255,255,255,0.6)' }}>{den}</span>
+    </div>
   );
 
   // ── API ──
@@ -1145,12 +2464,6 @@ const HybridIslandGame = ({
     }, 800);
   };
 
-  // ── gesture gates ──
-  const handleRouteGestureDetected = () => {
-    playSfx('/SoundEffects/circleAppear.wav');
-    setStage(butterflyProblem.denominator1 === butterflyProblem.denominator2 ? 'similar' : 'butterfly');
-  };
-
   // ── forge complete ──
   const handleForgeComplete = ({ imp1, imp2 }) => {
     const patched = {
@@ -1159,9 +2472,13 @@ const HybridIslandGame = ({
       operator: problem.operator, isMixed: false,
     };
     setButterflyProblem(patched);
-    setStage('route-gesture');
-    setCurrentStep(1);
+    // Equal denominators route into SimilarCircleStage, different denominators
+    // into ButterflyCircleStage — both gate their own draw gesture internally
+    // (circle vs. infinity) rather than through a separate generic gesture screen.
+    setStage(imp1.d === imp2.d ? 'similar' : 'butterfly');
     setCurrentHint('');
+    // The new stage gates its own fresh draw gesture — don't carry over Forge's.
+    setGestureActive(false);
   };
 
   // ── butterfly callbacks ──
@@ -1198,19 +2515,41 @@ const HybridIslandGame = ({
       const next = generateProblem();
       setProblem(next);
       setButterflyProblem(next);
-      setStage(next.isMixed ? 'forge' : 'route-gesture');
+      setStage(next.isMixed ? 'forge' : 'similar');
       setFeedback('');
       setFeedbackType('');
-      setCurrentStep(1);
+      // New problem/stage — its gesture hasn't been drawn yet.
+      setGestureActive(false);
+      // Reveal the card again + bounce the background back to center — mirrors
+      // Similar/Dissimilar Island's generateNextProblem.
+      setUiVisible(true);
+      if (lastBgShiftRef.current) {
+        setBgShift(`return-${lastBgShiftRef.current}`);
+        lastBgShiftRef.current = null;
+        setTimeout(() => setBgShift(null), 700);
+      }
     }, 1500);
   };
 
   const handleAnswerSubmit = (payload) => {
+    // Hide the interactable card + shift the background/pull player&enemy close —
+    // matches Similar/Dissimilar Island's click-time behavior on every answer.
+    setUiVisible(false);
+    setBgShift('right');
+    lastBgShiftRef.current = 'right';
     playWizardAnim(Math.random() < 0.5 ? 'attack1' : 'attack2');
     setTimeout(() => launchFireball(() => resolveCorrectAnswer(payload)), 500);
   };
 
   const handleWrongAnswer = async (hint, submittedValue, errorType) => {
+    // Hide the interactable card + shift the background/pull player&enemy close,
+    // immediately — before the enemy-attack/player-hurt sequence plays, matching
+    // Similar/Dissimilar Island. The hint bubble is intentionally never populated
+    // here: it should only ever appear once a Hint button is wired up to request one.
+    setUiVisible(false);
+    setBgShift('left');
+    lastBgShiftRef.current = 'left';
+
     const newLives = playerHealth - 1;
     setPlayerHealth(newLives);
     setStreak(0);
@@ -1218,7 +2557,6 @@ const HybridIslandGame = ({
     setEnemyAttacking(true);
     setPlayerFlashing(true);
     setTimeout(() => setPlayerFlashing(false), 500);
-    if (hint) setCurrentHint(hint);
     setFeedback(`✗ Wrong! ${hint || 'Try again.'}`);
     setFeedbackType('incorrect');
     playSfx('/VoiceLines/castFailure.wav');
@@ -1236,11 +2574,19 @@ const HybridIslandGame = ({
       await saveGameEnd('FAILED', false);
       setTimeout(() => setGameOver(true), 800);
     } else {
-      setTimeout(() => { setEnemyAttacking(false); setFeedback(''); setFeedbackType(''); }, 4000);
+      setTimeout(() => {
+        setEnemyAttacking(false);
+        setFeedback('');
+        setFeedbackType('');
+        setUiVisible(true);
+        if (lastBgShiftRef.current) {
+          setBgShift(`return-${lastBgShiftRef.current}`);
+          lastBgShiftRef.current = null;
+          setTimeout(() => setBgShift(null), 700);
+        }
+      }, 4000);
     }
   };
-
-  const isSimilarCase = butterflyProblem.denominator1 === butterflyProblem.denominator2;
 
   // ── render ──
   return (
@@ -1320,7 +2666,7 @@ const HybridIslandGame = ({
         >
 
           {/* Player */}
-          <div className="wireframe-player" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginRight: '36px', flexShrink: 0, position: 'relative' }}>
+          <div className="wireframe-player" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginRight: gestureActive && uiVisible ? '160px' : '36px', transition: 'margin 0.5s ease', zIndex: 2, flexShrink: 0, position: 'relative', willChange: 'margin-right' }}>
             <div ref={playerBoxRef} style={{ width: '320px', height: '320px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
               {(() => {
                 const FRAMES = isWitch
@@ -1354,6 +2700,27 @@ const HybridIslandGame = ({
                   </>
                 );
               })()}
+              {/* Rising digit particles — visible while actively solving, same as Similar/Dissimilar Island */}
+              {gestureActive && uiVisible && (
+                <>
+                  {[
+                    { left: '5%',  delay: '0s',    dur: '2.6s', size: 28 }, { left: '18%', delay: '-0.6s', dur: '3.0s', size: 24 },
+                    { left: '30%', delay: '-1.1s', dur: '2.4s', size: 32 }, { left: '42%', delay: '-0.3s', dur: '2.8s', size: 26 },
+                    { left: '55%', delay: '-1.5s', dur: '2.7s', size: 22 }, { left: '67%', delay: '-0.9s', dur: '3.1s', size: 20 },
+                    { left: '78%', delay: '-1.8s', dur: '2.5s', size: 30 }, { left: '90%', delay: '-0.4s', dur: '2.9s', size: 25 },
+                    { left: '12%', delay: '-2.1s', dur: '2.6s', size: 21 }, { left: '48%', delay: '-1.3s', dur: '3.2s', size: 27 },
+                    { left: '72%', delay: '-0.7s', dur: '2.3s', size: 23 }, { left: '35%', delay: '-2.4s', dur: '2.8s', size: 29 },
+                  ].map((p, i) => (
+                    <span key={i} style={{
+                      position: 'absolute', bottom: 0, left: p.left,
+                      fontSize: p.size, fontFamily: '"Press Start 2P", monospace', fontWeight: 900,
+                      color: 'rgba(255,255,255,0.88)', lineHeight: 1, textShadow: '2px 2px 4px rgba(0,0,0,0.45)',
+                      pointerEvents: 'none', zIndex: 3, userSelect: 'none',
+                      animation: `riseAndFade ${p.dur} ease-out ${p.delay} infinite`,
+                    }}>{particleDigits[i] ?? 0}</span>
+                  ))}
+                </>
+              )}
               {/* Platform at bottom of character box, above Player label */}
               <img
                 src="/InMatchUIElements/HybridIsland/HybridIslandPlatform.png"
@@ -1378,7 +2745,11 @@ const HybridIslandGame = ({
 
           {/* Center — problem display + interactive solving panel */}
           <div className="wireframe-problem" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', paddingTop: '32px', minHeight: 0, overflow: 'hidden', zIndex: 1 }}>
-            <div style={{ animation: 'magicFloat 3s ease-in-out infinite', position: 'relative' }}>
+            <div style={{
+              animation: 'magicFloat 3s ease-in-out infinite', position: 'relative',
+              filter: pulse > 0.15 ? `drop-shadow(0 0 ${(pulse * 32).toFixed(1)}px rgba(112,55,55,${Math.min(pulse * 1.2, 1).toFixed(2)}))` : 'none',
+              transform: `scale(${(1 + pulse * 0.07).toFixed(4)})`,
+            }}>
               <div
                 key={`${problem.whole1}-${problem.numerator1}-${problem.denominator1}-${problem.whole2}-${problem.numerator2}-${problem.denominator2}`}
                 className="problem-fade-in"
@@ -1388,11 +2759,27 @@ const HybridIslandGame = ({
                 }}
               >
                 {corners('#703737')}
-                <FractionBox whole={problem.whole1} num={problem.numerator1} den={problem.denominator1} />
+                <FractionBox whole={problem.whole1} num={problem.numerator1} den={problem.denominator1} tag="frac0" />
                 <span style={{ fontSize: 32, fontWeight: 800, color: '#222' }}>{problem.operator}</span>
-                <FractionBox whole={problem.whole2} num={problem.numerator2} den={problem.denominator2} />
+                <FractionBox whole={problem.whole2} num={problem.numerator2} den={problem.denominator2} tag="frac1" />
                 <span style={{ fontSize: 28, fontWeight: 800, color: '#555' }}>= ?</span>
               </div>
+              {fallParticles()}
+
+              {/* Converted improper fractions — appear once the forge conversion is
+                  done, outside the problem box entirely, glowing white with no
+                  background/border, each aligned under its own original fraction
+                  via the identical padding/gap layout above. Their numerator/
+                  denominator spans double as the fly-in source for Similar/
+                  Butterfly's own number animation (data-fly="conv{0|1}-{n|d}"). */}
+              {problem.isMixed && stage !== 'forge' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '6px 28px 0', animation: 'problemFadeIn 0.4s ease-out' }}>
+                  {convertedFrac(0, butterflyProblem.numerator1, butterflyProblem.denominator1)}
+                  <span style={{ fontSize: 32, fontWeight: 800, opacity: 0, pointerEvents: 'none' }}>{problem.operator}</span>
+                  {convertedFrac(1, butterflyProblem.numerator2, butterflyProblem.denominator2)}
+                  <span style={{ fontSize: 28, fontWeight: 800, opacity: 0, pointerEvents: 'none' }}>= ?</span>
+                </div>
+              )}
             </div>
 
             {/* Bottom-anchored, scale-to-fit wrapper — matches Similar/Dissimilar Island */}
@@ -1412,70 +2799,37 @@ const HybridIslandGame = ({
                   position: 'relative',
                   width: CARD_W,
                   height: CARD_H,
-                  boxSizing: 'border-box',
                   background: '#e8d5b4',
                   border: `${CARD_BORDER}px solid #703737`,
-                  borderRadius: 0, padding: CARD_PAD,
+                  borderRadius: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   overflow: 'hidden',
+                  opacity: uiVisible ? 1 : 0,
+                  pointerEvents: uiVisible ? 'auto' : 'none',
+                  transition: 'opacity 0.4s ease',
                 }}>
                   {corners('#703737')}
                   {stage === 'forge' ? (
-                    <ForgeCircleStage problem={problem} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} />
-                  ) : stage === 'route-gesture' ? (
-                    <GestureGate
-                      mode={isSimilarCase ? 'circle' : 'infinity'}
-                      hintText={isSimilarCase ? 'Draw a circle to continue!' : 'Draw an infinity to continue!'}
-                      onDetected={handleRouteGestureDetected}
+                    <ForgeCircleStage problem={problem} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} />
+                  ) : stage === 'butterfly' ? (
+                    <ButterflyCircleStage
+                      problem={butterflyProblem}
+                      playerHealth={playerHealth}
+                      onAnswerSubmit={handleAnswerSubmit}
+                      onWrongAnswer={handleWrongAnswer}
+                      onRequestHint={setCurrentHint}
+                      onGestureStart={() => setGestureActive(true)}
                     />
                   ) : (
-                    <div
-                      ref={cardContentRef}
-                      style={{
-                        transform: `scale(${contentScale})`,
-                        transformOrigin: 'center center',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px',
-                      }}
-                    >
-                      {stage === 'similar' ? (
-                        <NumeratorCombinePanel problem={butterflyProblem} onAnswerSubmit={handleAnswerSubmit} onWrongAnswer={handleWrongAnswer} />
-                      ) : (
-                        <>
-                          <ButterflyDiagramCanvas problem={butterflyProblem} currentStep={currentStep} />
-                          <ButterflyStepPanel
-                            ref={butterflyPanelRef}
-                            problem={butterflyProblem}
-                            onAnswerSubmit={handleAnswerSubmit}
-                            onWrongAnswer={handleWrongAnswer}
-                            onStepCorrect={() => setCurrentHint('')}
-                            onStepChange={(step) => setCurrentStep(step)}
-                          />
-                        </>
-                      )}
-                    </div>
+                    <SimilarCircleStage problem={butterflyProblem} onAnswerSubmit={handleAnswerSubmit} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} />
                   )}
                 </div>
-
-                {/* Cast Spell button — butterfly phase only (Forge and Similar have their own inline submit buttons) */}
-                {stage === 'butterfly' && (
-                  <button
-                    onClick={() => butterflyPanelRef.current?.submitCurrentStep()}
-                    style={{
-                      position: 'relative', padding: '10px 40px', fontSize: '13px', fontWeight: 700,
-                      fontFamily: '"Press Start 2P", monospace',
-                      background: '#703737', color: '#e8d5b4', border: '4px solid #703737', borderRadius: 0, cursor: 'pointer',
-                    }}
-                  >
-                    {corners('#703737')}
-                    Cast Spell
-                  </button>
-                )}
               </div>
             </div>
           </div>
 
           {/* Enemy */}
-          <div className="wireframe-enemy" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginLeft: '36px', flexShrink: 0 }}>
+          <div className="wireframe-enemy" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginLeft: gestureActive && uiVisible ? '160px' : '36px', transition: 'margin 0.5s ease', zIndex: 2, flexShrink: 0, willChange: 'margin-left' }}>
             <div ref={enemyBoxRef} style={{ width: '320px', height: '320px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
               {(() => {
                 const info = enemySpriteInfo[enemyAnim] || enemySpriteInfo.idle;
