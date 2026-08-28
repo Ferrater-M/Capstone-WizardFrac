@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
 import HybridConversionTutorial from '../components/HybridConversionTutorial';
-import GameMenuModal from '../components/GameMenuModal';
+import SettingsPage from './SettingsPage';
 import './game.css';
 
 // Pixel-corner bracket decoration — identical to Similar/Dissimilar Island's `corners()`.
@@ -2223,7 +2223,7 @@ const HybridIslandGame = ({
   const [currentHint,    setCurrentHint]    = useState('');
   const [enemyAttacking, setEnemyAttacking] = useState(false);
   const [gameOver,       setGameOver]       = useState(false);
-  const [showExitModal,  setShowExitModal]  = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [hasSeenMixedTutorial, setHasSeenMixedTutorial] = useState(false);
 
   const [problem,          setProblem]          = useState(() => generateProblem());
@@ -2557,10 +2557,11 @@ const HybridIslandGame = ({
     } catch (err) { console.error('Error saving game end:', err); }
   };
 
-  const handleExitGame = () => setShowExitModal(true);
+  const handleMasterVolumeChanged = (volume01) => {
+    if (ostRef.current) ostRef.current.volume = volume01;
+  };
 
   const confirmExit = async () => {
-    setShowExitModal(false);
     await saveGameEnd('PAUSED', false);
     onExitToLobby();
   };
@@ -2799,7 +2800,7 @@ const HybridIslandGame = ({
             Help
           </button>
           <button
-            onClick={handleExitGame}
+            onClick={() => setShowSettings(true)}
             style={{
               position: 'relative', padding: '8px 16px', fontSize: 13, fontWeight: 700,
               fontFamily: '"Press Start 2P", monospace', background: '#e8d5b4', border: '4px solid #703737',
@@ -3166,22 +3167,14 @@ const HybridIslandGame = ({
         </div>
       )}
 
-      {showExitModal && (
-        <GameMenuModal
-          title="Exit Game?"
-          message="Your progress will be saved."
-          icon="⚠️"
-          onClose={() => setShowExitModal(false)}
-        >
-          <div className="wizard-menu-actions">
-            <button type="button" className="wizard-menu-btn wizard-menu-btn-primary" onClick={confirmExit}>
-              Yes, Exit
-            </button>
-            <button type="button" className="wizard-menu-btn wizard-menu-btn-secondary" onClick={() => setShowExitModal(false)}>
-              Cancel
-            </button>
-          </div>
-        </GameMenuModal>
+      {showSettings && (
+        <SettingsPage
+          volumeOnly
+          exitLabel="Exit Session"
+          onBack={() => setShowSettings(false)}
+          onExit={confirmExit}
+          onMasterVolumeChanged={handleMasterVolumeChanged}
+        />
       )}
     </div>
   );
