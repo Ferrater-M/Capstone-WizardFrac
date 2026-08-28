@@ -371,6 +371,14 @@
   animation: problemFadeIn 0.45s ease-out both;
 }
 
+/* Gentle ambient breathing for Hybrid Island's converted-improper-fraction
+   display — glows/scales up slightly and back, so the converted numbers read
+   as "live"/active rather than a flat static label. */
+@keyframes convertedFracPulse {
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 4px rgba(255,255,255,0.5)); }
+  50%       { transform: scale(1.06); filter: drop-shadow(0 0 12px rgba(255,255,255,0.9)); }
+}
+
 @keyframes bookFloat {
   0%, 100% { transform: translateX(-50%) translateY(0); }
   50%       { transform: translateX(-50%) translateY(-7px); }
