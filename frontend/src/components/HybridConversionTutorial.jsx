@@ -176,7 +176,7 @@ const HybridConversionTutorial = ({ onComplete }) => {
   const prev = () => { if (index > 0) setIndex(i => i - 1); };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 2100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 20100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{
         position: 'relative', width: 520, maxWidth: '96vw',
         background: CREAM, border: `4px solid ${BROWN}`,

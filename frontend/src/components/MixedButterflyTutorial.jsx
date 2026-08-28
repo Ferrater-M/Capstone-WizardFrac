@@ -165,7 +165,7 @@ const MixedButterflyTutorial = ({ onComplete }) => {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 2100,
+      position: 'fixed', inset: 0, zIndex: 20100,
       background: 'rgba(0,0,0,0.82)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>

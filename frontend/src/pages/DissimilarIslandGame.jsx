@@ -6,7 +6,7 @@ import DrawingCanvas from '../components/DrawingCanvas';
 // import ButterflyStepPanel from '../components/ButterflyStepPanel';
 import ButterflyTutorial from '../components/ButterflyTutorial';
 import MixedButterflyTutorial from '../components/MixedButterflyTutorial';
-import GameMenuModal from '../components/GameMenuModal';
+import SettingsPage from './SettingsPage';
 import './game.css';
 import '../components/components.css';
 import { getDifficultyParams, buildProblemDissimilar, TIMING } from '../utils/gameUtils';
@@ -81,7 +81,7 @@ const DissimilarIslandGame = ({
   const [enemyFlashing, setEnemyFlashing] = useState(false);
   const [playerFlashing, setPlayerFlashing] = useState(false);
   const [gameOver, setGameOver] = useState(false);
-  const [showExitModal, setShowExitModal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [bgShift, setBgShift] = useState(null);
   const lastBgShiftRef = useRef(null);
   const [pulse, setPulse] = useState(0);
@@ -864,8 +864,8 @@ const DissimilarIslandGame = ({
     onGameEnd({ status, isWon, score });
   };
 
-  const handleExitGame = () => setShowExitModal(true);
-  const confirmExit = async () => { setShowExitModal(false); await saveGameEnd('PAUSED', false); onExitToLobby(); };
+  const confirmExit = async () => { await saveGameEnd('PAUSED', false); onExitToLobby(); };
+  const handleMasterVolumeChanged = (volume01) => { if (ostRef.current) ostRef.current.volume = volume01; };
 
   // ── Answer handlers ───────────────────────────────────────────────────────
   const handleAnswerSubmit = async ({ numerator, denominator, skipAnim = false }) => {
@@ -1044,7 +1044,7 @@ const DissimilarIslandGame = ({
             Help
           </button>
           <button
-            onClick={handleExitGame}
+            onClick={() => setShowSettings(true)}
             style={{
               padding: '8px 16px', fontSize: 13, fontWeight: 700,
               fontFamily: '"Press Start 2P", monospace',
@@ -1916,14 +1916,14 @@ const DissimilarIslandGame = ({
         </div>
       )}
 
-      {/* Exit modal */}
-      {showExitModal && (
-        <GameMenuModal title="Exit Game?" message="Your progress will be saved." icon="⚠️" onClose={() => setShowExitModal(false)}>
-          <div className="wizard-menu-actions">
-            <button type="button" className="wizard-menu-btn wizard-menu-btn-primary" onClick={confirmExit}>Yes, Exit</button>
-            <button type="button" className="wizard-menu-btn wizard-menu-btn-secondary" onClick={() => setShowExitModal(false)}>Cancel</button>
-          </div>
-        </GameMenuModal>
+      {showSettings && (
+        <SettingsPage
+          volumeOnly
+          exitLabel="Exit Session"
+          onBack={() => setShowSettings(false)}
+          onExit={confirmExit}
+          onMasterVolumeChanged={handleMasterVolumeChanged}
+        />
       )}
     </div>
   );
