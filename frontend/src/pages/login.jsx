@@ -274,21 +274,21 @@ const LandingPage = ({ onLoginSuccess }) => {
                     required
                     maxLength={16}
                   />
-                  <span className="input-sparkle" aria-hidden="true">✨</span>
+                  <span className="input-sparkle" aria-hidden="true"></span>
                 </div>
                 <p className="input-hint">3–16 characters</p>
               </div>
 
               <div className="tip-box">
-                <span className="tip-star" aria-hidden="true">⭐</span>
+                <span className="tip-star" aria-hidden="true"></span>
                 <span>Tip: Use a name that other wizards will remember!</span>
               </div>
 
               <div className="button-container">
                 <button type="submit" className="start-btn" disabled={loading}>
-                  <span className="start-btn-icon" aria-hidden="true">🪄</span>
+                  <span className="start-btn-icon" aria-hidden="true"></span>
                   <span>{loading ? 'LOGGING IN...' : 'START GAME'}</span>
-                  <span className="start-btn-icon" aria-hidden="true">✨</span>
+                  <span className="start-btn-icon" aria-hidden="true"></span>
                 </button>
               </div>
             </form>

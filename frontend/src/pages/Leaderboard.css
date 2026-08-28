@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap');
 
-.leaderboard-container {
+.leaderboard-overlay {
   --lb-bg1: #0D0828;
   --lb-bg2: #241354;
   --lb-panel: #2b1660;
@@ -14,35 +14,67 @@
   --lb-muted: #9CA3AF;
   --lb-border: #6D28D9;
 
-  position: relative;
-  height: 100vh;
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
   box-sizing: border-box;
-  padding: 28px 40px 60px;
-  background: radial-gradient(ellipse at 50% -10%, var(--lb-bg2) 0%, var(--lb-bg1) 65%);
+  background: rgba(4, 2, 16, 0.72);
+  backdrop-filter: blur(6px);
   font-family: 'Outfit', 'Segoe UI', sans-serif;
-  overflow-x: hidden;
-  overflow-y: auto;
+  animation: lbOverlayIn 0.18s ease;
 }
 
-.lb-back-btn {
-  position: fixed;
-  top: 24px;
-  left: 40px;
-  padding: 10px 20px;
+@keyframes lbOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.leaderboard-modal {
+  position: relative;
+  width: min(96vw, 900px);
+  max-height: 90vh;
+  box-sizing: border-box;
+  padding: 28px 40px 40px;
+  border-radius: 22px;
+  border: 1px solid var(--lb-border);
+  background: radial-gradient(ellipse at 50% -10%, var(--lb-bg2) 0%, var(--lb-bg1) 65%);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  overflow-x: hidden;
+  overflow-y: auto;
+  animation: lbModalIn 0.22s ease;
+}
+
+@keyframes lbModalIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.lb-close-btn {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--lb-panel2);
   color: var(--lb-text);
   border: 1px solid var(--lb-border);
-  border-radius: 50px;
-  font-family: inherit;
-  font-size: 0.85em;
-  font-weight: 700;
+  border-radius: 50%;
+  font-size: 1em;
+  line-height: 1;
   cursor: pointer;
   box-shadow: 0 0 14px rgba(168, 85, 247, 0.18);
   transition: background 0.2s ease, transform 0.15s ease;
-  z-index: 5;
+  z-index: 1;
 }
 
-.lb-back-btn:hover {
+.lb-close-btn:hover {
   background: var(--lb-primary);
   transform: translateY(-1px);
 }
@@ -166,29 +198,17 @@
 }
 
 .lb-podium-badge {
-  width: 46px;
-  height: 46px;
-  margin: 0 auto 10px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 1.1em;
-  color: #1b0d40;
+  display: block;
+  height: 130px;
+  width: auto;
+  max-width: 100%;
+  margin: -10px auto 6px;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
 }
 
-.badge-1 {
-  background: linear-gradient(160deg, #ffe28a 0%, var(--lb-gold) 100%);
-  box-shadow: 0 0 16px rgba(251, 191, 36, 0.6);
-}
-
-.badge-2 {
-  background: linear-gradient(160deg, #e8e8f0 0%, #b9bac6 100%);
-}
-
-.badge-3 {
-  background: linear-gradient(160deg, #e0a26b 0%, #b97640 100%);
+.lb-podium-badge.badge-2,
+.lb-podium-badge.badge-3 {
+  height: 100px;
 }
 
 .lb-podium-name {
@@ -286,6 +306,15 @@
 }
 
 @media (max-width: 640px) {
+  .leaderboard-overlay {
+    padding: 10px;
+  }
+
+  .leaderboard-modal {
+    padding: 20px;
+    border-radius: 16px;
+  }
+
   .lb-podium {
     grid-template-columns: 1fr;
     max-width: 320px;
@@ -294,10 +323,5 @@
   .lb-podium-card.rank-1 {
     transform: none;
     order: -1;
-  }
-
-  .lb-back-btn {
-    position: static;
-    margin-bottom: 12px;
   }
 }
