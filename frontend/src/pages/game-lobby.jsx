@@ -4,6 +4,8 @@ import './game-lobby.css';
 import LoadingScreen from '../components/LoadingScreen';
 import IslandInterior from './IslandInterior';
 import GameMechanicsIntro from '../components/GameMechanicsIntro';
+import SettingsPage from './SettingsPage';
+import Leaderboard from './Leaderboard';
 
 const MECHANICS_INTRO_KEY = 'wizardfrac_seen_mechanics_intro';
 
@@ -59,8 +61,10 @@ const countEnemiesPerIsland = (text) => {
   return counts;
 };
 
-const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onOpenLeaderboard, onOpenSettings, onEnterIslandInterior, onLeaveIslandInterior }) => {
+const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onEnterIslandInterior, onLeaveIslandInterior, onLogout, onNicknameChanged, onMasterVolumeChanged }) => {
   const [gameProgress, setGameProgress] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [stageStars, setStageStars] = useState({});
   const [selectedIsland, setSelectedIsland] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState(1);
@@ -743,7 +747,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       <div className="lobby-top-right">
         <div className="currency-badge"><span className="currency-star">⭐</span> {starCurrency}</div>
         <button className="icon-pill" onClick={() => setShowMechanicsIntro(true)}>Help</button>
-        <button className="icon-pill icon-pill-round" onClick={onOpenSettings} aria-label="Settings">⚙️</button>
+        <button className="icon-pill icon-pill-round" onClick={() => setShowSettings(true)} aria-label="Settings">⚙️</button>
       </div>
 
       <div className="player-card-fixed">
@@ -805,9 +809,9 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
           <nav className="lobby-sidebar">
             <button className="sidebar-item active" onClick={onOpenDashboard}><span>🏠</span>Dashboard</button>
             <button className="sidebar-item" onClick={onOpenDashboard}><span>📊</span>Progress</button>
-            <button className="sidebar-item" onClick={onOpenLeaderboard}><span>👑</span>Leaderboard</button>
+            <button className="sidebar-item" onClick={() => setShowLeaderboard(true)}><span>👑</span>Leaderboard</button>
             <button className="sidebar-item soon" disabled><span>🏆</span>Achievements<span className="soon-tag">Soon</span></button>
-            <button className="sidebar-item" onClick={onOpenSettings}><span>⚙️</span>Settings</button>
+            <button className="sidebar-item" onClick={() => setShowSettings(true)}><span>⚙️</span>Settings</button>
           </nav>
         </div>
         <div className="left-panel-tab">
@@ -957,6 +961,25 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
 
       {showMechanicsIntro && (
         <GameMechanicsIntro onComplete={closeMechanicsIntro} />
+      )}
+
+      {showSettings && (
+        <SettingsPage
+          studentId={studentId}
+          studentNickname={studentNickname}
+          selectedCharacter={character}
+          onBack={() => setShowSettings(false)}
+          onLogout={onLogout}
+          onNicknameChanged={onNicknameChanged}
+          onMasterVolumeChanged={onMasterVolumeChanged}
+        />
+      )}
+
+      {showLeaderboard && (
+        <Leaderboard
+          studentId={studentId}
+          onBack={() => setShowLeaderboard(false)}
+        />
       )}
     </div>
   );

@@ -10,11 +10,9 @@ import SimilarIslandGame from './pages/SimilarIslandGame';
 import DissimilarIslandGame from './pages/DissimilarIslandGame';
 import HybridIslandGame from './pages/HybridIslandGame';
 import StudentDashboard from './pages/StudentDashboard';
-import Leaderboard from './pages/Leaderboard';
-import SettingsPage from './pages/SettingsPage';
 import { getMasterVolume } from './utils/audio';
 
-const LOBBY_PATHS = ['/', '/login', '/character-selection', '/game-lobby', '/settings'];
+const LOBBY_PATHS = ['/', '/login', '/character-selection', '/game-lobby'];
 
 function App() {
   const navigate = useNavigate();
@@ -178,10 +176,6 @@ function App() {
 
   const handleOpenDashboard = () => navigate('/dashboard');
   const handleBackToLobbyFromDashboard = () => navigate('/game-lobby');
-  const handleOpenLeaderboard = () => navigate('/leaderboard');
-  const handleBackToLobbyFromLeaderboard = () => navigate('/game-lobby');
-  const handleOpenSettings = () => navigate('/settings');
-  const handleBackToLobbyFromSettings = () => navigate('/game-lobby');
   const handleNicknameChanged = (newNickname) => {
     setStudentNickname(newNickname);
     sessionStorage.setItem('studentNickname', newNickname);
@@ -249,11 +243,11 @@ function App() {
                 selectedCharacter={selectedCharacter}
                 onGameStart={handleGameStart}
                 onOpenDashboard={handleOpenDashboard}
-                onOpenLeaderboard={handleOpenLeaderboard}
-                onOpenSettings={handleOpenSettings}
                 onEnterIslandInterior={pauseMusic}
                 onLeaveIslandInterior={resumeMusic}
                 onLogout={handleReturnToLogin}
+                onNicknameChanged={handleNicknameChanged}
+                onMasterVolumeChanged={handleMasterVolumeChanged}
               />
             : <Navigate to="/login" replace />
         } />
@@ -265,26 +259,6 @@ function App() {
                 studentNickname={studentNickname}
                 selectedCharacter={selectedCharacter}
                 onBack={handleBackToLobbyFromDashboard}
-              />
-            : <Navigate to="/login" replace />
-        } />
-
-        <Route path="/leaderboard" element={
-          studentId
-            ? <Leaderboard studentId={studentId} onBack={handleBackToLobbyFromLeaderboard} />
-            : <Navigate to="/login" replace />
-        } />
-
-        <Route path="/settings" element={
-          studentId
-            ? <SettingsPage
-                studentId={studentId}
-                studentNickname={studentNickname}
-                selectedCharacter={selectedCharacter}
-                onBack={handleBackToLobbyFromSettings}
-                onLogout={handleReturnToLogin}
-                onNicknameChanged={handleNicknameChanged}
-                onMasterVolumeChanged={handleMasterVolumeChanged}
               />
             : <Navigate to="/login" replace />
         } />

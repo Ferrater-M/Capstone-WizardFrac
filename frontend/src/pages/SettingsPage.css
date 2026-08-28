@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap');
 
-.settings-page {
+.settings-overlay {
   --st-bg1: #08051C;
   --st-bg2: #12082F;
   --st-panel: #1a0f3d;
@@ -14,32 +14,67 @@
   --st-danger: #ef4444;
   --st-danger-dark: #7f1d2e;
 
-  position: relative;
-  height: 100vh;
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
   box-sizing: border-box;
-  padding: 24px 32px 48px;
-  background: radial-gradient(ellipse at 50% -10%, var(--st-bg2) 0%, var(--st-bg1) 65%);
+  background: rgba(4, 2, 16, 0.72);
+  backdrop-filter: blur(6px);
   font-family: 'Outfit', 'Segoe UI', sans-serif;
-  overflow-x: hidden;
-  overflow-y: auto;
+  animation: settingsOverlayIn 0.18s ease;
 }
 
-.settings-back-btn {
-  padding: 10px 20px;
+@keyframes settingsOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.settings-modal {
+  position: relative;
+  width: min(96vw, 1240px);
+  max-height: 90vh;
+  box-sizing: border-box;
+  padding: 24px 32px 40px;
+  border-radius: 22px;
+  border: 1px solid var(--st-border);
+  background: radial-gradient(ellipse at 50% -10%, var(--st-bg2) 0%, var(--st-bg1) 65%);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  overflow-x: hidden;
+  overflow-y: auto;
+  animation: settingsModalIn 0.22s ease;
+}
+
+@keyframes settingsModalIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.settings-close-btn {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--st-panel2);
   color: var(--st-text);
   border: 1px solid var(--st-border);
-  border-radius: 50px;
-  font-family: inherit;
-  font-size: 0.85em;
-  font-weight: 700;
+  border-radius: 50%;
+  font-size: 1em;
+  line-height: 1;
   cursor: pointer;
   box-shadow: 0 0 14px rgba(168, 85, 247, 0.18);
   transition: background 0.2s ease, transform 0.15s ease;
-  margin-bottom: 20px;
+  z-index: 1;
 }
 
-.settings-back-btn:hover {
+.settings-close-btn:hover {
   background: var(--st-primary);
   transform: translateY(-1px);
 }
@@ -49,8 +84,7 @@
   grid-template-columns: 280px 1fr;
   gap: 24px;
   align-items: start;
-  max-width: 1240px;
-  margin: 0 auto;
+  margin: 8px 0 0;
 }
 
 /* ── Sidebar ── */
@@ -429,8 +463,13 @@
 }
 
 @media (max-width: 560px) {
-  .settings-page {
+  .settings-overlay {
+    padding: 10px;
+  }
+
+  .settings-modal {
     padding: 18px;
+    border-radius: 16px;
   }
 
   .settings-picture-row {

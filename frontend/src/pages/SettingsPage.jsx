@@ -145,11 +145,12 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
   };
 
   return (
-    <div className="settings-page">
-      <Toast key={toastKey} message={toastMessage} />
-      <button className="settings-back-btn" onClick={onBack}>← Back to Menu</button>
+    <div className="settings-overlay" onClick={onBack}>
+      <div className="settings-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <Toast key={toastKey} message={toastMessage} />
+        <button className="settings-close-btn" onClick={onBack} aria-label="Close settings">✕</button>
 
-      <div className="settings-layout">
+        <div className="settings-layout">
         <aside className="settings-sidebar">
           <h2 className="settings-sidebar-title"><span className="settings-sparkle">✦</span> SETTINGS <span className="settings-sparkle">✦</span></h2>
 
@@ -287,6 +288,7 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
             </button>
           </section>
         </main>
+      </div>
       </div>
 
       {pendingPreview && (
