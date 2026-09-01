@@ -116,7 +116,7 @@ const PixelBtn = ({ onClick, disabled, primary, children }) => (
     color: disabled ? TEXT2 : primary ? DARK : TEXT2,
     opacity: disabled ? 0.5 : 1,
     fontFamily: '"Press Start 2P", monospace',
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: 700,
     cursor: disabled ? 'not-allowed' : 'pointer',
     borderRadius: 8,
@@ -150,7 +150,7 @@ const GameMechanicsIntro = ({ onComplete }) => {
     <div style={{ position: 'fixed', inset: 0, zIndex: 2500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(6,4,20,0.78)', backdropFilter: 'blur(4px)' }}>
       <div style={{
         position: 'relative',
-        width: 420,
+        width: 460,
         maxWidth: '90vw',
         background: `linear-gradient(165deg, ${CREAM} 0%, #150a38 100%)`,
         border: '1px solid rgba(168,85,247,0.4)',
@@ -161,8 +161,8 @@ const GameMechanicsIntro = ({ onComplete }) => {
       }}>
         {/* Header */}
         <div style={{ background: `linear-gradient(135deg, ${BROWN} 0%, #4F46E5 100%)`, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 9, color: DARK, letterSpacing: 1 }}>{slide.icon} {slide.title}</span>
-          <button onClick={onComplete} style={{ fontSize: 8, color: DARK, background: 'transparent', border: `1px solid ${DARK}`, borderRadius: 6, padding: '3px 8px', fontFamily: '"Press Start 2P", monospace', cursor: 'pointer' }}>SKIP</button>
+          <span style={{ fontSize: 12, color: DARK, letterSpacing: 1 }}>{slide.icon} {slide.title}</span>
+          <button onClick={onComplete} style={{ fontSize: 10, color: DARK, background: 'transparent', border: `1px solid ${DARK}`, borderRadius: 6, padding: '4px 9px', fontFamily: '"Press Start 2P", monospace', cursor: 'pointer' }}>SKIP</button>
         </div>
 
         {/* Body */}
@@ -174,7 +174,7 @@ const GameMechanicsIntro = ({ onComplete }) => {
               </div>
             </div>
           ) : slide.visual}
-          <div style={{ fontSize: 9, color: TEXT2, lineHeight: 1.9, whiteSpace: 'pre-line' }}>
+          <div style={{ fontSize: 13, color: TEXT2, lineHeight: 1.7, whiteSpace: 'pre-line' }}>
             {slide.body}
           </div>
         </div>

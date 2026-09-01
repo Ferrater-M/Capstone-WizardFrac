@@ -323,6 +323,19 @@
   cursor: not-allowed;
 }
 
+/* Password fields (stacked, unlike the nickname row) */
+.settings-password-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 360px;
+}
+
+.settings-password-fields .settings-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* Shared buttons */
 .settings-btn {
   display: inline-flex;

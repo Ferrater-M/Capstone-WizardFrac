@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import GameMenuModal from '../components/GameMenuModal';
 import Toast from '../components/Toast';
 import { MASTER_VOLUME_KEY, SFX_VOLUME_KEY } from '../utils/audio';
@@ -16,6 +16,7 @@ const readStoredVolume = (key, fallback) => {
 const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, onLogout, onNicknameChanged, onMasterVolumeChanged }) => {
   const fileInputRef = useRef(null);
   const profileSectionRef = useRef(null);
+  const passwordSectionRef = useRef(null);
   const volumeSectionRef = useRef(null);
   const logoutSectionRef = useRef(null);
 
@@ -29,6 +30,22 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
   const [savingNickname, setSavingNickname] = useState(false);
   const [nicknameError, setNicknameError] = useState('');
   const [nicknameSaved, setNicknameSaved] = useState(false);
+
+  const [hasPassword, setHasPassword] = useState(null); // null until fetched
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSaved, setPasswordSaved] = useState(false);
+
+  useEffect(() => {
+    if (!studentId) return;
+    fetch(`${API_BASE}/api/students/${studentId}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data) setHasPassword(!!data.hasPassword); })
+      .catch(() => {});
+  }, [studentId]);
 
   const [masterVolume, setMasterVolume] = useState(() => readStoredVolume(MASTER_VOLUME_KEY, 80));
   const [sfxVolume, setSfxVolume] = useState(() => readStoredVolume(SFX_VOLUME_KEY, 70));
@@ -144,6 +161,46 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
     }
   };
 
+  const handleChangePassword = async () => {
+    setPasswordError('');
+    setPasswordSaved(false);
+
+    if (hasPassword && !currentPassword) {
+      setPasswordError('Enter your current password.');
+      return;
+    }
+    if (newPassword.length < 4) {
+      setPasswordError('New password must be at least 4 characters.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('New passwords do not match.');
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/students/${studentId}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: hasPassword ? currentPassword : undefined, newPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to update password.');
+      setHasPassword(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setPasswordSaved(true);
+      showToast('Password updated!');
+      setTimeout(() => setPasswordSaved(false), 2500);
+    } catch (err) {
+      setPasswordError(err.message === 'Failed to fetch' ? 'Cannot reach the server.' : err.message);
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   return (
     <div className="settings-overlay" onClick={onBack}>
       <div className="settings-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
@@ -157,6 +214,9 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
           <nav className="settings-nav">
             <button className="settings-nav-item active" onClick={() => scrollTo(profileSectionRef)}>
               <span>👤</span> Profile
+            </button>
+            <button className="settings-nav-item" onClick={() => scrollTo(passwordSectionRef)}>
+              <span>🔒</span> Password
             </button>
             <button className="settings-nav-item" onClick={() => scrollTo(volumeSectionRef)}>
               <span>🔊</span> Volume
@@ -241,6 +301,54 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
             </div>
             {nicknameError && <p className="settings-error">{nicknameError}</p>}
             {nicknameSaved && <p className="settings-success">Nickname updated!</p>}
+          </section>
+
+          <section className="settings-card" ref={passwordSectionRef}>
+            <h3 className="settings-card-title">Password</h3>
+            <p className="settings-card-subtitle">
+              {hasPassword
+                ? 'Change the password you use to log back in as this nickname.'
+                : 'Set a password so you can log back in as this nickname later — it isn\'t claimed yet.'}
+            </p>
+            <div className="settings-password-fields">
+              {hasPassword && (
+                <input
+                  className="settings-input"
+                  type="password"
+                  placeholder="Current password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  disabled={savingPassword}
+                />
+              )}
+              <input
+                className="settings-input"
+                type="password"
+                placeholder="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={savingPassword}
+              />
+              <input
+                className="settings-input"
+                type="password"
+                placeholder="Confirm new password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleChangePassword()}
+                disabled={savingPassword}
+              />
+              <button
+                type="button"
+                className="settings-btn"
+                onClick={handleChangePassword}
+                disabled={savingPassword || !newPassword || !confirmNewPassword || (hasPassword && !currentPassword)}
+              >
+                {savingPassword ? 'Saving…' : hasPassword ? 'Update Password' : 'Set Password'}
+              </button>
+            </div>
+            {passwordError && <p className="settings-error">{passwordError}</p>}
+            {passwordSaved && <p className="settings-success">Password updated!</p>}
           </section>
 
           <section className="settings-card" ref={volumeSectionRef}>

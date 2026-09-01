@@ -336,6 +336,66 @@
   font-size: 0.9rem;
 }
 
+/* --- Claim / password prompt steps (temporary UI, see login.jsx) --- */
+.prompt-message {
+  line-height: 1.5;
+}
+
+.prompt-message strong {
+  color: #f6b825;
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+
+.prompt-btn {
+  flex: 1;
+  min-width: 90px;
+  padding: 12px 10px;
+  border-radius: 8px;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.prompt-btn:active {
+  transform: translateY(1px);
+}
+
+.prompt-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.prompt-btn-back {
+  background: #18133b;
+  border: 1px solid #3c3475;
+  color: #cfc8f0;
+}
+
+.prompt-btn-secondary {
+  background: linear-gradient(180deg, #ff8a5c 0%, #e8632f 100%);
+  border: none;
+  color: #fff;
+}
+
+.prompt-btn-primary {
+  background: linear-gradient(180deg, #ffd34d 0%, #f4aa19 50%, #df8b09 100%);
+  border: none;
+  color: #4a2d04;
+}
+
+.prompt-btn:not(:disabled):hover {
+  filter: brightness(1.1);
+}
+
 /* --- BUTTON --- */
 .button-container {
   margin-top: 5px;

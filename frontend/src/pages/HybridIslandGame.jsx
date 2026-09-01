@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
 import MixedButterflyTutorial from '../components/MixedButterflyTutorial';
+import HybridFractionTutorial from '../components/HybridFractionTutorial';
 import GameMenuModal from '../components/GameMenuModal';
 import './game.css';
 
@@ -358,13 +359,14 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
   // used for the token boxes elsewhere in Hybrid.
   const magicNFieldStyle = {
     width: 90, height: 64, fontSize: 32, fontWeight: 800, textAlign: 'center',
-    border: '3px dashed #222', borderRadius: 0, background: 'transparent', color: '#222',
+    border: '3px dashed #fdf6e3', borderRadius: 0, background: 'transparent', color: '#fdf6e3',
+    textShadow: '0 0 8px rgba(0,0,0,0.9)',
     outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace',
     WebkitAppearance: 'none', MozAppearance: 'none',
   };
   const wholeFieldStyle = {
     width: 90, height: 64, fontSize: 28, fontWeight: 800, textAlign: 'center',
-    border: '3px dashed #222', borderRadius: 0, background: 'transparent', color: '#222',
+    border: '3px dashed #fdf6e3', borderRadius: 0, background: 'transparent', color: '#fdf6e3',
     outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace',
     WebkitAppearance: 'none', MozAppearance: 'none',
     boxShadow: '0 4px 16px rgba(0,0,0,0.7)', textShadow: '0 0 8px rgba(0,0,0,0.9)',
@@ -2081,6 +2083,7 @@ const HybridIslandGame = ({
   const [gameOver,       setGameOver]       = useState(false);
   const [showExitModal,  setShowExitModal]  = useState(false);
   const [hasSeenMixedTutorial, setHasSeenMixedTutorial] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(true);
 
   const [problem,          setProblem]          = useState(() => generateProblem());
   // stage: 'forge' -> 'similar' | 'butterfly'
@@ -2528,7 +2531,7 @@ const HybridIslandGame = ({
         lastBgShiftRef.current = null;
         setTimeout(() => setBgShift(null), 700);
       }
-    }, 1500);
+    }, 10000);
   };
 
   const handleAnswerSubmit = (payload) => {
@@ -2582,9 +2585,9 @@ const HybridIslandGame = ({
         if (lastBgShiftRef.current) {
           setBgShift(`return-${lastBgShiftRef.current}`);
           lastBgShiftRef.current = null;
-          setTimeout(() => setBgShift(null), 700);
+          setTimeout(() => setBgShift(null), 100);
         }
-      }, 4000);
+      }, 10000);
     }
   };
 
@@ -2642,17 +2645,30 @@ const HybridIslandGame = ({
           </div>
         )}
 
-        <button
-          onClick={handleExitGame}
-          style={{
-            position: 'relative', padding: '8px 16px', fontSize: 13, fontWeight: 700,
-            fontFamily: '"Press Start 2P", monospace', background: '#e8d5b4', border: '4px solid #703737',
-            borderRadius: 0, color: '#222', cursor: 'pointer',
-          }}
-        >
-          {corners('#703737')}
-          Menu
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={() => setShowTutorial(true)}
+            style={{
+              position: 'relative', padding: '8px 16px', fontSize: 13, fontWeight: 700,
+              fontFamily: '"Press Start 2P", monospace', background: '#e8d5b4', border: '4px solid #703737',
+              borderRadius: 0, color: '#222', cursor: 'pointer',
+            }}
+          >
+            {corners('#703737')}
+            Help
+          </button>
+          <button
+            onClick={handleExitGame}
+            style={{
+              position: 'relative', padding: '8px 16px', fontSize: 13, fontWeight: 700,
+              fontFamily: '"Press Start 2P", monospace', background: '#e8d5b4', border: '4px solid #703737',
+              borderRadius: 0, color: '#222', cursor: 'pointer',
+            }}
+          >
+            {corners('#703737')}
+            Menu
+          </button>
+        </div>
       </div>
 
       {/* Battle area */}
@@ -2752,6 +2768,7 @@ const HybridIslandGame = ({
             }}>
               <div
                 key={`${problem.whole1}-${problem.numerator1}-${problem.denominator1}-${problem.whole2}-${problem.numerator2}-${problem.denominator2}`}
+                data-tutorial="problem-box"
                 className="problem-fade-in"
                 style={{
                   position: 'relative', background: '#e8d5b4', border: '4px solid #703737', borderRadius: 0,
@@ -2795,7 +2812,7 @@ const HybridIslandGame = ({
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px',
                 marginBottom: '50px',
               }}>
-                <div style={{
+                <div data-tutorial="interactable" style={{
                   position: 'relative',
                   width: CARD_W,
                   height: CARD_H,
@@ -2927,10 +2944,10 @@ const HybridIslandGame = ({
       {/* Feedback */}
       {feedback && (
         <div style={{
-          position: 'fixed', left: '50%', zIndex: 5000, textAlign: 'center', padding: '10px 24px',
-          border: '4px solid #fff', background: '#000',
+          position: 'fixed', left: '50%', zIndex: 5000, textAlign: 'center', padding: '14px 32px',
+          border: '6px solid #fff', background: '#000',
           color: feedbackType === 'correct' ? '#4ade80' : '#f87171',
-          fontSize: '15px', fontWeight: 700, whiteSpace: 'nowrap',
+          fontSize: '22px', fontWeight: 700, whiteSpace: 'nowrap',
           animation: 'feedbackSlideToCenter 0.6s ease-out forwards',
         }}>
           {corners('#fff')}
@@ -2963,7 +2980,8 @@ const HybridIslandGame = ({
         />
       ))}
 
-      {showMixedTutorial && <MixedButterflyTutorial onComplete={() => setHasSeenMixedTutorial(true)} />}
+      {showTutorial && <HybridFractionTutorial onComplete={() => setShowTutorial(false)} />}
+      {!showTutorial && showMixedTutorial && <MixedButterflyTutorial onComplete={() => setHasSeenMixedTutorial(true)} />}
 
       {/* Game Over */}
       {gameOver && (

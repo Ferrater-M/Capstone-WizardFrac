@@ -670,7 +670,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       setFeedbackType('');
       setCircleDetected(false);
       generateNextProblem();
-    }, 3000);
+    }, 10000);
 
     setIsSubmitting(false);
   };
@@ -1617,8 +1617,9 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                           style={{
                             width: 90, height: 64,
                             fontSize: 32, fontWeight: 800, textAlign: 'center',
-                            border: '3px dashed #222', borderRadius: 0,
-                            background: 'transparent', color: '#222',
+                            border: '3px dashed #fdf6e3', borderRadius: 0,
+                            background: 'transparent', color: '#fdf6e3',
+                            textShadow: '0 0 8px rgba(0,0,0,0.9)',
                             outline: 'none', appearance: 'none',
                             fontFamily: '"Press Start 2P", monospace',
                             WebkitAppearance: 'none', MozAppearance: 'none',
@@ -1639,8 +1640,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                               style={{
                                 width: 90, height: 64,
                                 fontSize: 28, fontWeight: 800, textAlign: 'center',
-                                border: '3px dashed #222', borderRadius: 0,
-                                background: 'transparent', color: '#222',
+                                border: '3px dashed #fdf6e3', borderRadius: 0,
+                                background: 'transparent', color: '#fdf6e3',
                                 outline: 'none', appearance: 'none',
                             fontFamily: '"Press Start 2P", monospace',
                                 WebkitAppearance: 'none', MozAppearance: 'none',
@@ -1660,8 +1661,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 style={{
                                   width: 90, height: 54,
                                   fontSize: 28, fontWeight: 800, textAlign: 'center',
-                                  border: '3px dashed #222', borderRadius: 0,
-                                  background: 'transparent', color: '#222',
+                                  border: '3px dashed #fdf6e3', borderRadius: 0,
+                                  background: 'transparent', color: '#fdf6e3',
                                   outline: 'none', appearance: 'none',
                             fontFamily: '"Press Start 2P", monospace',
                                   WebkitAppearance: 'none', MozAppearance: 'none',
@@ -1669,7 +1670,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                   textShadow: '0 0 8px rgba(0,0,0,0.9)',
                                 }}
                               />
-                              <div style={{ width: 90, height: 3, background: '#222', borderRadius: 2 }} />
+                              <div style={{ width: 90, height: 3, background: '#fdf6e3', borderRadius: 2 }} />
                               <input
                                 type="text"
                                 inputMode="numeric"
@@ -1678,8 +1679,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 style={{
                                   width: 90, height: 54,
                                   fontSize: 28, fontWeight: 800, textAlign: 'center',
-                                  border: '3px dashed #222', borderRadius: 0,
-                                  background: 'transparent', color: '#222',
+                                  border: '3px dashed #fdf6e3', borderRadius: 0,
+                                  background: 'transparent', color: '#fdf6e3',
                                   outline: 'none', appearance: 'none',
                             fontFamily: '"Press Start 2P", monospace',
                                   WebkitAppearance: 'none', MozAppearance: 'none',
@@ -1868,25 +1869,25 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
           left: '50%',
           zIndex: 5000,
           textAlign: 'center',
-          padding: '10px 24px',
-          border: '4px solid #fff',
+          padding: '14px 32px',
+          border: '6px solid #fff',
           background: '#000',
           color: feedbackType === 'correct' ? '#4ade80' : '#f87171',
-          fontSize: '15px', fontWeight: 700,
+          fontSize: '22px', fontWeight: 700,
           whiteSpace: 'nowrap',
           animation: 'feedbackSlideToCenter 0.6s ease-out forwards',
         }}>
           {/* Inner thin border */}
-          <div style={{ position: 'absolute', inset: 5, border: '1px solid #fff', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', inset: 7, border: '1px solid #fff', pointerEvents: 'none' }} />
           {/* Corner squares */}
-          <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
-          <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
-          <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#fff' }} />
-          <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#fff' }} />
-          <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
-          <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
-          <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
-          <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
+          <div style={{ position: 'absolute', top: -8, left: -8, width: 14, height: 14, background: '#fff' }} />
+          <div style={{ position: 'absolute', top: -8, right: -8, width: 14, height: 14, background: '#fff' }} />
+          <div style={{ position: 'absolute', bottom: -8, left: -8, width: 14, height: 14, background: '#fff' }} />
+          <div style={{ position: 'absolute', bottom: -8, right: -8, width: 14, height: 14, background: '#fff' }} />
+          <div style={{ position: 'absolute', top: 4, left: 4, width: 7, height: 7, background: '#fff' }} />
+          <div style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, background: '#fff' }} />
+          <div style={{ position: 'absolute', bottom: 4, left: 4, width: 7, height: 7, background: '#fff' }} />
+          <div style={{ position: 'absolute', bottom: 4, right: 4, width: 7, height: 7, background: '#fff' }} />
           {feedback}
         </div>
       )}

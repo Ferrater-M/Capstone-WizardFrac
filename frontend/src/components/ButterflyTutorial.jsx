@@ -74,7 +74,7 @@ const PixelBtn = ({ onClick, disabled, primary, children }) => (
     border: `3px solid ${BROWN}`,
     color: disabled ? '#6b4040' : primary ? CREAM : BROWN,
     fontFamily: '"Press Start 2P", monospace',
-    fontSize: 9, fontWeight: 700,
+    fontSize: 11, fontWeight: 700,
     cursor: disabled ? 'not-allowed' : 'pointer',
     borderRadius: 0, whiteSpace: 'nowrap',
   }}>
@@ -165,7 +165,7 @@ const ButterflyTutorial = ({ onComplete }) => {
           top:  targetRect ? tooltipPos.top  : '50%',
           transform: targetRect ? 'none' : 'translate(-50%,-50%)',
           zIndex: 2001,
-          width: slide.diagramStep !== null ? 520 : 360,
+          width: slide.diagramStep !== null ? 560 : 400,
           maxWidth: '96vw',
           background: CREAM,
           border: `4px solid ${BROWN}`,
@@ -181,8 +181,8 @@ const ButterflyTutorial = ({ onComplete }) => {
 
         {/* Header */}
         <div style={{ background: slide.isWarning ? '#7f1d1d' : BROWN, padding:'10px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <span style={{ fontSize:9, color:CREAM, letterSpacing:1 }}>{slide.title}</span>
-          <button onClick={onComplete} style={{ fontSize:8, color:CREAM, background:'transparent', border:`1px solid ${CREAM}`, padding:'3px 8px', fontFamily:'"Press Start 2P", monospace', cursor:'pointer' }}>SKIP</button>
+          <span style={{ fontSize:12, color:CREAM, letterSpacing:1 }}>{slide.title}</span>
+          <button onClick={onComplete} style={{ fontSize:10, color:CREAM, background:'transparent', border:`1px solid ${CREAM}`, padding:'4px 9px', fontFamily:'"Press Start 2P", monospace', cursor:'pointer' }}>SKIP</button>
         </div>
 
         {/* Butterfly diagram */}
@@ -193,7 +193,7 @@ const ButterflyTutorial = ({ onComplete }) => {
         )}
 
         {/* Body */}
-        <div style={{ padding:'14px 16px 10px', fontSize:9, color:DARK, lineHeight:1.9, whiteSpace:'pre-line' }}>
+        <div style={{ padding:'14px 16px 10px', fontSize:13, color:DARK, lineHeight:1.7, whiteSpace:'pre-line' }}>
           {slide.isWarning
             ? slide.body.split('\n\n').map((para, i) => (
                 <p key={i} style={{ margin:'0 0 10px', color: i===1?'#b91c1c':DARK, fontWeight: i===1?700:400 }}>{para}</p>
