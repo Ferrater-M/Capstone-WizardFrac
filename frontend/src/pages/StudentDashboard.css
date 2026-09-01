@@ -1,4 +1,5 @@
 /* WizardFrac shared dashboard theme (palette matches Leaderboard.css) */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;900&display=swap');
 .dashboard-container {
   --wizard-purple: #2b1660;
   --wizard-purple2: #32175E;
@@ -456,59 +457,131 @@
   padding-bottom: 2rem;
 }
 
-/* ── Stat cards ── */
+/* ── Stat cards (relic set: scroll / tablet / portal / plaque) ── */
 .stats-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
+  gap: 1.1rem;
+  padding: 0.5rem 0 1.5rem;
 }
 
 .stat-card {
   position: relative;
-  background-color: var(--wizard-purple);
-  background-image: linear-gradient(165deg, var(--wizard-purple) 0%, var(--wizard-purple-dark) 100%);
-  border: 1px solid var(--wizard-border);
-  border-radius: 16px;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 8px 24px rgba(0, 0, 0, 0.45);
-  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.1rem 1.75rem;
   text-align: center;
-  transition: transform 0.2s, box-shadow 0.2s;
+  isolation: isolate;
+  transition: transform 0.25s ease, filter 0.25s ease;
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 14px 32px rgba(0, 0, 0, 0.55);
+  transform: translateY(-6px) scale(1.02);
+  filter: brightness(1.1);
 }
 
 .stat-card-icon {
-  font-size: 1.75rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.6rem;
+  margin-bottom: 0.4rem;
   display: block;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.65));
 }
 
 .stat-card-value {
-  font-family: var(--wizard-font);
-  font-size: 2.25rem;
+  font-family: 'Cinzel', var(--wizard-font);
+  font-size: 2.15rem;
   font-weight: 900;
-  color: var(--wizard-gold);
   line-height: 1;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.4rem;
+  color: var(--wizard-gold);
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-.stat-correct .stat-card-value { color: #86efac; }
-.stat-incorrect .stat-card-value { color: #fca5a5; }
-.stat-sessions .stat-card-value { color: var(--wizard-text-muted); }
-.stat-multiplier .stat-card-value { color: var(--wizard-gold); }
-
 .stat-card-label {
-  font-family: var(--wizard-font);
-  font-size: 0.72rem;
+  font-family: 'Cinzel', var(--wizard-font);
+  font-size: 0.66rem;
   font-weight: 600;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--wizard-text-muted);
 }
+
+/* Correct Answers — torn emerald scroll */
+.stat-correct {
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0px, rgba(255, 255, 255, 0.035) 2px, transparent 2px, transparent 5px),
+    linear-gradient(165deg, #1c6b48 0%, #0a3324 55%, #072319 100%);
+  clip-path: polygon(
+    0% 6%, 4% 3%, 8% 7%, 12% 2%, 16% 6%, 20% 1%, 24% 5%, 28% 0%, 32% 4%, 36% 1%, 40% 6%, 44% 2%, 48% 5%, 52% 1%, 56% 6%, 60% 2%, 64% 5%, 68% 0%, 72% 4%, 76% 1%, 80% 6%, 84% 2%, 88% 5%, 92% 1%, 96% 6%, 100% 3%,
+    100% 94%, 96% 97%, 92% 93%, 88% 98%, 84% 94%, 80% 99%, 76% 95%, 72% 100%, 68% 96%, 64% 99%, 60% 95%, 56% 100%, 52% 96%, 48% 99%, 44% 95%, 40% 100%, 36% 96%, 32% 99%, 28% 95%, 24% 100%, 20% 96%, 16% 99%, 12% 95%, 8% 98%, 4% 94%, 0% 97%
+  );
+  box-shadow: 0 0 26px rgba(52, 211, 153, 0.4), inset 0 0 30px rgba(0, 0, 0, 0.45);
+}
+.stat-correct .stat-card-value { color: #6ee7b7; text-shadow: 0 0 12px rgba(110, 231, 183, 0.75), 2px 2px 3px rgba(0, 0, 0, 0.6); }
+.stat-correct .stat-card-label { color: #bdf5da; }
+
+/* Wrong Answers — cracked stone tablet, red rune glow */
+.stat-incorrect {
+  background-image:
+    radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.06), transparent 42%),
+    radial-gradient(circle at 72% 82%, rgba(0, 0, 0, 0.35), transparent 55%),
+    linear-gradient(165deg, #55474c 0%, #2b2226 55%, #180f12 100%);
+  clip-path: polygon(7% 0, 93% 0, 100% 9%, 100% 91%, 93% 100%, 7% 100%, 0 91%, 0 9%);
+  box-shadow: 0 0 24px rgba(248, 113, 113, 0.32), inset 0 0 28px rgba(120, 20, 20, 0.4);
+}
+.stat-incorrect::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  clip-path: inherit;
+  pointer-events: none;
+  background-image:
+    linear-gradient(105deg, transparent 42%, rgba(248, 113, 113, 0.55) 43%, rgba(248, 113, 113, 0.55) 44%, transparent 45%),
+    linear-gradient(72deg, transparent 60%, rgba(248, 113, 113, 0.4) 61%, rgba(248, 113, 113, 0.4) 62%, transparent 63%),
+    linear-gradient(140deg, transparent 24%, rgba(248, 113, 113, 0.35) 25%, transparent 26%);
+  filter: blur(0.4px);
+}
+.stat-incorrect .stat-card-value { color: #fca5a5; text-shadow: 0 0 12px rgba(248, 113, 113, 0.75), 2px 2px 3px rgba(0, 0, 0, 0.6); z-index: 1; }
+.stat-incorrect .stat-card-label { color: #e7c3c3; z-index: 1; }
+.stat-incorrect .stat-card-icon { z-index: 1; }
+
+/* Sessions Played — glowing arcane portal */
+.stat-sessions {
+  background-image: radial-gradient(circle at 50% 42%, #c084fc 0%, #7c3aed 32%, #33146b 65%, #180a33 100%);
+  clip-path: polygon(50% 0%, 78% 12%, 96% 50%, 78% 88%, 50% 100%, 22% 88%, 4% 50%, 22% 12%);
+  box-shadow: 0 0 32px rgba(168, 85, 247, 0.55), inset 0 0 26px rgba(0, 0, 0, 0.4);
+}
+.stat-sessions::before,
+.stat-sessions::after {
+  content: '✦';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(233, 213, 255, 0.9);
+  font-size: 0.75rem;
+  text-shadow: 0 0 8px rgba(233, 213, 255, 0.9);
+}
+.stat-sessions::before { top: 12%; }
+.stat-sessions::after { bottom: 12%; }
+.stat-sessions .stat-card-value { color: #f3e8ff; text-shadow: 0 0 14px rgba(216, 180, 254, 0.9), 2px 2px 3px rgba(0, 0, 0, 0.6); }
+.stat-sessions .stat-card-label { color: #d8b4fe; }
+
+/* Overall Accuracy — gem-studded gold plaque */
+.stat-multiplier {
+  background-image:
+    radial-gradient(circle 5px at 16px 16px, #f87171 0 5px, transparent 6px),
+    radial-gradient(circle 5px at calc(100% - 16px) 16px, #34d399 0 5px, transparent 6px),
+    radial-gradient(circle 5px at 16px calc(100% - 16px), #60a5fa 0 5px, transparent 6px),
+    radial-gradient(circle 5px at calc(100% - 16px) calc(100% - 16px), #f472b6 0 5px, transparent 6px),
+    linear-gradient(165deg, #4a3410 0%, #241a08 60%, #140d03 100%);
+  border: 3px double #d4af37;
+  border-radius: 14px;
+  box-shadow: 0 0 28px rgba(251, 191, 36, 0.45), inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+.stat-multiplier .stat-card-value { color: #fde68a; text-shadow: 0 0 14px rgba(251, 191, 36, 0.85), 2px 2px 3px rgba(0, 0, 0, 0.6); }
+.stat-multiplier .stat-card-label { color: #eac86b; }
 
 /* ── Section panels ── */
 .competencies-section,

@@ -16,8 +16,7 @@
 
   position: fixed;
   inset: 0;
-  /* Above every in-game particle/spell effect (those top out at z-index 10000). */
-  z-index: 20000;
+  z-index: 1200;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -25,8 +24,7 @@
   box-sizing: border-box;
   background: rgba(4, 2, 16, 0.72);
   backdrop-filter: blur(6px);
-  /* Pixel font throughout, matching the tutorial popups and in-game HUD. */
-  font-family: 'Press Start 2P', 'Outfit', 'Segoe UI', monospace;
+  font-family: 'Outfit', 'Segoe UI', sans-serif;
   animation: settingsOverlayIn 0.18s ease;
 }
 
@@ -41,24 +39,13 @@
   max-height: 90vh;
   box-sizing: border-box;
   padding: 24px 32px 40px;
-  border-radius: 0;
-  border: 4px solid var(--st-border);
+  border-radius: 22px;
+  border: 1px solid var(--st-border);
   background: radial-gradient(ellipse at 50% -10%, var(--st-bg2) 0%, var(--st-bg1) 65%);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
-  display: flex;
-  flex-direction: column;
-  /* Clips at the padding edge only — the border/corner frame itself lives outside
-     this box and never scrolls or gets cut off (see .settings-scroll below). */
-  overflow: hidden;
-  animation: settingsModalIn 0.22s ease;
-}
-
-/* Only this inner region scrolls, so the pixel-bracket border + corners on
-   .settings-modal stay fixed in place instead of scrolling with the content. */
-.settings-scroll {
-  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  animation: settingsModalIn 0.22s ease;
 }
 
 @keyframes settingsModalIn {
@@ -96,10 +83,8 @@
   display: grid;
   grid-template-columns: 280px 1fr;
   gap: 24px;
-  align-items: stretch;
+  align-items: start;
   margin: 8px 0 0;
-  flex: 1;
-  min-height: 0;
 }
 
 /* ── Sidebar ── */
@@ -107,8 +92,8 @@
   position: relative;
   background-color: var(--st-panel);
   background-image: linear-gradient(165deg, var(--st-panel) 0%, #12092e 100%);
-  border: 4px solid var(--st-border);
-  border-radius: 0;
+  border: 1px solid var(--st-border);
+  border-radius: 18px;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 16px 36px rgba(0, 0, 0, 0.5);
   padding: 22px;
   display: flex;
@@ -121,14 +106,9 @@
   align-self: flex-start;
   margin: 0;
   color: var(--st-gold);
-  /* index.css sets a global h1/h2 font-family that otherwise wins over
-     inheritance here, since an explicit rule always beats an inherited one. */
-  font-family: inherit;
-  /* Same size as the Exit Session prompt's text — one uniform size for
-     everything in this popup, no separate heading scale. */
-  font-size: 0.75rem;
+  font-size: 1.15em;
   font-weight: 800;
-  line-height: 1.6;
+  letter-spacing: 1px;
   text-shadow: 0 0 16px rgba(251, 191, 36, 0.35);
 }
 
@@ -155,8 +135,7 @@
   border: 1px solid var(--st-border);
   border-radius: 10px;
   font-family: inherit;
-  font-size: 0.75rem;
-  line-height: 1.5;
+  font-size: 0.92em;
   font-weight: 700;
   cursor: pointer;
   text-align: left;
@@ -209,28 +188,24 @@
 .settings-content-title {
   margin: 4px 0 0;
   color: var(--st-gold);
-  /* index.css sets a global h1/h2 font-family that otherwise wins over
-     inheritance here, since an explicit rule always beats an inherited one. */
-  font-family: inherit;
-  font-size: 0.75rem;
+  font-size: 1.5em;
   font-weight: 800;
-  line-height: 1.6;
+  letter-spacing: 1px;
   text-shadow: 0 0 16px rgba(251, 191, 36, 0.3);
 }
 
 .settings-content-subtitle {
-  margin: 0 0 4px;
+  margin: -12px 0 4px;
   color: var(--st-text2);
-  font-size: 0.75rem;
-  line-height: 1.6;
+  font-size: 0.9em;
 }
 
 .settings-card {
   position: relative;
   background-color: var(--st-panel);
   background-image: linear-gradient(165deg, var(--st-panel) 0%, #12092e 100%);
-  border: 4px solid var(--st-border);
-  border-radius: 0;
+  border: 1px solid var(--st-border);
+  border-radius: 16px;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 10px 24px rgba(0, 0, 0, 0.5);
   padding: 22px 26px;
 }
@@ -238,10 +213,9 @@
 .settings-card-title {
   margin: 0 0 18px;
   color: var(--st-glow);
-  font-size: 0.75rem;
-  line-height: 1.6;
+  font-size: 0.82em;
   font-weight: 800;
-  letter-spacing: 0.5px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
 }
 
@@ -253,8 +227,7 @@
 .settings-card-subtitle {
   margin: 0;
   color: var(--st-text2);
-  font-size: 0.75rem;
-  line-height: 1.6;
+  font-size: 0.88em;
 }
 
 /* Profile picture row */
@@ -307,8 +280,7 @@
   min-width: 140px;
   margin: 0;
   color: var(--st-text2);
-  font-size: 0.75rem;
-  line-height: 1.6;
+  font-size: 0.9em;
 }
 
 /* Preview shown inside the "Save New Picture?" confirmation modal */
@@ -337,7 +309,7 @@
   border: 1px solid var(--st-border);
   border-radius: 10px;
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: 0.95em;
   outline: none;
   transition: border-color 0.2s ease;
 }
@@ -351,6 +323,19 @@
   cursor: not-allowed;
 }
 
+/* Password fields (stacked, unlike the nickname row) */
+.settings-password-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 360px;
+}
+
+.settings-password-fields .settings-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* Shared buttons */
 .settings-btn {
   display: inline-flex;
@@ -362,7 +347,7 @@
   border: none;
   border-radius: 10px;
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: 0.9em;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
@@ -392,15 +377,13 @@
 .settings-error {
   margin: 12px 0 0;
   color: #fca5a5;
-  font-size: 0.75rem;
-  line-height: 1.6;
+  font-size: 0.85em;
 }
 
 .settings-success {
   margin: 12px 0 0;
   color: #86efac;
-  font-size: 0.75rem;
-  line-height: 1.6;
+  font-size: 0.85em;
 }
 
 /* Volume sliders */
@@ -419,10 +402,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 0 0 180px;
+  flex: 0 0 160px;
   color: var(--st-text);
-  font-size: 0.75rem;
-  line-height: 1.6;
+  font-size: 0.9em;
   font-weight: 600;
 }
 
@@ -460,11 +442,11 @@
 }
 
 .settings-slider-value {
-  flex: 0 0 50px;
+  flex: 0 0 44px;
   text-align: right;
   color: var(--st-text);
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.9em;
 }
 
 /* Logout card */
@@ -474,14 +456,12 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  border-color: var(--st-danger);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 @media (max-width: 900px) {
   .settings-layout {
     grid-template-columns: 1fr;
-    /* Sidebar keeps its natural height; the scroll wrapper takes the rest. */
-    grid-template-rows: auto 1fr;
   }
 
   .settings-sidebar {
@@ -502,6 +482,7 @@
 
   .settings-modal {
     padding: 18px;
+    border-radius: 16px;
   }
 
   .settings-picture-row {

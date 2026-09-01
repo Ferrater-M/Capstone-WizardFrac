@@ -37,6 +37,12 @@ public class Student {
     @Column(nullable = true)
     private String profilePictureType;
 
+    // BCrypt hash of the student's password. Null until the nickname is
+    // "claimed" (see StudentService#setPassword) — an unclaimed nickname can
+    // still be used to log in without a password, same as before this field existed.
+    @Column(nullable = true)
+    private String passwordHash;
+
     public Student() {
         this.createdAt = LocalDateTime.now();
         this.lastLoginAt = LocalDateTime.now();
@@ -111,5 +117,17 @@ public class Student {
 
     public void setProfilePictureType(String profilePictureType) {
         this.profilePictureType = profilePictureType;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public boolean hasPassword() {
+        return passwordHash != null && !passwordHash.isEmpty();
     }
 }

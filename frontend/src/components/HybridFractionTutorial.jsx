@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useLayoutEffect, useRef } from 'react';
 
 const BROWN = '#703737';
 const CREAM = '#e8d5b4';
@@ -8,38 +8,33 @@ const PAD   = 10; // spotlight padding around target
 const slides = [
   {
     targetId: null,
-    title: 'SIMILAR ISLAND',
-    body: 'Both fractions share the same denominator — no cross-multiplying needed! Follow the steps to cast your spell.',
+    title: 'HYBRID ISLAND',
+    body: 'Hybrid problems mix whole numbers into your fractions. Convert each one into an improper fraction first, then solve it the Similar or Butterfly way — whichever the denominators call for.',
   },
   {
     targetId: 'problem-box',
     title: 'READ YOUR PROBLEM',
-    body: 'Look at YOUR fraction problem here. Both bottom numbers (denominators) are the same — that is the key!\n\nYou only need to add or subtract the TOP numbers.',
-  },
-  {
-    targetId: 'problem-box',
-    title: 'STEP 1 — DENOMINATOR',
-    body: 'See the bottom number in YOUR problem here? Both fractions share it.\n\nAfter drawing the circle, type that shared bottom number into the small circle field.',
-  },
-  {
-    targetId: 'problem-box',
-    title: 'STEP 2 — EXPRESSION',
-    body: 'Look at the TWO top numbers (numerators) in YOUR problem here.\n\nJoin them with the operator (e.g. if problem is 2/5 + 1/5, type 2+1 in the big circle field).',
+    body: 'Look at YOUR problem here. Each side is a mixed number — a whole number plus a fraction, like 1 1/2.',
   },
   {
     targetId: 'interactable',
-    title: 'STEP 3 — DRAW & SOLVE',
-    body: 'Draw a circle inside this box to activate the fields.\n\nFill in:\n• Small circle → denominator\n• Big circle → expression (e.g. 2+1)\n• N field → result (e.g. 3)',
+    title: 'STEP 1 — FORGE THE FRACTION',
+    body: 'Draw a triangle inside this box to begin.\n\nConvert each mixed number into an improper fraction:\nwhole × denominator + numerator, kept over the same denominator.',
   },
   {
     targetId: 'interactable',
-    title: 'STEP 4 — CAST THE SPELL!',
+    title: 'STEP 2 — SOLVE',
+    body: 'Once both fractions are improper, the island picks the method:\n\n• Same denominators → draw a circle and combine the top numbers.\n• Different denominators → draw the ∞ symbol and cross-multiply like a butterfly.',
+  },
+  {
+    targetId: 'interactable',
+    title: 'STEP 3 — CAST THE SPELL!',
     body: 'Enter your final fraction here (numerator on top, denominator below).\n\nSimplify if possible, then press Cast Spell to deal damage!',
   },
   {
     targetId: null,
     title: '⚠ ABOUT THE HINT',
-    body: 'A Hint button appears after you draw the circle.\n\nIf you use it, the formula will be shown — but your answer will NOT be fully recorded and your score for that problem will be reduced.\n\nTry to solve it on your own first!',
+    body: 'A Hint button appears after you draw the shape.\n\nIf you use it, the formula will be shown — but your answer will NOT be fully recorded and your score for that problem will be reduced.\n\nTry to solve it on your own first!',
     isWarning: true,
     isLast: true,
   },
@@ -63,7 +58,7 @@ const PixelBtn = ({ onClick, disabled, primary, children }) => (
   </button>
 );
 
-const SimilarFractionTutorial = ({ onComplete }) => {
+const HybridFractionTutorial = ({ onComplete }) => {
   const [index, setIndex] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
   const tooltipRef = useRef(null);
@@ -155,15 +150,15 @@ const SimilarFractionTutorial = ({ onComplete }) => {
       {/* Spotlight overlays */}
       {targetRect ? (
         <>
-          <div style={{ position:'fixed', top:0, left:0, right:0, height: Math.max(0, targetRect.top - PAD), background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
-          <div style={{ position:'fixed', top: targetRect.bottom + PAD, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
-          <div style={{ position:'fixed', top: targetRect.top - PAD, left:0, width: Math.max(0, targetRect.left - PAD), height: targetRect.height + PAD*2, background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
-          <div style={{ position:'fixed', top: targetRect.top - PAD, left: targetRect.right + PAD, right:0, height: targetRect.height + PAD*2, background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
+          <div style={{ position:'fixed', top:0, left:0, right:0, height: Math.max(0, targetRect.top - PAD), background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
+          <div style={{ position:'fixed', top: targetRect.bottom + PAD, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
+          <div style={{ position:'fixed', top: targetRect.top - PAD, left:0, width: Math.max(0, targetRect.left - PAD), height: targetRect.height + PAD*2, background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
+          <div style={{ position:'fixed', top: targetRect.top - PAD, left: targetRect.right + PAD, right:0, height: targetRect.height + PAD*2, background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
           {/* Highlight border around target */}
-          <div style={{ position:'fixed', top: targetRect.top - PAD, left: targetRect.left - PAD, width: targetRect.width + PAD*2, height: targetRect.height + PAD*2, border:`3px solid #fbbf24`, boxShadow:'0 0 0 2px #fbbf2488, 0 0 20px 4px #fbbf2466', zIndex:20000, pointerEvents:'none' }} />
+          <div style={{ position:'fixed', top: targetRect.top - PAD, left: targetRect.left - PAD, width: targetRect.width + PAD*2, height: targetRect.height + PAD*2, border:`3px solid #fbbf24`, boxShadow:'0 0 0 2px #fbbf2488, 0 0 20px 4px #fbbf2466', zIndex:2000, pointerEvents:'none' }} />
         </>
       ) : (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
       )}
 
       {/* Tooltip callout */}
@@ -176,8 +171,6 @@ const SimilarFractionTutorial = ({ onComplete }) => {
           transform: targetRect ? 'none' : 'translate(-50%,-50%)',
           zIndex: 2001,
           width: 400,
-          zIndex: 20001,
-          width: 340,
           background: CREAM,
           border: `4px solid ${BROWN}`,
           fontFamily: '"Press Start 2P", monospace',
@@ -230,4 +223,4 @@ const SimilarFractionTutorial = ({ onComplete }) => {
   );
 };
 
-export default SimilarFractionTutorial;
+export default HybridFractionTutorial;

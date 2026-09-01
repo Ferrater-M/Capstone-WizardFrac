@@ -1,10 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './login.css';
 
+const API_BASE = 'http://localhost:8082';
+
 const LandingPage = ({ onLoginSuccess }) => {
   const [nickname, setNickname] = useState('');
+  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // 'form' | 'claim' (unclaimed nickname — offer to claim it) |
+  // 'set-password' (claiming: choose a password) | 'password' (claimed nickname — log in) |
+  // 'forgot' (password reset by email)
+  const [step, setStep] = useState('form');
   const canvasRef = useRef(null);
   const frameRef  = useRef(null);
 
@@ -188,28 +199,90 @@ const LandingPage = ({ onLoginSuccess }) => {
     };
   }, []);
 
-  const handleStartGame = async (e) => {
+  // POST /login — password is only needed once the nickname is claimed; the
+  // backend itself enforces that (see StudentController).
+  const loginRequest = async (pw) => {
+    const response = await fetch(`${API_BASE}/api/students/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: nickname.trim(), ...(pw ? { password: pw } : {}) }),
+    });
+    const data = await response.json().catch(() => ({}));
+    return { ok: response.ok, data };
+  };
+
+  // Step 1: ask the backend whether this nickname is already claimed, and
+  // branch to the matching prompt.
+  const handleContinue = async (e) => {
     e.preventDefault();
-    if (!nickname.trim()) { setError('Please enter a nickname'); return; }
-    setLoading(true);
+    const trimmed = nickname.trim();
+    if (!trimmed) { setError('Please enter a nickname'); return; }
     setError('');
+    setLoading(true);
     try {
-      const response = await fetch('http://localhost:8082/api/students/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nickname: nickname.trim() }),
-      });
-      if (response.ok) {
-        onLoginSuccess(await response.json());
-      } else {
-        setError('Failed to login. Please try again.');
-      }
+      const res = await fetch(`${API_BASE}/api/students/check-nickname?nickname=${encodeURIComponent(trimmed)}`);
+      const data = await res.json();
+      setStep(data.hasPassword ? 'password' : 'claim');
     } catch (err) {
       setError('Connection error. Make sure the backend server is running.');
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBackToForm = () => { setStep('form'); setPassword(''); setNewPassword(''); setConfirmPassword(''); setError(''); };
+  const handleGoToSetPassword = () => { setNewPassword(''); setConfirmPassword(''); setError(''); setStep('set-password'); };
+  const handleGoToForgot = () => { setResetEmail(''); setResetSent(false); setError(''); setStep('forgot'); };
+
+  // TEMPORARY: students don't have an email on file yet, so there's no real
+  // backend to send a reset link to. This just shows the same confirmation a
+  // real flow would, without actually sending anything — wire this up once
+  // accounts can store an email.
+  const handleRequestReset = (e) => {
+    e.preventDefault();
+    if (!resetEmail.trim()) { setError('Please enter your email.'); return; }
+    setError('');
+    setResetSent(true);
+  };
+
+  // Claim step 2: create/fetch the (still-unclaimed) student, then set its password.
+  const handleClaim = async (e) => {
+    e.preventDefault();
+    if (newPassword.length < 4) { setError('Password must be at least 4 characters.'); return; }
+    if (newPassword !== confirmPassword) { setError('Passwords do not match.'); return; }
+    setError('');
+    setLoading(true);
+    try {
+      const { ok, data } = await loginRequest(null);
+      if (!ok) { setError(data.error || 'Failed to login. Please try again.'); return; }
+
+      const pwRes = await fetch(`${API_BASE}/api/students/${data.studentId}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword }),
+      });
+      const pwData = await pwRes.json().catch(() => ({}));
+      if (!pwRes.ok) { setError(pwData.error || 'Failed to set password.'); return; }
+
+      onLoginSuccess(data);
+    } catch (err) {
+      setError('Connection error. Make sure the backend server is running.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    if (!password) { setError('Please enter your password.'); return; }
+    setError('');
+    setLoading(true);
+    const { ok, data } = await loginRequest(password);
+    if (ok) onLoginSuccess(data);
+    else setError(data.error || 'Incorrect password.');
+    setLoading(false);
   };
 
   return (
@@ -246,52 +319,227 @@ const LandingPage = ({ onLoginSuccess }) => {
           </div>
 
           <div className="panel-content">
-            <h2 className="welcome-text">WELCOME BACK,</h2>
-            <h3 className="wizard-text">YOUNG WIZARD!</h3>
+            {step === 'form' && (
+              <>
+                <h2 className="welcome-text">WELCOME BACK,</h2>
+                <h3 className="wizard-text">YOUNG WIZARD!</h3>
 
-            <div className="separator">
-              <span className="sep-line"></span>
-              <span className="sep-diamond"></span>
-              <span className="sep-line"></span>
-            </div>
-
-            <p className="panel-subtitle">Enter your nickname to begin your adventure!</p>
-
-            {error && <div className="error-message">{error}</div>}
-
-            <form onSubmit={handleStartGame} className="login-form">
-              <div>
-                <label className="input-label" htmlFor="nickname-input">NICKNAME</label>
-                <div className="input-group">
-                  <div className="input-icon" aria-hidden="true">🧙</div>
-                  <input
-                    id="nickname-input"
-                    type="text"
-                    placeholder="Enter your nickname..."
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
-                    disabled={loading}
-                    required
-                    maxLength={16}
-                  />
-                  <span className="input-sparkle" aria-hidden="true"></span>
+                <div className="separator">
+                  <span className="sep-line"></span>
+                  <span className="sep-diamond"></span>
+                  <span className="sep-line"></span>
                 </div>
-                <p className="input-hint">3–16 characters</p>
-              </div>
 
-              <div className="tip-box">
-                <span className="tip-star" aria-hidden="true"></span>
-                <span>Tip: Use a name that other wizards will remember!</span>
-              </div>
+                <p className="panel-subtitle">Enter your nickname to begin your adventure!</p>
 
-              <div className="button-container">
-                <button type="submit" className="start-btn" disabled={loading}>
-                  <span className="start-btn-icon" aria-hidden="true"></span>
-                  <span>{loading ? 'LOGGING IN...' : 'START GAME'}</span>
-                  <span className="start-btn-icon" aria-hidden="true"></span>
-                </button>
-              </div>
-            </form>
+                {error && <div className="error-message">{error}</div>}
+
+                <form onSubmit={handleContinue} className="login-form">
+                  <div>
+                    <label className="input-label" htmlFor="nickname-input">NICKNAME</label>
+                    <div className="input-group">
+                      <div className="input-icon" aria-hidden="true">🧙</div>
+                      <input
+                        id="nickname-input"
+                        type="text"
+                        placeholder="Enter your nickname..."
+                        value={nickname}
+                        onChange={(e) => setNickname(e.target.value)}
+                        disabled={loading}
+                        required
+                        maxLength={16}
+                      />
+                      <span className="input-sparkle" aria-hidden="true"></span>
+                    </div>
+                    <p className="input-hint">3–16 characters</p>
+                  </div>
+
+                  <div className="tip-box">
+                    <span className="tip-star" aria-hidden="true"></span>
+                    <span>Tip: Use a name that other wizards will remember!</span>
+                  </div>
+
+                  <div className="button-container">
+                    <button type="submit" className="start-btn" disabled={loading}>
+                      <span className="start-btn-icon" aria-hidden="true"></span>
+                      <span>{loading ? 'JOINING...' : 'JOIN'}</span>
+                      <span className="start-btn-icon" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+            {step === 'claim' && (
+              <>
+                <h2 className="welcome-text">WANT TO JOIN?</h2>
+                <h3 className="wizard-text">CLAIM YOUR NAME</h3>
+
+                <div className="separator">
+                  <span className="sep-line"></span>
+                  <span className="sep-diamond"></span>
+                  <span className="sep-line"></span>
+                </div>
+
+                {error && <div className="error-message">{error}</div>}
+
+                <p className="panel-subtitle prompt-message">
+                  The nickname <strong>{nickname.trim()}</strong> hasn't been claimed yet. Set a
+                  password to claim it as yours.
+                </p>
+
+                <div className="prompt-actions">
+                  <button type="button" className="prompt-btn prompt-btn-back" onClick={handleBackToForm} disabled={loading}>BACK</button>
+                  <button type="button" className="prompt-btn prompt-btn-primary" onClick={handleGoToSetPassword} disabled={loading}>
+                    CLAIM IT
+                  </button>
+                </div>
+              </>
+            )}
+
+            {step === 'set-password' && (
+              <>
+                <h2 className="welcome-text">CLAIM</h2>
+                <h3 className="wizard-text">{nickname.trim()}</h3>
+
+                <div className="separator">
+                  <span className="sep-line"></span>
+                  <span className="sep-diamond"></span>
+                  <span className="sep-line"></span>
+                </div>
+
+                {error && <div className="error-message">{error}</div>}
+
+                <p className="panel-subtitle prompt-message">
+                  Choose a password so you can log back in as <strong>{nickname.trim()}</strong> later.
+                </p>
+
+                <form onSubmit={handleClaim} className="login-form">
+                  <div className="input-group">
+                    <div className="input-icon" aria-hidden="true">🔒</div>
+                    <input
+                      type="password"
+                      placeholder="New password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      disabled={loading}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="input-group">
+                    <div className="input-icon" aria-hidden="true">🔒</div>
+                    <input
+                      type="password"
+                      placeholder="Confirm password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                  <p className="input-hint">At least 4 characters</p>
+
+                  <div className="prompt-actions">
+                    <button type="button" className="prompt-btn prompt-btn-back" onClick={() => setStep('claim')} disabled={loading}>BACK</button>
+                    <button type="submit" className="prompt-btn prompt-btn-primary" disabled={loading}>
+                      {loading ? '...' : 'CONFIRM'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+            {step === 'password' && (
+              <>
+                <h2 className="welcome-text">GOOD TO SEE YOU</h2>
+                <h3 className="wizard-text">AGAIN, WIZARD!</h3>
+
+                <div className="separator">
+                  <span className="sep-line"></span>
+                  <span className="sep-diamond"></span>
+                  <span className="sep-line"></span>
+                </div>
+
+                {error && <div className="error-message">{error}</div>}
+
+                <p className="panel-subtitle prompt-message">
+                  The nickname <strong>{nickname.trim()}</strong> is already claimed. Enter your
+                  password to log back in.
+                </p>
+
+                <form onSubmit={handleLogin} className="login-form">
+                  <div className="input-group">
+                    <div className="input-icon" aria-hidden="true">🔒</div>
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={loading}
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="prompt-actions">
+                    <button type="button" className="prompt-btn prompt-btn-back" onClick={handleBackToForm} disabled={loading}>BACK</button>
+                    <button type="button" className="prompt-btn prompt-btn-secondary" disabled={loading} onClick={handleGoToForgot}>
+                      I FORGOT
+                    </button>
+                    <button type="submit" className="prompt-btn prompt-btn-primary" disabled={loading}>
+                      {loading ? '...' : 'LOGIN'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+            {step === 'forgot' && (
+              <>
+                <h2 className="welcome-text">FORGOT YOUR</h2>
+                <h3 className="wizard-text">PASSWORD?</h3>
+
+                <div className="separator">
+                  <span className="sep-line"></span>
+                  <span className="sep-diamond"></span>
+                  <span className="sep-line"></span>
+                </div>
+
+                {error && <div className="error-message">{error}</div>}
+
+                {resetSent ? (
+                  <>
+                    <p className="panel-subtitle prompt-message">
+                      If an email is on file for <strong>{nickname.trim()}</strong>, reset instructions
+                      have been sent. If not, ask your teacher for help.
+                    </p>
+                    <div className="prompt-actions">
+                      <button type="button" className="prompt-btn prompt-btn-back" onClick={() => setStep('password')}>BACK</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="panel-subtitle prompt-message">
+                      If you have an email address on file, you can reset your password by entering it below.
+                    </p>
+                    <form onSubmit={handleRequestReset} className="login-form">
+                      <div className="input-group">
+                        <div className="input-icon" aria-hidden="true">✉️</div>
+                        <input
+                          type="email"
+                          placeholder="Email"
+                          value={resetEmail}
+                          onChange={(e) => setResetEmail(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <div className="prompt-actions">
+                        <button type="button" className="prompt-btn prompt-btn-back" onClick={() => setStep('password')}>BACK</button>
+                        <button type="submit" className="prompt-btn prompt-btn-primary">REQUEST RESET</button>
+                      </div>
+                    </form>
+                  </>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>

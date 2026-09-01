@@ -307,22 +307,22 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
           {/* Stat cards */}
           <div className="stats-row">
             <div className="stat-card stat-correct">
-              <span className="stat-card-icon"></span>
+              <span className="stat-card-icon">✅</span>
               <div className="stat-card-value">{summary.totalCorrect}</div>
               <div className="stat-card-label">Correct Answers</div>
             </div>
             <div className="stat-card stat-incorrect">
-              <span className="stat-card-icon"></span>
+              <span className="stat-card-icon">💥</span>
               <div className="stat-card-value">{summary.totalIncorrect}</div>
               <div className="stat-card-label">Wrong Answers</div>
             </div>
             <div className="stat-card stat-sessions">
-              <span className="stat-card-icon"></span>
+              <span className="stat-card-icon">🔮</span>
               <div className="stat-card-value">{summary.totalSessions}</div>
               <div className="stat-card-label">Sessions Played</div>
             </div>
             <div className="stat-card stat-multiplier">
-              <span className="stat-card-icon"></span>
+              <span className="stat-card-icon">🏆</span>
               <div className="stat-card-value">{accuracy}%</div>
               <div className="stat-card-label">Overall Accuracy</div>
             </div>

@@ -917,7 +917,7 @@ const DissimilarIslandGame = ({
           setCircleFailCount(0); setCircleMistakes([]); setCircleFailSequence(null); setCircleShaking(false);
           setFinalAnswerPhase(false); setFinalNumInput(''); setFinalDenInput(''); setHintUsed(false); setCurrentHint(''); setShowHintConfirm(false);
           setFlyBubbles(null); if (flyArcRef.current) cancelAnimationFrame(flyArcRef.current);
-        }, 1500);
+        }, 10000);
       }
     };
 
@@ -952,7 +952,7 @@ const DissimilarIslandGame = ({
     if (newLives <= 0) {
       triggerDefeat('player', () => handleGameEnd('FAILED', false));
     } else {
-      setTimeout(() => { setFeedback(''); setFeedbackType(''); }, 4000);
+      setTimeout(() => { setFeedback(''); setFeedbackType(''); }, 10000);
     }
   };
 
@@ -1475,7 +1475,7 @@ const DissimilarIslandGame = ({
                       const g = gcd(Math.abs(rawNum), rawDen);
                       const sNum = rawNum / g, sDen = rawDen / g;
                       const isWhole = sDen === 1;
-                      const fieldStyle = { width:90, height:64, fontSize:28, fontWeight:800, textAlign:'center', border:'3px dashed #222', borderRadius:0, background:'transparent', color:'#222', outline:'none', appearance:'none', fontFamily:'"Press Start 2P", monospace', WebkitAppearance:'none', boxShadow:'0 4px 16px rgba(0,0,0,0.7)', textShadow:'0 0 8px rgba(0,0,0,0.9)' };
+                      const fieldStyle = { width:90, height:64, fontSize:28, fontWeight:800, textAlign:'center', border:'3px dashed #fdf6e3', borderRadius:0, background:'transparent', color:'#fdf6e3', outline:'none', appearance:'none', fontFamily:'"Press Start 2P", monospace', WebkitAppearance:'none', boxShadow:'0 4px 16px rgba(0,0,0,0.7)', textShadow:'0 0 8px rgba(0,0,0,0.9)' };
                       return (
                         <div style={{ position:'absolute', top:'32px', left:0, right:0, height:'300px', display:'flex', alignItems:'center', justifyContent:'center', animation:'magicFloat 4s ease-in-out infinite', zIndex:10 }}>
                           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, animation:'numFadeIn 0.5s ease-out both' }}>
@@ -1489,7 +1489,7 @@ const DissimilarIslandGame = ({
                                 <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput}
                                   onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g,''))}
                                   style={fieldStyle} />
-                                <div style={{ width:90, height:4, background:'#222', borderRadius:2 }} />
+                                <div style={{ width:90, height:4, background:'#fdf6e3', borderRadius:2 }} />
                                 <input type="text" inputMode="numeric" value={finalDenInput}
                                   onChange={e => setFinalDenInput(e.target.value.replace(/[^0-9-]/g,''))}
                                   style={fieldStyle} />
@@ -1785,10 +1785,10 @@ const DissimilarIslandGame = ({
       {feedback && (
         <div style={{
           position:'fixed', left:'50%', zIndex:5000,
-          textAlign:'center', padding:'10px 24px',
-          border:'4px solid #fff', background:'#000',
+          textAlign:'center', padding:'14px 32px',
+          border:'6px solid #fff', background:'#000',
           color: feedbackType==='correct' ? '#4ade80' : '#f87171',
-          fontSize:'15px', fontWeight:700, whiteSpace:'nowrap',
+          fontSize:'22px', fontWeight:700, whiteSpace:'nowrap',
           animation:'feedbackSlideToCenter 0.6s ease-out forwards',
         }}>
           {corners('#fff')}{feedback}

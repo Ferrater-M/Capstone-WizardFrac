@@ -32,7 +32,8 @@ public class StudentController {
     @Autowired
     private StudentService studentService;
 
-    // Login/Create student endpoint
+    // Login/Create student endpoint. `password` is only required once the nickname
+    // is claimed (see /check-nickname) — an unclaimed nickname logs in regardless.
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
         String nickname = request.get("nickname");
@@ -40,7 +41,14 @@ public class StudentController {
             return ResponseEntity.badRequest().body("Nickname is required");
         }
 
-        Student student = studentService.findOrCreateStudent(nickname);
+        Student student;
+        try {
+            student = studentService.login(nickname.trim(), request.get("password"));
+        } catch (StudentService.WrongPasswordException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(401).body(error);
+        }
 
         Map<String, Object> response = new HashMap<>();
         response.put("studentId", student.getId());
@@ -48,8 +56,45 @@ public class StudentController {
         response.put("selectedCharacterId", student.getSelectedCharacterId());
         response.put("selectedCharacterName", student.getSelectedCharacterName());
         response.put("createdAt", student.getCreatedAt());
+        response.put("hasPassword", student.hasPassword());
 
         return ResponseEntity.ok(response);
+    }
+
+    // Tells the login screen whether this nickname is already claimed (needs a
+    // password) or free (offer to claim it) — an unregistered nickname is unclaimed.
+    @GetMapping("/check-nickname")
+    public ResponseEntity<?> checkNickname(@RequestParam String nickname) {
+        if (nickname == null || nickname.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Nickname is required");
+        }
+        Map<String, Object> response = new HashMap<>();
+        response.put("hasPassword", studentService.hasPassword(nickname.trim()));
+        return ResponseEntity.ok(response);
+    }
+
+    // Set (claim) or change a student's password.
+    @PutMapping("/{studentId}/password")
+    public ResponseEntity<?> updatePassword(@PathVariable Long studentId, @RequestBody Map<String, String> request) {
+        Map<String, String> error = new HashMap<>();
+        String newPassword = request.get("newPassword");
+
+        if (newPassword == null || newPassword.length() < 4) {
+            error.put("error", "New password must be at least 4 characters.");
+            return ResponseEntity.badRequest().body(error);
+        }
+
+        try {
+            studentService.setPassword(studentId, request.get("currentPassword"), newPassword);
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Password updated.");
+            return ResponseEntity.ok(response);
+        } catch (StudentService.WrongPasswordException e) {
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(401).body(error);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     // Get student info
@@ -68,6 +113,7 @@ public class StudentController {
         response.put("selectedCharacterName", s.getSelectedCharacterName());
         response.put("lastLoginAt", s.getLastLoginAt());
         response.put("hasProfilePicture", s.getProfilePicture() != null);
+        response.put("hasPassword", s.hasPassword());
 
         return ResponseEntity.ok(response);
     }
