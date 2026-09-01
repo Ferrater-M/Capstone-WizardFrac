@@ -13,7 +13,32 @@ const readStoredVolume = (key, fallback) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, onLogout, onNicknameChanged, onMasterVolumeChanged }) => {
+// Pixel-bracket corner decoration — matches the in-game tutorial popups' frame.
+// Purely cosmetic, absolutely positioned children of a `position: relative` panel.
+// `edgeOffset` lets straddling squares (-6, the tutorial's look) be pulled fully
+// inside (0) for panels that clip overflow, so they don't get cut off.
+const pixelCorners = (color, edgeOffset = -6) => (
+  <>
+    <div style={{ position: 'absolute', inset: 5, border: `1px solid ${color}`, pointerEvents: 'none' }} />
+    {[[edgeOffset, edgeOffset], [null, edgeOffset], [edgeOffset, null], [null, null]].map(([t, l], i) => (
+      <div
+        key={i}
+        style={{
+          position: 'absolute', zIndex: 10, pointerEvents: 'none', width: 12, height: 12, background: color,
+          ...(t !== null ? { top: t } : { bottom: edgeOffset }),
+          ...(l !== null ? { left: l } : { right: edgeOffset }),
+        }}
+      />
+    ))}
+  </>
+);
+
+const SettingsPage = ({
+  studentId, studentNickname, selectedCharacter,
+  onBack, onLogout, onNicknameChanged, onMasterVolumeChanged,
+  volumeOnly = false, exitLabel = 'Logout', onExit,
+}) => {
+  const handleExit = onExit || onLogout;
   const fileInputRef = useRef(null);
   const profileSectionRef = useRef(null);
   const passwordSectionRef = useRef(null);
@@ -128,6 +153,10 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
 
   const handleConfirmLogout = () => {
     setShowLogoutConfirm(false);
+    if (volumeOnly) {
+      handleExit();
+      return;
+    }
     showToast('Logged out successfully!');
     setTimeout(() => onLogout(), 900);
   };
@@ -204,41 +233,55 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
   return (
     <div className="settings-overlay" onClick={onBack}>
       <div className="settings-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        {pixelCorners('var(--st-border)', 0)}
         <Toast key={toastKey} message={toastMessage} />
         <button className="settings-close-btn" onClick={onBack} aria-label="Close settings">✕</button>
 
         <div className="settings-layout">
         <aside className="settings-sidebar">
+          {pixelCorners('var(--st-border)')}
           <h2 className="settings-sidebar-title"><span className="settings-sparkle">✦</span> SETTINGS <span className="settings-sparkle">✦</span></h2>
 
           <nav className="settings-nav">
-            <button className="settings-nav-item active" onClick={() => scrollTo(profileSectionRef)}>
-              <span>👤</span> Profile
-            </button>
-            <button className="settings-nav-item" onClick={() => scrollTo(passwordSectionRef)}>
-              <span>🔒</span> Password
-            </button>
-            <button className="settings-nav-item" onClick={() => scrollTo(volumeSectionRef)}>
+            {!volumeOnly && (
+              <button className="settings-nav-item active" onClick={() => scrollTo(profileSectionRef)}>
+                <span>👤</span> Profile
+              </button>
+            )}
+            {!volumeOnly && (
+              <button className="settings-nav-item" onClick={() => scrollTo(passwordSectionRef)}>
+                <span>🔒</span> Password
+              </button>
+            )}
+            <button className={`settings-nav-item${volumeOnly ? ' active' : ''}`} onClick={() => scrollTo(volumeSectionRef)}>
               <span>🔊</span> Volume
             </button>
             <button className="settings-nav-item danger" onClick={() => setShowLogoutConfirm(true)}>
-              <span>⏻</span> Logout
+              <span>⏻</span> {exitLabel}
             </button>
           </nav>
 
-          <img
-            className="settings-sidebar-avatar"
-            src={pictureUrl}
-            alt=""
-            onError={handleAvatarError}
-          />
+          {!volumeOnly && (
+            <img
+              className="settings-sidebar-avatar"
+              src={pictureUrl}
+              alt=""
+              onError={handleAvatarError}
+            />
+          )}
         </aside>
 
+        <div className="settings-scroll">
         <main className="settings-content" ref={profileSectionRef}>
-          <h1 className="settings-content-title">Profile Settings</h1>
-          <p className="settings-content-subtitle">Manage your profile and account settings</p>
+          <h1 className="settings-content-title">{volumeOnly ? 'Volume Settings' : 'Profile Settings'}</h1>
+          <p className="settings-content-subtitle">
+            {volumeOnly ? 'Adjust the game audio' : 'Manage your profile and account settings'}
+          </p>
 
+          {!volumeOnly && (
+          <>
           <section className="settings-card">
+            {pixelCorners('var(--st-border)')}
             <h3 className="settings-card-title">Profile Picture</h3>
             <div className="settings-picture-row">
               <div className="settings-picture-wrap">
@@ -280,6 +323,7 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
           </section>
 
           <section className="settings-card">
+            {pixelCorners('var(--st-border)')}
             <h3 className="settings-card-title">Nickname</h3>
             <div className="settings-nickname-row">
               <input
@@ -302,8 +346,12 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
             {nicknameError && <p className="settings-error">{nicknameError}</p>}
             {nicknameSaved && <p className="settings-success">Nickname updated!</p>}
           </section>
+          </>
+          )}
 
+          {!volumeOnly && (
           <section className="settings-card" ref={passwordSectionRef}>
+            {pixelCorners('var(--st-border)')}
             <h3 className="settings-card-title">Password</h3>
             <p className="settings-card-subtitle">
               {hasPassword
@@ -350,8 +398,10 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
             {passwordError && <p className="settings-error">{passwordError}</p>}
             {passwordSaved && <p className="settings-success">Password updated!</p>}
           </section>
+          )}
 
           <section className="settings-card" ref={volumeSectionRef}>
+            {pixelCorners('var(--st-border)')}
             <h3 className="settings-card-title">Volume Settings</h3>
             <div className="settings-slider-row">
               <span className="settings-slider-label"><span>🔊</span> Master Volume</span>
@@ -387,15 +437,19 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
           </section>
 
           <section className="settings-card settings-logout-card" ref={logoutSectionRef}>
+            {pixelCorners('var(--st-danger)')}
             <div>
-              <h3 className="settings-card-title danger">Logout</h3>
-              <p className="settings-card-subtitle">Log out from your account</p>
+              <h3 className="settings-card-title danger">{exitLabel}</h3>
+              <p className="settings-card-subtitle">
+                {volumeOnly ? 'Exit this game session' : 'Log out from your account'}
+              </p>
             </div>
             <button type="button" className="settings-btn settings-btn-danger" onClick={() => setShowLogoutConfirm(true)}>
-              ⏻ Logout
+              ⏻ {exitLabel}
             </button>
           </section>
         </main>
+      </div>
       </div>
       </div>
 
@@ -436,12 +490,14 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
 
       {showLogoutConfirm && (
         <GameMenuModal
-          icon="⏻"
-          title="Log Out?"
+          icon={volumeOnly ? undefined : '⏻'}
+          title={volumeOnly ? 'Quit Game?' : 'Log Out?'}
           onClose={() => setShowLogoutConfirm(false)}
+          panelClassName={volumeOnly ? 'wizard-menu-panel-pixel' : undefined}
         >
+          {volumeOnly && pixelCorners('var(--wm-glow)')}
           <p className="wizard-menu-message">
-            Are you sure you want to logout?
+            {volumeOnly ? 'Are you sure you want to quit this game?' : 'Are you sure you want to logout?'}
           </p>
           <div className="wizard-menu-actions">
             <button
@@ -456,7 +512,7 @@ const SettingsPage = ({ studentId, studentNickname, selectedCharacter, onBack, o
               className="wizard-menu-btn wizard-menu-btn-primary"
               onClick={handleConfirmLogout}
             >
-              Yes, Log Out
+              {volumeOnly ? 'Yes, Quit' : 'Yes, Log Out'}
             </button>
           </div>
         </GameMenuModal>
