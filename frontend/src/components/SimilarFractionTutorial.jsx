@@ -155,15 +155,15 @@ const SimilarFractionTutorial = ({ onComplete }) => {
       {/* Spotlight overlays */}
       {targetRect ? (
         <>
-          <div style={{ position:'fixed', top:0, left:0, right:0, height: Math.max(0, targetRect.top - PAD), background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
-          <div style={{ position:'fixed', top: targetRect.bottom + PAD, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
-          <div style={{ position:'fixed', top: targetRect.top - PAD, left:0, width: Math.max(0, targetRect.left - PAD), height: targetRect.height + PAD*2, background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
-          <div style={{ position:'fixed', top: targetRect.top - PAD, left: targetRect.right + PAD, right:0, height: targetRect.height + PAD*2, background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
+          <div style={{ position:'fixed', top:0, left:0, right:0, height: Math.max(0, targetRect.top - PAD), background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
+          <div style={{ position:'fixed', top: targetRect.bottom + PAD, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
+          <div style={{ position:'fixed', top: targetRect.top - PAD, left:0, width: Math.max(0, targetRect.left - PAD), height: targetRect.height + PAD*2, background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
+          <div style={{ position:'fixed', top: targetRect.top - PAD, left: targetRect.right + PAD, right:0, height: targetRect.height + PAD*2, background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
           {/* Highlight border around target */}
-          <div style={{ position:'fixed', top: targetRect.top - PAD, left: targetRect.left - PAD, width: targetRect.width + PAD*2, height: targetRect.height + PAD*2, border:`3px solid #fbbf24`, boxShadow:'0 0 0 2px #fbbf2488, 0 0 20px 4px #fbbf2466', zIndex:2000, pointerEvents:'none' }} />
+          <div style={{ position:'fixed', top: targetRect.top - PAD, left: targetRect.left - PAD, width: targetRect.width + PAD*2, height: targetRect.height + PAD*2, border:`3px solid #fbbf24`, boxShadow:'0 0 0 2px #fbbf2488, 0 0 20px 4px #fbbf2466', zIndex:20000, pointerEvents:'none' }} />
         </>
       ) : (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
       )}
 
       {/* Tooltip callout */}
@@ -176,6 +176,8 @@ const SimilarFractionTutorial = ({ onComplete }) => {
           transform: targetRect ? 'none' : 'translate(-50%,-50%)',
           zIndex: 2001,
           width: 400,
+          zIndex: 20001,
+          width: 340,
           background: CREAM,
           border: `4px solid ${BROWN}`,
           fontFamily: '"Press Start 2P", monospace',

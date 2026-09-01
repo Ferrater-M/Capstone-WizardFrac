@@ -4,7 +4,7 @@ import './game.css';
 import DrawingCanvas from '../components/DrawingCanvas';
 import FractionPattern from '../components/FractionPattern';
 import SimilarFractionTutorial from '../components/SimilarFractionTutorial';
-import GameMenuModal from '../components/GameMenuModal';
+import SettingsPage from './SettingsPage';
 import '../components/components.css';
 
 import { buildProblem, buildProblemDissimilar, buildProblemHybrid, getDifficultyParams, TIMING } from '../utils/gameUtils';
@@ -41,7 +41,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enemyAttacking, setEnemyAttacking] = useState(false);
   const [gameOver, setGameOver] = useState(false);
-  const [showExitModal, setShowExitModal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
   const [currentHint, setCurrentHint] = useState('');
   const [circleDetected, setCircleDetected] = useState(false);
@@ -773,10 +773,11 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     onGameEnd({ status, isWon, score });
   };
 
-  const handleExitGame = () => setShowExitModal(true);
+  const handleMasterVolumeChanged = (volume01) => {
+    if (ostRef.current) ostRef.current.volume = volume01;
+  };
 
   const confirmExit = async () => {
-    setShowExitModal(false);
     await saveGameEnd('PAUSED', false);
     onExitToLobby();
   };
@@ -905,9 +906,37 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
           </div>
         )}
 
-        {/* Menu button — same style as Hint button */}
+        <div style={{ display: 'flex', gap: 10 }}>
+        {/* Help button — reopens the tutorial */}
         <button
-          onClick={handleExitGame}
+          onClick={() => setShowTutorial(true)}
+          style={{
+            padding: '8px 16px',
+            fontSize: 13, fontWeight: 700,
+            fontFamily: '"Press Start 2P", monospace',
+            background: '#e8d5b4',
+            border: '4px solid #703737',
+            borderRadius: 0,
+            boxShadow: 'none',
+            color: '#222',
+            cursor: 'pointer',
+            position: 'relative',
+          }}
+        >
+          <div style={{ position: 'absolute', inset: 5, border: '1px solid #703737', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#703737' }} />
+          <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#703737' }} />
+          <div style={{ position: 'absolute', bottom: -6, left: -6, width: 10, height: 10, background: '#703737' }} />
+          <div style={{ position: 'absolute', bottom: -6, right: -6, width: 10, height: 10, background: '#703737' }} />
+          <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 5, background: '#703737' }} />
+          <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#703737' }} />
+          <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#703737' }} />
+          <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#703737' }} />
+          Help
+        </button>
+        {/* Menu button — opens Settings (volume + exit session) */}
+        <button
+          onClick={() => setShowSettings(true)}
           style={{
             padding: '8px 16px',
             fontSize: 13, fontWeight: 700,
@@ -932,6 +961,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
           <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#703737' }} />
           Menu
         </button>
+        </div>
       </div>
 
 
@@ -2078,30 +2108,14 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         </>
       )}
 
-      {showExitModal && (
-        <GameMenuModal
-          title="Exit Game?"
-          message="Your progress will be saved."
-          icon="⚠️"
-          onClose={() => setShowExitModal(false)}
-        >
-          <div className="wizard-menu-actions">
-            <button
-              type="button"
-              className="wizard-menu-btn wizard-menu-btn-primary"
-              onClick={confirmExit}
-            >
-              Yes, Exit
-            </button>
-            <button
-              type="button"
-              className="wizard-menu-btn wizard-menu-btn-secondary"
-              onClick={() => setShowExitModal(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </GameMenuModal>
+      {showSettings && (
+        <SettingsPage
+          volumeOnly
+          exitLabel="Exit Session"
+          onBack={() => setShowSettings(false)}
+          onExit={confirmExit}
+          onMasterVolumeChanged={handleMasterVolumeChanged}
+        />
       )}
     </div>
   );
