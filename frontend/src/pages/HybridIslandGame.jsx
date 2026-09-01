@@ -2794,8 +2794,7 @@ const HybridIslandGame = ({
 
         <div style={{ display: 'flex', gap: 10 }}>
           <button
-            onClick={() => setShowTutorial(true)}
-            onClick={() => setHasSeenMixedTutorial(false)}
+            onClick={() => { setShowTutorial(true); setHasSeenMixedTutorial(false); }}
             style={{
               position: 'relative', padding: '8px 16px', fontSize: 13, fontWeight: 700,
               fontFamily: '"Press Start 2P", monospace', background: '#e8d5b4', border: '4px solid #703737',
@@ -2806,7 +2805,6 @@ const HybridIslandGame = ({
             Help
           </button>
           <button
-            onClick={handleExitGame}
             onClick={() => setShowSettings(true)}
             style={{
               position: 'relative', padding: '8px 16px', fontSize: 13, fontWeight: 700,
