@@ -248,14 +248,14 @@ const SettingsPage = ({
                 <span>👤</span> Profile
               </button>
             )}
-            {!volumeOnly && (
-              <button className="settings-nav-item" onClick={() => scrollTo(passwordSectionRef)}>
-                <span>🔒</span> Password
-              </button>
-            )}
             <button className={`settings-nav-item${volumeOnly ? ' active' : ''}`} onClick={() => scrollTo(volumeSectionRef)}>
               <span>🔊</span> Volume
             </button>
+            {!volumeOnly && (
+              <button className="settings-nav-item" onClick={() => scrollTo(passwordSectionRef)}>
+                <span>🔒</span> Reset Password
+              </button>
+            )}
             <button className="settings-nav-item danger" onClick={() => setShowLogoutConfirm(true)}>
               <span>⏻</span> {exitLabel}
             </button>
@@ -349,10 +349,46 @@ const SettingsPage = ({
           </>
           )}
 
+          <section className="settings-card" ref={volumeSectionRef}>
+            {pixelCorners('var(--st-border)')}
+            <h3 className="settings-card-title">Volume Settings</h3>
+            <div className="settings-slider-row">
+              <span className="settings-slider-label"><span>🔊</span> Master Volume</span>
+              <input
+                type="range" min="0" max="100"
+                className="settings-slider"
+                style={{ '--_pct': `${masterVolume}%` }}
+                value={masterVolume}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setMasterVolume(v);
+                  localStorage.setItem(MASTER_VOLUME_KEY, String(v));
+                  onMasterVolumeChanged?.(v / 100);
+                }}
+              />
+              <span className="settings-slider-value">{masterVolume}%</span>
+            </div>
+            <div className="settings-slider-row">
+              <span className="settings-slider-label"><span>🎵</span> SFX Volume</span>
+              <input
+                type="range" min="0" max="100"
+                className="settings-slider"
+                style={{ '--_pct': `${sfxVolume}%` }}
+                value={sfxVolume}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setSfxVolume(v);
+                  localStorage.setItem(SFX_VOLUME_KEY, String(v));
+                }}
+              />
+              <span className="settings-slider-value">{sfxVolume}%</span>
+            </div>
+          </section>
+
           {!volumeOnly && (
           <section className="settings-card" ref={passwordSectionRef}>
             {pixelCorners('var(--st-border)')}
-            <h3 className="settings-card-title">Password</h3>
+            <h3 className="settings-card-title">Reset Password</h3>
             <p className="settings-card-subtitle">
               {hasPassword
                 ? 'Change the password you use to log back in as this nickname.'
@@ -399,42 +435,6 @@ const SettingsPage = ({
             {passwordSaved && <p className="settings-success">Password updated!</p>}
           </section>
           )}
-
-          <section className="settings-card" ref={volumeSectionRef}>
-            {pixelCorners('var(--st-border)')}
-            <h3 className="settings-card-title">Volume Settings</h3>
-            <div className="settings-slider-row">
-              <span className="settings-slider-label"><span>🔊</span> Master Volume</span>
-              <input
-                type="range" min="0" max="100"
-                className="settings-slider"
-                style={{ '--_pct': `${masterVolume}%` }}
-                value={masterVolume}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setMasterVolume(v);
-                  localStorage.setItem(MASTER_VOLUME_KEY, String(v));
-                  onMasterVolumeChanged?.(v / 100);
-                }}
-              />
-              <span className="settings-slider-value">{masterVolume}%</span>
-            </div>
-            <div className="settings-slider-row">
-              <span className="settings-slider-label"><span>🎵</span> SFX Volume</span>
-              <input
-                type="range" min="0" max="100"
-                className="settings-slider"
-                style={{ '--_pct': `${sfxVolume}%` }}
-                value={sfxVolume}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setSfxVolume(v);
-                  localStorage.setItem(SFX_VOLUME_KEY, String(v));
-                }}
-              />
-              <span className="settings-slider-value">{sfxVolume}%</span>
-            </div>
-          </section>
 
           <section className="settings-card settings-logout-card" ref={logoutSectionRef}>
             {pixelCorners('var(--st-danger)')}
