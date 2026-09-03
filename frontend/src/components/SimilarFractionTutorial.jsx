@@ -1,43 +1,54 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import SimilarCircleDiagram from './SimilarCircleDiagram';
 
 const BROWN = '#703737';
 const CREAM = '#e8d5b4';
 const DARK  = '#1a0f0f';
 const PAD   = 10; // spotlight padding around target
 
+// diagramStep maps to SimilarCircleDiagram's own step scale (1-3) — see that
+// file for what each number draws. null hides the diagram entirely; `final`
+// shows the two-shapes-of-the-answer preview instead of a numbered step.
 const slides = [
   {
     targetId: null,
+    diagramStep: null,
     title: 'SIMILAR ISLAND',
-    body: 'Both fractions share the same denominator — no cross-multiplying needed! Follow the steps to cast your spell.',
+    body: 'Both fractions share the same denominator — no cross-multiplying needed! Just combine the top numbers, then simplify.',
   },
   {
     targetId: 'problem-box',
+    diagramStep: null,
     title: 'READ YOUR PROBLEM',
-    body: 'Look at YOUR fraction problem here. Both bottom numbers (denominators) are the same — that is the key!\n\nYou only need to add or subtract the TOP numbers.',
-  },
-  {
-    targetId: 'problem-box',
-    title: 'STEP 1 — DENOMINATOR',
-    body: 'See the bottom number in YOUR problem here? Both fractions share it.\n\nAfter drawing the circle, type that shared bottom number into the small circle field.',
-  },
-  {
-    targetId: 'problem-box',
-    title: 'STEP 2 — EXPRESSION',
-    body: 'Look at the TWO top numbers (numerators) in YOUR problem here.\n\nJoin them with the operator (e.g. if problem is 2/5 + 1/5, type 2+1 in the big circle field).',
+    body: 'Look at YOUR fraction problem here. Both bottom numbers (denominators) are the same — that is what makes them similar.\n\nYou only need to work with the TOP numbers (numerators).',
   },
   {
     targetId: 'interactable',
-    title: 'STEP 3 — DRAW & SOLVE',
-    body: 'Draw a circle inside this box to activate the fields.\n\nFill in:\n• Small circle → denominator\n• Big circle → expression (e.g. 2+1)\n• N field → result (e.g. 3)',
+    diagramStep: 1,
+    title: 'STEP 1 — DRAW THE CIRCLE',
+    body: 'Draw a circle inside this box to begin.\n\nWatch both denominators fly down and settle into the circle — that shows they match.',
   },
   {
     targetId: 'interactable',
-    title: 'STEP 4 — CAST THE SPELL!',
-    body: 'Enter your final fraction here (numerator on top, denominator below).\n\nSimplify if possible, then press Cast Spell to deal damage!',
+    diagramStep: 2,
+    title: 'STEP 2 — COMBINE THE NUMERATORS',
+    body: 'Add or subtract the two numerators from YOUR problem, using the same operator (e.g. if the problem is 2/5 + 1/5, type 3).\n\nType the result into the field that appears.',
+  },
+  {
+    targetId: 'interactable',
+    diagramStep: 3,
+    title: 'STEP 3 — CAST THE SPELL',
+    body: 'Press Cast Spell to submit your combined numerator.',
+  },
+  {
+    targetId: 'interactable',
+    final: true,
+    title: 'STEP 4 — SIMPLIFY & CHECK',
+    body: 'If correct, a Final Answer field appears. Depending on your answer it may be a single box (a whole number) or two boxes stacked over a line (a fraction) — simplify, then press Check to finish the spell!',
   },
   {
     targetId: null,
+    diagramStep: null,
     title: '⚠ ABOUT THE HINT',
     body: 'A Hint button appears after you draw the circle.\n\nIf you use it, the formula will be shown — but your answer will NOT be fully recorded and your score for that problem will be reduced.\n\nTry to solve it on your own first!',
     isWarning: true,
@@ -69,6 +80,9 @@ const SimilarFractionTutorial = ({ onComplete }) => {
   const tooltipRef = useRef(null);
   const [tooltipPos, setTooltipPos] = useState({ left: 0, top: 0 });
   const [arrowSide, setArrowSide] = useState('top'); // which side the arrow is on
+  // 'in' = first appearance (same pop-in as the Menu popup), 'next'/'prev' = which
+  // way the card slides when paging between steps.
+  const [direction, setDirection] = useState('in');
 
   const slide = slides[index];
   const total = slides.length;
@@ -130,8 +144,8 @@ const SimilarFractionTutorial = ({ onComplete }) => {
     setArrowSide(side);
   }, [targetRect]);
 
-  const next = () => index < total - 1 ? setIndex(i => i + 1) : onComplete();
-  const prev = () => index > 0 && setIndex(i => i - 1);
+  const next = () => { if (index < total - 1) { setDirection('next'); setIndex(i => i + 1); } else onComplete(); };
+  const prev = () => { if (index > 0) { setDirection('prev'); setIndex(i => i - 1); } };
 
   // Arrow pointing toward the target
   const arrowStyle = (side) => {
@@ -152,6 +166,23 @@ const SimilarFractionTutorial = ({ onComplete }) => {
 
   return (
     <>
+      {/* Same ease-in pop the in-game Menu popup uses (settingsModalIn), plus a
+          left/right slide when paging with Next/Back. */}
+      <style>{`
+        @keyframes tutModalIn {
+          from { opacity: 0; transform: translateY(12px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes tutSlideInNext {
+          from { opacity: 0; transform: translateX(48px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes tutSlideInPrev {
+          from { opacity: 0; transform: translateX(-48px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
+
       {/* Spotlight overlays */}
       {targetRect ? (
         <>
@@ -166,7 +197,9 @@ const SimilarFractionTutorial = ({ onComplete }) => {
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
       )}
 
-      {/* Tooltip callout */}
+      {/* Tooltip callout — outer div handles fixed positioning/centering only,
+          so the pop-in/slide animation's own `transform` (on the inner card)
+          never clobbers the `translate(-50%,-50%)` centering transform. */}
       <div
         ref={tooltipRef}
         style={{
@@ -174,13 +207,19 @@ const SimilarFractionTutorial = ({ onComplete }) => {
           left: targetRect ? tooltipPos.left : '50%',
           top:  targetRect ? tooltipPos.top  : '50%',
           transform: targetRect ? 'none' : 'translate(-50%,-50%)',
-          zIndex: 2001,
-          width: 400,
           zIndex: 20001,
-          width: 340,
+        }}
+      >
+      <div
+        key={index}
+        style={{
+          position: 'relative',
+          width: 720,
+          maxWidth: '94vw',
           background: CREAM,
           border: `4px solid ${BROWN}`,
           fontFamily: '"Press Start 2P", monospace',
+          animation: `${direction === 'next' ? 'tutSlideInNext' : direction === 'prev' ? 'tutSlideInPrev' : 'tutModalIn'} 0.25s ease both`,
         }}
       >
         {/* Arrow pointing toward target */}
@@ -198,6 +237,25 @@ const SimilarFractionTutorial = ({ onComplete }) => {
           <span style={{ fontSize:12, color:CREAM, letterSpacing:1 }}>{slide.title}</span>
           <button onClick={onComplete} style={{ fontSize:10, color:CREAM, background:'transparent', border:`1px solid ${CREAM}`, padding:'4px 9px', fontFamily:'"Press Start 2P", monospace', cursor:'pointer' }}>SKIP</button>
         </div>
+
+        {/* Gameplay-accurate magic-circle diagram */}
+        {slide.diagramStep !== null && !slide.final && (
+          <div style={{ background: DARK, borderBottom:`3px solid ${BROWN}`, display:'flex', justifyContent:'center', alignItems:'center', padding:'12px 8px', overflowX:'auto' }}>
+            <SimilarCircleDiagram step={slide.diagramStep} width={280} />
+          </div>
+        )}
+        {slide.final && (
+          <div style={{ background: DARK, borderBottom:`3px solid ${BROWN}`, display:'flex', justifyContent:'center', alignItems:'flex-start', gap:24, padding:'12px 8px', overflowX:'auto' }}>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+              <span style={{ fontSize:8, color:CREAM, fontFamily:'"Press Start 2P", monospace', letterSpacing:0.5 }}>WHOLE NUMBER</span>
+              <SimilarCircleDiagram finalMode="whole" width={220} />
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+              <span style={{ fontSize:8, color:CREAM, fontFamily:'"Press Start 2P", monospace', letterSpacing:0.5 }}>FRACTION</span>
+              <SimilarCircleDiagram finalMode="fraction" width={220} />
+            </div>
+          </div>
+        )}
 
         {/* Body */}
         <div style={{ padding:'16px 16px 12px', fontSize:13, color: DARK, lineHeight:1.7, whiteSpace:'pre-line' }}>
@@ -225,6 +283,7 @@ const SimilarFractionTutorial = ({ onComplete }) => {
             <PixelBtn onClick={next} primary>{slide.isLast ? 'PLAY! →' : 'NEXT →'}</PixelBtn>
           </div>
         </div>
+      </div>
       </div>
     </>
   );

@@ -2,10 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
-import MixedButterflyTutorial from '../components/MixedButterflyTutorial';
 import HybridFractionTutorial from '../components/HybridFractionTutorial';
 import GameMenuModal from '../components/GameMenuModal';
-import HybridConversionTutorial from '../components/HybridConversionTutorial';
 import SettingsPage from './SettingsPage';
 import './game.css';
 
@@ -356,19 +354,19 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
     else checkSimplify();
   };
 
-  // Matches Similar Island's own magicN/simplified-answer inputs exactly — dark
-  // dashed border on a transparent field, not the grey/white-dashed treatment
-  // used for the token boxes elsewhere in Hybrid.
+  // Matches Similar Island's own magicN/simplified-answer inputs exactly — dashed
+  // border on a grey field, same grey/white-dashed treatment used for the token
+  // boxes elsewhere in Hybrid.
   const magicNFieldStyle = {
     width: 90, height: 64, fontSize: 32, fontWeight: 800, textAlign: 'center',
-    border: '3px dashed #fdf6e3', borderRadius: 0, background: 'transparent', color: '#fdf6e3',
+    border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', color: '#ffffff',
     textShadow: '0 0 8px rgba(0,0,0,0.9)',
     outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace',
     WebkitAppearance: 'none', MozAppearance: 'none',
   };
   const wholeFieldStyle = {
     width: 90, height: 64, fontSize: 28, fontWeight: 800, textAlign: 'center',
-    border: '3px dashed #fdf6e3', borderRadius: 0, background: 'transparent', color: '#fdf6e3',
+    border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', color: '#ffffff',
     outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace',
     WebkitAppearance: 'none', MozAppearance: 'none',
     boxShadow: '0 4px 16px rgba(0,0,0,0.7)', textShadow: '0 0 8px rgba(0,0,0,0.9)',
@@ -457,13 +455,13 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
                     />
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animation: 'problemFadeIn 0.4s ease-out' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap' }}>Final Answer:</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
                       {isWhole ? (
                         <input autoFocus type="text" inputMode="numeric" value={simplifiedInput} onChange={e => setSimplifiedInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleKeyDown} style={wholeFieldStyle} />
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                           <input autoFocus type="text" inputMode="numeric" value={simplifiedInput} onChange={e => setSimplifiedInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleKeyDown} style={fracFieldStyle} />
-                          <div style={{ width: 90, height: 3, background: '#222', borderRadius: 2 }} />
+                          <div style={{ width: 110, height: 3, background: '#333333', borderRadius: 2 }} />
                           <input type="text" inputMode="numeric" value={simplifiedDenInput} onChange={e => setSimplifiedDenInput(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown} style={fracFieldStyle} />
                         </div>
                       )}
@@ -981,7 +979,7 @@ const ForgeCircleStage = ({ problem, playerHealth, onForgeComplete, onWrongAnswe
   const magnetPulse = () => `magnetVibrate 0.15s ease-in-out infinite, forgeMagnetPulse ${magnetPulseDuration(magnetDist)}s ease-in-out infinite`;
 
   const wholeStyle = () => {
-    const base = token({ background: '#333333', borderColor: '#e8d5b4', color: '#e8d5b4', animation: FAST_FADE, ...landedPos('w') });
+    const base = token({ background: '#333333', borderColor: '#e8d5b4', color: '#ffffff', animation: FAST_FADE, ...landedPos('w') });
     if (dragKey === 'product') {
       // W itself (now showing the product) is the thing being dragged onto N —
       // pulses in sync with N (the target, see numStyle) at the same live rate.
@@ -998,7 +996,7 @@ const ForgeCircleStage = ({ problem, playerHealth, onForgeComplete, onWrongAnswe
   };
 
   const numStyle = () => {
-    const base = token({ background: '#333333', borderColor: '#e8d5b4', color: '#e8d5b4', animation: FAST_FADE, ...landedPos('n') });
+    const base = token({ background: '#333333', borderColor: '#e8d5b4', color: '#ffffff', animation: FAST_FADE, ...landedPos('n') });
     if (dragKey === 'product')
       return { ...base, animation: magnetPulse() };
     if (frac.step === 'done') {
@@ -1013,13 +1011,13 @@ const ForgeCircleStage = ({ problem, playerHealth, onForgeComplete, onWrongAnswe
     if (dragKey === 'den') {
       // The dragged D token itself — pulses in sync with W (the target, see
       // wholeStyle) at the same live rate.
-      const base = token({ background: '#333333', borderColor: '#e8d5b4', color: '#e8d5b4', ...landedPos('d') });
+      const base = token({ background: '#333333', borderColor: '#e8d5b4', color: '#ffffff', ...landedPos('d') });
       return { ...base, cursor: 'grabbing', zIndex: 6, opacity: 0.9, animation: magnetPulse(),
         left: base.left + dragOffset.dx, top: base.top + dragOffset.dy };
     }
     return token({
       background: '#333333', borderColor: draggable ? '#e8d5b4' : '#8a8a8a',
-      color: draggable ? '#e8d5b4' : '#aaaaaa',
+      color: draggable ? '#ffffff' : '#aaaaaa',
       cursor: draggable ? 'grab' : 'default',
       // forgePulseDen only touches box-shadow, so it layers cleanly alongside the
       // one-shot opacity/transform fade-in without either one clobbering the other.
@@ -1895,7 +1893,7 @@ const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAn
           <div key={key} style={{
             position: 'absolute', left: base.left, top: base.top, width: base.size, height: base.size,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '3px dashed #e8d5b4', borderRadius: 0, fontFamily: '"Press Start 2P", monospace',
+            border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', fontFamily: '"Press Start 2P", monospace',
             animation: `sdBlink ${crossCorrect ? '2s' : '0.6s'} ease-in-out infinite`,
             pointerEvents: 'auto', zIndex: 4,
           }}>
@@ -1928,7 +1926,7 @@ const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAn
           left: base.left + offset.dx, top: base.top + offset.dy,
           width: base.size, height: base.size,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: numFontSize(value, base.size), fontWeight: 900, color: '#e8d5b4',
+          fontSize: numFontSize(value, base.size), fontWeight: 900, color: '#ffffff',
           background: '#333333', border: '3px dashed #e8d5b4', borderRadius: 0,
           fontFamily: '"Press Start 2P", monospace',
           cursor: draggable ? 'grab' : 'default',
@@ -2066,7 +2064,7 @@ const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAn
                 <div style={{
                   position: 'absolute', left: 177, top: 210, width: 40, height: 40,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '3px dashed #ffffff', borderRadius: 0,
+                  border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333',
                   animation: `sdBlink ${sdCorrect ? '2s' : '0.6s'} ease-in-out infinite`,
                   zIndex: 5,
                 }}>
@@ -2101,7 +2099,7 @@ const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAn
             {/* CENTER slot */}
             {n1Visible && d1Visible && n2Visible && d2Visible && (
               centerPhase ? (
-                <div style={{ position: 'absolute', left: 177, top: 128, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', zIndex: 5, overflow: 'visible' }}>
+                <div style={{ position: 'absolute', left: 177, top: 128, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', pointerEvents: 'auto', zIndex: 5, overflow: 'visible' }}>
                   <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', width: 80, height: 80, left: -20, top: -20, animation: 'sparkleSpinPulse 2.4s ease-in-out infinite', pointerEvents: 'none' }} />
                   {centerCorrect
                     ? <span style={{ position: 'relative', zIndex: 1, fontSize: numFontSize(crossSum(), 40), fontWeight: 900, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '0 0 6px rgba(0,0,0,0.9)' }}>{crossSum()}</span>
@@ -2122,17 +2120,17 @@ const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAn
 
       {/* Final answer — floats over the fading circle, its own magicFloat copy */}
       {finalAnswerPhase && (() => {
-        const fieldStyle = { width: 60, height: 44, fontSize: 20, fontWeight: 800, textAlign: 'center', border: '3px dashed #ffffff', borderRadius: 0, background: '#555555', color: '#ffffff', outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace', WebkitAppearance: 'none' };
+        const fieldStyle = { width: 60, height: 44, fontSize: 20, fontWeight: 800, textAlign: 'center', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#555555', color: '#ffffff', outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace', WebkitAppearance: 'none' };
         return (
           <div style={{ position: 'absolute', top: '32px', left: 0, right: 0, height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'magicFloat 4s ease-in-out infinite', zIndex: 10 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'numFadeIn 0.5s ease-out both' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap' }}>Final Answer:</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#555555' }}>Final Answer:</span>
               {fIsWhole ? (
                 <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput} onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                   <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput} onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
-                  <div style={{ width: 60, height: 3, background: '#ffffff', borderRadius: 2 }} />
+                  <div style={{ width: 80, height: 3, background: '#555555', borderRadius: 2 }} />
                   <input type="text" inputMode="numeric" value={finalDenInput} onChange={e => setFinalDenInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
                 </div>
               )}
@@ -2152,7 +2150,7 @@ const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAn
               <div style={{
                 position: 'fixed', left: dragScreenPos.x - info.size / 2, top: dragScreenPos.y - info.size / 2,
                 width: info.size, height: info.size, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: numFontSize(info.val, info.size), fontWeight: 900, color: '#e8d5b4',
+                fontSize: numFontSize(info.val, info.size), fontWeight: 900, color: '#ffffff',
                 border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333',
                 fontFamily: '"Press Start 2P", monospace', pointerEvents: 'none', zIndex: 9999,
                 animation: [
@@ -2228,7 +2226,6 @@ const HybridIslandGame = ({
   const [enemyAttacking, setEnemyAttacking] = useState(false);
   const [gameOver,       setGameOver]       = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [hasSeenMixedTutorial, setHasSeenMixedTutorial] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
 
   const [problem,          setProblem]          = useState(() => generateProblem());
@@ -2358,8 +2355,6 @@ const HybridIslandGame = ({
       playOST(`/OSTFiles/bossOST${track}.mp3`);
     }
   }, [enemyData?.type]);
-
-  const showMixedTutorial = problem.isMixed && !hasSeenMixedTutorial;
 
   // Parse enemyData.txt and apply matching enemy for this level
   useEffect(() => {
@@ -3143,8 +3138,6 @@ const HybridIslandGame = ({
       ))}
 
       {showTutorial && <HybridFractionTutorial onComplete={() => setShowTutorial(false)} />}
-      {!showTutorial && showMixedTutorial && <MixedButterflyTutorial onComplete={() => setHasSeenMixedTutorial(true)} />}
-      {showMixedTutorial && <HybridConversionTutorial onComplete={() => setHasSeenMixedTutorial(true)} />}
 
       {/* Game Over */}
       {gameOver && (

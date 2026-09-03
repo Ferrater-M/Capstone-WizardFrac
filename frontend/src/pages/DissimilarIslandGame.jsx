@@ -5,7 +5,6 @@ import DrawingCanvas from '../components/DrawingCanvas';
 // import ButterflyDiagramCanvas from '../components/ButterflyDiagramCanvas';
 // import ButterflyStepPanel from '../components/ButterflyStepPanel';
 import ButterflyTutorial from '../components/ButterflyTutorial';
-import MixedButterflyTutorial from '../components/MixedButterflyTutorial';
 import SettingsPage from './SettingsPage';
 import './game.css';
 import '../components/components.css';
@@ -61,9 +60,7 @@ const DissimilarIslandGame = ({
   const [problem, setProblem] = useState(generateProblem);
   const [currentStep, setCurrentStep] = useState(1);
   const [showTutorial, setShowTutorial] = useState(true);
-  const [hasSeenMixedTutorial, setHasSeenMixedTutorial] = useState(false);
   const butterflyPanelRef = useRef(null);
-  const showMixedTutorial = !showTutorial && problem.isMixed && !hasSeenMixedTutorial;
 
   // ── Game state ─────────────────────────────────────────────────────────────
   const [lives, setLives] = useState(gameSession.lives ?? 3);
@@ -1309,6 +1306,7 @@ const DissimilarIslandGame = ({
                                   width:size, height:size,
                                   display:'flex', alignItems:'center', justifyContent:'center',
                                   border:'3px dashed #e8d5b4', borderRadius:0,
+                                  background:'#333333',
                                   fontFamily:'"Press Start 2P", monospace',
                                   animation:`sdBlink ${crossCorrect?'2s':'0.6s'} ease-in-out infinite`,
                                   pointerEvents:'auto',
@@ -1325,7 +1323,7 @@ const DissimilarIslandGame = ({
                                 <div style={{
                                   width:size, height:size,
                                   display:'flex', alignItems:'center', justifyContent:'center',
-                                  fontSize, fontWeight:900, color:'#e8d5b4',
+                                  fontSize, fontWeight:900, color:'#ffffff',
                                   border: '3px dashed #e8d5b4', borderRadius: 0, background: bg,
                                   fontFamily:'"Press Start 2P", monospace',
                                   animation: (denominatorPhase === 'glowing' || denominatorPhase === 'to-sd') && draggable
@@ -1347,6 +1345,7 @@ const DissimilarIslandGame = ({
                             position:'absolute', left:177, top:128,
                             width:40, height:40,
                             display:'flex', alignItems:'center', justifyContent:'center',
+                            border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333',
                             pointerEvents:'auto', zIndex:5, overflow:'visible',
                           }}>
                             <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position:'absolute', width:80, height:80, left:-20, top:-20, animation:'sparkleSpinPulse 2.4s ease-in-out infinite', pointerEvents:'none' }} />
@@ -1424,7 +1423,7 @@ const DissimilarIslandGame = ({
                             position:'absolute', left:177, top:210,
                             width:40, height:40,
                             display:'flex', alignItems:'center', justifyContent:'center',
-                            border:'3px dashed #ffffff', borderRadius:0,
+                            border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333',
                             animation: `sdBlink ${sdCorrect ? '2s' : '0.6s'} ease-in-out infinite`,
                             zIndex:5,
                           }}>
@@ -1475,11 +1474,11 @@ const DissimilarIslandGame = ({
                       const g = gcd(Math.abs(rawNum), rawDen);
                       const sNum = rawNum / g, sDen = rawDen / g;
                       const isWhole = sDen === 1;
-                      const fieldStyle = { width:90, height:64, fontSize:28, fontWeight:800, textAlign:'center', border:'3px dashed #fdf6e3', borderRadius:0, background:'transparent', color:'#fdf6e3', outline:'none', appearance:'none', fontFamily:'"Press Start 2P", monospace', WebkitAppearance:'none', boxShadow:'0 4px 16px rgba(0,0,0,0.7)', textShadow:'0 0 8px rgba(0,0,0,0.9)' };
+                      const fieldStyle = { width:90, height:64, fontSize:28, fontWeight:800, textAlign:'center', border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333', color:'#ffffff', outline:'none', appearance:'none', fontFamily:'"Press Start 2P", monospace', WebkitAppearance:'none', boxShadow:'0 4px 16px rgba(0,0,0,0.7)', textShadow:'0 0 8px rgba(0,0,0,0.9)' };
                       return (
                         <div style={{ position:'absolute', top:'32px', left:0, right:0, height:'300px', display:'flex', alignItems:'center', justifyContent:'center', animation:'magicFloat 4s ease-in-out infinite', zIndex:10 }}>
                           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, animation:'numFadeIn 0.5s ease-out both' }}>
-                            <span style={{ fontSize:13, fontWeight:700, color:'#fff', fontFamily:'"Press Start 2P", monospace', textShadow:'1px 1px 4px rgba(0,0,0,0.7)', whiteSpace:'nowrap' }}>Final Answer:</span>
+                            <span style={{ fontSize:13, fontWeight:700, color:'#fff', fontFamily:'"Press Start 2P", monospace', textShadow:'1px 1px 4px rgba(0,0,0,0.7)', whiteSpace:'nowrap', padding:'6px 14px', border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333' }}>Final Answer:</span>
                             {isWhole ? (
                               <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput}
                                 onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g,''))}
@@ -1489,7 +1488,7 @@ const DissimilarIslandGame = ({
                                 <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput}
                                   onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g,''))}
                                   style={fieldStyle} />
-                                <div style={{ width:90, height:4, background:'#fdf6e3', borderRadius:2 }} />
+                                <div style={{ width:110, height:4, background:'#333333', borderRadius:2 }} />
                                 <input type="text" inputMode="numeric" value={finalDenInput}
                                   onChange={e => setFinalDenInput(e.target.value.replace(/[^0-9-]/g,''))}
                                   style={fieldStyle} />
@@ -1713,7 +1712,7 @@ const DissimilarIslandGame = ({
                       top:  dragScreenPos.y - info.size / 2,
                       width: info.size, height: info.size,
                       display:'flex', alignItems:'center', justifyContent:'center',
-                      fontSize: info.fontSize, fontWeight:900, color:'#e8d5b4',
+                      fontSize: info.fontSize, fontWeight:900, color:'#ffffff',
                       border:'3px dashed #e8d5b4', borderRadius:0, background: info.bg,
                       fontFamily:'"Press Start 2P", monospace',
                       pointerEvents:'none', zIndex:9999,
@@ -1874,7 +1873,6 @@ const DissimilarIslandGame = ({
           })}
         </>
       )}
-      {showMixedTutorial && <MixedButterflyTutorial onComplete={() => setHasSeenMixedTutorial(true)} />}
 
       {/* Hint confirmation */}
       {showHintConfirm && (
