@@ -1617,7 +1617,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                     {/* Numerator / Simplified fraction area — fades in, fades out when D moves */}
                     {nVisible && <div style={{
                       position: 'absolute',
-                      left: '50%', top: finalAnswerVisible ? (simplifiedResultIsWhole ? '62px' : '36px') : '78px',
+                      left: '50%', top: finalAnswerVisible ? (simplifiedResultIsWhole ? '62px' : '36px') : '110px',
                       zIndex: 2,
                       opacity: dBubble ? 0 : 1,
                       transition: 'opacity 0.3s ease',
@@ -1647,8 +1647,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                           style={{
                             width: 90, height: 64,
                             fontSize: 32, fontWeight: 800, textAlign: 'center',
-                            border: '3px dashed #fdf6e3', borderRadius: 0,
-                            background: 'transparent', color: '#fdf6e3',
+                            border: '3px dashed #e8d5b4', borderRadius: 0,
+                            background: '#333333', color: '#ffffff',
                             textShadow: '0 0 8px rgba(0,0,0,0.9)',
                             outline: 'none', appearance: 'none',
                             fontFamily: '"Press Start 2P", monospace',
@@ -1658,7 +1658,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       ) : (
                         /* Phase 2 — simplified fraction input */
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animation: 'problemFadeIn 0.4s ease-out' }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)' }}>Final Answer:</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
                           {simplifiedResultIsWhole ? (
                             /* Whole number — single field */
                             <input
@@ -1670,8 +1670,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                               style={{
                                 width: 90, height: 64,
                                 fontSize: 28, fontWeight: 800, textAlign: 'center',
-                                border: '3px dashed #fdf6e3', borderRadius: 0,
-                                background: 'transparent', color: '#fdf6e3',
+                                border: '3px dashed #e8d5b4', borderRadius: 0,
+                                background: '#333333', color: '#ffffff',
                                 outline: 'none', appearance: 'none',
                             fontFamily: '"Press Start 2P", monospace',
                                 WebkitAppearance: 'none', MozAppearance: 'none',
@@ -1691,8 +1691,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 style={{
                                   width: 90, height: 54,
                                   fontSize: 28, fontWeight: 800, textAlign: 'center',
-                                  border: '3px dashed #fdf6e3', borderRadius: 0,
-                                  background: 'transparent', color: '#fdf6e3',
+                                  border: '3px dashed #e8d5b4', borderRadius: 0,
+                                  background: '#333333', color: '#ffffff',
                                   outline: 'none', appearance: 'none',
                             fontFamily: '"Press Start 2P", monospace',
                                   WebkitAppearance: 'none', MozAppearance: 'none',
@@ -1700,7 +1700,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                   textShadow: '0 0 8px rgba(0,0,0,0.9)',
                                 }}
                               />
-                              <div style={{ width: 90, height: 3, background: '#fdf6e3', borderRadius: 2 }} />
+                              <div style={{ width: 110, height: 3, background: '#333333', borderRadius: 2 }} />
                               <input
                                 type="text"
                                 inputMode="numeric"
@@ -1709,8 +1709,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 style={{
                                   width: 90, height: 54,
                                   fontSize: 28, fontWeight: 800, textAlign: 'center',
-                                  border: '3px dashed #fdf6e3', borderRadius: 0,
-                                  background: 'transparent', color: '#fdf6e3',
+                                  border: '3px dashed #e8d5b4', borderRadius: 0,
+                                  background: '#333333', color: '#ffffff',
                                   outline: 'none', appearance: 'none',
                             fontFamily: '"Press Start 2P", monospace',
                                   WebkitAppearance: 'none', MozAppearance: 'none',

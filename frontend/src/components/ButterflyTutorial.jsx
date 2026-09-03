@@ -1,60 +1,61 @@
 import React, { useState, useLayoutEffect, useRef } from 'react';
-import ButterflyDiagramCanvas from './ButterflyDiagramCanvas';
+import DissimilarCircleDiagram from './DissimilarCircleDiagram';
 
 const BROWN = '#703737';
 const CREAM = '#e8d5b4';
 const DARK  = '#1a0f0f';
 const PAD   = 10;
-const EXAMPLE = { numerator1: 1, denominator1: 2, numerator2: 1, denominator2: 3, operator: '+' };
 
+// diagramStep maps to DissimilarCircleDiagram's own step scale (0-6) — see
+// that file for what each number draws. null hides the diagram entirely.
 const slides = [
   {
     targetId: null,
-    diagramStep: 0,
+    diagramStep: null,
     title: 'BUTTERFLY METHOD',
-    body: 'When two fractions have different denominators, we use the Butterfly Method. Cross-multiply both ways, multiply the denominators, then combine!',
+    body: 'When two fractions have different denominators, we use the Butterfly Method: cross-multiply diagonally, multiply the denominators, then combine the results.',
   },
   {
     targetId: 'problem-box',
-    diagramStep: 0,
+    diagramStep: null,
     title: 'READ THE PROBLEM',
-    body: "Look at YOUR problem here. Note the two fractions — the denominators are different, so we can't add directly. We'll use 1/2 + 1/3 as a demo.",
+    body: "Look at YOUR problem here — two fractions with different denominators. We'll use 1/2 + 1/3 as a demo alongside.",
   },
   {
-    targetId: 'problem-box',
+    targetId: 'interactable',
     diagramStep: 1,
-    title: 'STEP 1 — LEFT CROSS',
-    body: 'Look at your problem. Multiply the LEFT numerator × RIGHT denominator.\n\nDemo: 1 × 3 = 3\n\nFind those numbers in YOUR problem above!',
+    title: 'DRAW ∞ TO START',
+    body: 'Draw an infinity (∞) symbol inside this box. Your two numerators and two denominators will appear as draggable pieces around the circle.',
   },
   {
-    targetId: 'problem-box',
+    targetId: 'interactable',
     diagramStep: 2,
-    title: 'STEP 2 — RIGHT CROSS',
-    body: 'Still looking at your problem. Multiply the RIGHT numerator × LEFT denominator.\n\nDemo: 1 × 2 = 2\n\nFind those numbers in YOUR problem above!',
+    title: 'STEP 1 — CROSS-MULTIPLY (LEFT)',
+    body: 'Drag the RIGHT denominator onto the LEFT numerator. A box lights up — type their product, then press Confirm.\n\nDemo: 1 × 3 = 3',
   },
   {
-    targetId: 'problem-box',
+    targetId: 'interactable',
     diagramStep: 3,
-    title: 'STEP 3 — DENOMINATORS',
-    body: 'Multiply BOTH bottom numbers together. This is the denominator of your final answer.\n\nDemo: 2 × 3 = 6\n\nFind the two bottom numbers in YOUR problem!',
+    title: 'STEP 2 — CROSS-MULTIPLY (RIGHT)',
+    body: 'Drag the LEFT denominator onto the RIGHT numerator. Type their product, then press Confirm.\n\nDemo: 1 × 2 = 2',
   },
   {
     targetId: 'interactable',
     diagramStep: 4,
-    title: 'STEP 4 — COMBINE HERE',
-    body: 'After drawing the ∞ symbol, combine the two cross products here using the operator.\n\nDemo: 3 + 2 = 5\n\nEnter your result in this box!',
+    title: 'STEP 3 — COMBINE THE DENOMINATORS',
+    body: 'Drag one denominator on top of the other to combine them. Type their product into the box that appears, then press Confirm.\n\nDemo: 2 × 3 = 6',
   },
   {
     targetId: 'interactable',
     diagramStep: 5,
-    title: 'STEP 5 — FINAL ANSWER',
-    body: 'Enter your final fraction here: combined numerator over denominator product. Simplify if possible.\n\nDemo: 5/6\n\nType YOUR answer in this box!',
+    title: 'STEP 4 — COMBINE THE CROSS PRODUCTS',
+    body: 'Once all three boxes are correct, the center opens up. Add or subtract your two cross products, using the operator, then press Confirm.\n\nDemo: 3 + 2 = 5',
   },
   {
     targetId: 'interactable',
-    diagramStep: null,
-    title: 'DRAW ∞ TO START',
-    body: 'Draw an infinity (∞) symbol inside this box to activate all the input fields.\n\nThen fill in each step using the numbers from your problem.',
+    diagramStep: 6,
+    title: 'STEP 5 — FINAL ANSWER',
+    body: 'Type your final answer: the combined total over the denominator product, simplified. If it simplifies to a whole number, use the single box — otherwise use the numerator/denominator boxes.\n\nDemo: 5/6',
   },
   {
     targetId: null,
@@ -88,6 +89,9 @@ const ButterflyTutorial = ({ onComplete }) => {
   const tooltipRef = useRef(null);
   const [tooltipPos, setTooltipPos] = useState({ left: 0, top: 0 });
   const [arrowSide, setArrowSide] = useState('top');
+  // 'in' = first appearance (same pop-in as the Menu popup), 'next'/'prev' = which
+  // way the card slides when paging between steps.
+  const [direction, setDirection] = useState('in');
 
   const slide = slides[index];
   const total = slides.length;
@@ -129,8 +133,8 @@ const ButterflyTutorial = ({ onComplete }) => {
     setArrowSide(side);
   }, [targetRect]);
 
-  const next = () => index < total - 1 ? setIndex(i => i + 1) : onComplete();
-  const prev = () => index > 0 && setIndex(i => i - 1);
+  const next = () => { if (index < total - 1) { setDirection('next'); setIndex(i => i + 1); } else onComplete(); };
+  const prev = () => { if (index > 0) { setDirection('prev'); setIndex(i => i - 1); } };
 
   const arrowStyle = (side) => {
     const base = { position:'absolute', width:0, height:0, border:'10px solid transparent' };
@@ -145,6 +149,23 @@ const ButterflyTutorial = ({ onComplete }) => {
 
   return (
     <>
+      {/* Same ease-in pop the in-game Menu popup uses (settingsModalIn), plus a
+          left/right slide when paging with Next/Back. */}
+      <style>{`
+        @keyframes tutModalIn {
+          from { opacity: 0; transform: translateY(12px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes tutSlideInNext {
+          from { opacity: 0; transform: translateX(48px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes tutSlideInPrev {
+          from { opacity: 0; transform: translateX(-48px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
+
       {targetRect ? (
         <>
           <div style={{ position:'fixed', top:0, left:0, right:0, height:Math.max(0,targetRect.top-PAD), background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
@@ -157,6 +178,9 @@ const ButterflyTutorial = ({ onComplete }) => {
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.78)', zIndex:19999, pointerEvents:'none' }} />
       )}
 
+      {/* Outer div handles fixed positioning/centering only, so the pop-in/slide
+          animation's own `transform` (on the inner card) never clobbers the
+          `translate(-50%,-50%)` centering transform. */}
       <div
         ref={tooltipRef}
         style={{
@@ -164,14 +188,19 @@ const ButterflyTutorial = ({ onComplete }) => {
           left: targetRect ? tooltipPos.left : '50%',
           top:  targetRect ? tooltipPos.top  : '50%',
           transform: targetRect ? 'none' : 'translate(-50%,-50%)',
-          zIndex: 2001,
-          width: slide.diagramStep !== null ? 560 : 400,
           zIndex: 20001,
-          width: slide.diagramStep !== null ? 520 : 360,
-          maxWidth: '96vw',
+        }}
+      >
+      <div
+        key={index}
+        style={{
+          position: 'relative',
+          width: 720,
+          maxWidth: '94vw',
           background: CREAM,
           border: `4px solid ${BROWN}`,
           fontFamily: '"Press Start 2P", monospace',
+          animation: `${direction === 'next' ? 'tutSlideInNext' : direction === 'prev' ? 'tutSlideInPrev' : 'tutModalIn'} 0.25s ease both`,
         }}
       >
         {targetRect && <div style={arrowStyle(arrowSide)} />}
@@ -187,10 +216,10 @@ const ButterflyTutorial = ({ onComplete }) => {
           <button onClick={onComplete} style={{ fontSize:10, color:CREAM, background:'transparent', border:`1px solid ${CREAM}`, padding:'4px 9px', fontFamily:'"Press Start 2P", monospace', cursor:'pointer' }}>SKIP</button>
         </div>
 
-        {/* Butterfly diagram */}
+        {/* Gameplay-accurate magic-circle diagram */}
         {slide.diagramStep !== null && (
           <div style={{ background: DARK, borderBottom:`3px solid ${BROWN}`, display:'flex', justifyContent:'center', alignItems:'center', padding:'12px 8px', overflowX:'auto' }}>
-            <ButterflyDiagramCanvas problem={EXAMPLE} currentStep={slide.diagramStep} />
+            <DissimilarCircleDiagram step={slide.diagramStep} width={360} />
           </div>
         )}
 
@@ -216,6 +245,7 @@ const ButterflyTutorial = ({ onComplete }) => {
             <PixelBtn onClick={next} primary>{slide.isLast ? 'PLAY! →' : 'NEXT →'}</PixelBtn>
           </div>
         </div>
+      </div>
       </div>
     </>
   );
