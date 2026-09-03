@@ -211,6 +211,8 @@ function App() {
         return (
           <HybridIslandGame
             studentId={studentId}
+            studentNickname={studentNickname}
+            selectedCharacter={selectedCharacter}
             gameSession={gameSession}
             onGameEnd={handleGameEnd}
             onExitToLobby={handleExitToLobby}
