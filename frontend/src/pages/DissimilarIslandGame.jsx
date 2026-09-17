@@ -8,7 +8,7 @@ import ButterflyTutorial from '../components/ButterflyTutorial';
 import SettingsPage from './SettingsPage';
 import './game.css';
 import '../components/components.css';
-import { getDifficultyParams, buildProblemDissimilar, TIMING } from '../utils/gameUtils';
+import { getDifficultyParams, buildProblemDissimilar, TIMING, getFeedbackDuration } from '../utils/gameUtils';
 
 const detectFrameCount = (width, height) => {
   if (width % height === 0) return width / height;
@@ -71,6 +71,10 @@ const DissimilarIslandGame = ({
   const [enemyLives, setEnemyLives] = useState(null);
   const [feedback, setFeedback] = useState('');
   const [feedbackType, setFeedbackType] = useState('');
+  const [feedbackClickable, setFeedbackClickable] = useState(false);
+  const feedbackTimeoutRef = useRef(null);
+  const feedbackResolveRef = useRef(null);
+  const feedbackClickableTimeoutRef = useRef(null);
   const [currentHint, setCurrentHint] = useState('');
   const [hintUsed, setHintUsed] = useState(false);
   const [showHintConfirm, setShowHintConfirm] = useState(false);
@@ -327,7 +331,6 @@ const DissimilarIslandGame = ({
   };
 
   const triggerCircleFailSequence = (mistakes) => {
-    const willPlayerDie = lives <= 1;
     // Step 1: flash the magic circle
     setCircleFailSequence('flashing');
     playSfx('/SoundEffects/initialDissimilarFail.wav');
@@ -339,48 +342,49 @@ const DissimilarIslandGame = ({
       setInteractableVisible(false);
     }, 2000);
 
-    // Step 3 (2.9s): popup + enemy attack + player hurt + bg shift
+    const last = mistakes[mistakes.length - 1];
+    const formula = last.label === 'SD'     ? `${problem.denominator1} × ${problem.denominator2}`
+                  : last.label === 'N1'     ? `${problem.denominator2} × ${problem.numerator1}`
+                  : last.label === 'N2'     ? `${problem.denominator1} × ${problem.numerator2}`
+                  : /* CENTER */ `${problem.denominator2 * problem.numerator1} ${problem.operator} ${problem.denominator1 * problem.numerator2}`;
+    const hint = `The answer to ${formula} is ${last.correct}`;
+    const misconceptionType =
+      last.label === 'SD'     ? 'WRONG_DENOMINATOR_PRODUCT'
+      : last.label === 'N1'   ? 'WRONG_CROSS_MULTIPLY_LEFT'
+      : last.label === 'N2'   ? 'WRONG_CROSS_MULTIPLY_RIGHT'
+      : /* CENTER */            'WRONG_CROSS_PRODUCT_COMBINATION';
+
+    // Step 3 (2.9s): popup + enemy attack + player hurt + bg shift.
+    // The full reset (Step 4) now runs as handleWrongAnswer's own onResolved
+    // callback, so it fires exactly when the popup closes (or is skipped),
+    // instead of a fixed delay that could fall out of sync with the
+    // message-length-dependent popup duration.
     setTimeout(() => {
       setCircleFailSequence(null);
-      const last = mistakes[mistakes.length - 1];
-      const formula = last.label === 'SD'     ? `${problem.denominator1} × ${problem.denominator2}`
-                    : last.label === 'N1'     ? `${problem.denominator2} × ${problem.numerator1}`
-                    : last.label === 'N2'     ? `${problem.denominator1} × ${problem.numerator2}`
-                    : /* CENTER */ `${problem.denominator2 * problem.numerator1} ${problem.operator} ${problem.denominator1 * problem.numerator2}`;
-      const hint = `${formula} = ${last.correct}`;
-      const misconceptionType =
-        last.label === 'SD'     ? 'WRONG_DENOMINATOR_PRODUCT'
-        : last.label === 'N1'   ? 'WRONG_CROSS_MULTIPLY_LEFT'
-        : last.label === 'N2'   ? 'WRONG_CROSS_MULTIPLY_RIGHT'
-        : /* CENTER */            'WRONG_CROSS_PRODUCT_COMBINATION';
-      handleWrongAnswer(hint, last.entered, misconceptionType);
+      handleWrongAnswer(hint, last.entered, misconceptionType, () => {
+        setCircleDetected(false);
+        setInteractableVisible(true);
+        setN1Visible(false); setD1Visible(false); setN2Visible(false); setD2Visible(false);
+        setDragOffsets({ d1:{dx:0,dy:0}, d2:{dx:0,dy:0} });
+        setDenominatorPhase(null); setDenExplosion(false); setSdBlinking(false);
+        setSdInputVal(''); setSdCorrect(false); setConfirmPressed(false);
+        setSdParticles([]); if (sdParticleIvRef.current) { clearInterval(sdParticleIvRef.current); sdParticleIvRef.current = null; }
+        setN1CrossPhase(null); setN2CrossPhase(null);
+        setN1CrossVal(''); setN2CrossVal('');
+        setN1CrossCorrect(false); setN2CrossCorrect(false);
+        setN1CrossConfirmed(false); setN2CrossConfirmed(false);
+        setCrossExplosion(null);
+        setN1CrossParticles([]); setN2CrossParticles([]);
+        if (n1CrossParticleIvRef.current) { clearInterval(n1CrossParticleIvRef.current); n1CrossParticleIvRef.current = null; }
+        if (n2CrossParticleIvRef.current) { clearInterval(n2CrossParticleIvRef.current); n2CrossParticleIvRef.current = null; }
+        setCenterPhase(null); setCenterVal(''); setCenterCorrect(false); setCenterConfirmed(false);
+        setCenterParticles([]); if (centerParticleIvRef.current) { clearInterval(centerParticleIvRef.current); centerParticleIvRef.current = null; }
+        setCircleFailCount(0); setCircleMistakes([]); setCircleShaking(false);
+        setFlyBubbles(null);
+        setInMagnetZone({ n1:false, n2:false, d1:false, d2:false });
+        setPulsatingWhite({ n1:false, n2:false, d1:false, d2:false });
+      });
     }, 2900);
-
-    // Step 4 (2.9s + 4.5s = 7.4s): popup gone → reset only if player survived
-    setTimeout(() => {
-      if (willPlayerDie) return;
-      setCircleDetected(false);
-      setInteractableVisible(true);
-      setN1Visible(false); setD1Visible(false); setN2Visible(false); setD2Visible(false);
-      setDragOffsets({ d1:{dx:0,dy:0}, d2:{dx:0,dy:0} });
-      setDenominatorPhase(null); setDenExplosion(false); setSdBlinking(false);
-      setSdInputVal(''); setSdCorrect(false); setConfirmPressed(false);
-      setSdParticles([]); if (sdParticleIvRef.current) { clearInterval(sdParticleIvRef.current); sdParticleIvRef.current = null; }
-      setN1CrossPhase(null); setN2CrossPhase(null);
-      setN1CrossVal(''); setN2CrossVal('');
-      setN1CrossCorrect(false); setN2CrossCorrect(false);
-      setN1CrossConfirmed(false); setN2CrossConfirmed(false);
-      setCrossExplosion(null);
-      setN1CrossParticles([]); setN2CrossParticles([]);
-      if (n1CrossParticleIvRef.current) { clearInterval(n1CrossParticleIvRef.current); n1CrossParticleIvRef.current = null; }
-      if (n2CrossParticleIvRef.current) { clearInterval(n2CrossParticleIvRef.current); n2CrossParticleIvRef.current = null; }
-      setCenterPhase(null); setCenterVal(''); setCenterCorrect(false); setCenterConfirmed(false);
-      setCenterParticles([]); if (centerParticleIvRef.current) { clearInterval(centerParticleIvRef.current); centerParticleIvRef.current = null; }
-      setCircleFailCount(0); setCircleMistakes([]); setCircleShaking(false);
-      setFlyBubbles(null);
-      setInMagnetZone({ n1:false, n2:false, d1:false, d2:false });
-      setPulsatingWhite({ n1:false, n2:false, d1:false, d2:false });
-    }, 7400);
   };
 
   // ── Enemy data ─────────────────────────────────────────────────────────────
@@ -876,9 +880,12 @@ const DissimilarIslandGame = ({
     const pts       = hintUsed ? Math.round(rawPts * 0.4) : rawPts;
     const newScore  = score + pts;
 
+    const feedbackMessage = `Correct! +${pts} points${hintUsed ? ' | Hint used!' : ''}`;
     setEnemyHealth(newEHp); setEnemyLives(newELives);
     setStreak(newStreak); setMultiplier(newMult); setScore(newScore);
-    setFeedback(`Correct! +${pts} points${hintUsed ? ' | Hint used!' : ''}`); setFeedbackType('correct');
+    setFeedback(feedbackMessage); setFeedbackType('correct');
+    setFeedbackClickable(false);
+    feedbackClickableTimeoutRef.current = setTimeout(() => setFeedbackClickable(true), 1000);
 
     saveSpellAttempt({
       gameSessionId: gameSession.sessionId,
@@ -895,8 +902,10 @@ const DissimilarIslandGame = ({
       if (newELives <= 0) {
         triggerDefeat('enemy', () => handleGameEnd('COMPLETED', true));
       } else {
-        setTimeout(() => {
-          setFeedback(''); setFeedbackType('');
+        const resolveFeedback = () => {
+          feedbackTimeoutRef.current = null;
+          feedbackResolveRef.current = null;
+          setFeedback(''); setFeedbackType(''); setFeedbackClickable(false);
           setProblem(generateProblem()); setCurrentStep(1);
           setCircleDetected(false); setInteractableVisible(true);
           setN1Visible(false); setD1Visible(false); setN2Visible(false); setD2Visible(false);
@@ -914,7 +923,9 @@ const DissimilarIslandGame = ({
           setCircleFailCount(0); setCircleMistakes([]); setCircleFailSequence(null); setCircleShaking(false);
           setFinalAnswerPhase(false); setFinalNumInput(''); setFinalDenInput(''); setHintUsed(false); setCurrentHint(''); setShowHintConfirm(false);
           setFlyBubbles(null); if (flyArcRef.current) cancelAnimationFrame(flyArcRef.current);
-        }, 10000);
+        };
+        feedbackResolveRef.current = resolveFeedback;
+        feedbackTimeoutRef.current = setTimeout(resolveFeedback, getFeedbackDuration(feedbackMessage));
       }
     };
 
@@ -926,13 +937,16 @@ const DissimilarIslandGame = ({
     }
   };
 
-  const handleWrongAnswer = async (hint, submittedValue, errorType) => {
+  const handleWrongAnswer = async (hint, submittedValue, errorType, onResolved) => {
     lastFailedProblemKey.current = problemKey(problem);
     const newLives = lives - 1;
     setLives(newLives); setStreak(0); setMultiplier(1.0);
     setEnemyAttacking(true); setTimeout(() => setEnemyAttacking(false), 1000);
     setPlayerFlashing(true); setTimeout(() => setPlayerFlashing(false), 500);
-    setFeedback(hint ? `Wrong! ${hint}` : 'Wrong answer!'); setFeedbackType('incorrect');
+    const feedbackMessage = hint ? `Incorrect. ${hint}` : 'Wrong answer!';
+    setFeedback(feedbackMessage); setFeedbackType('incorrect');
+    setFeedbackClickable(false);
+    feedbackClickableTimeoutRef.current = setTimeout(() => setFeedbackClickable(true), 1000);
     playSfx('/VoiceLines/castFailure.wav');
 
     saveSpellAttempt({
@@ -949,8 +963,28 @@ const DissimilarIslandGame = ({
     if (newLives <= 0) {
       triggerDefeat('player', () => handleGameEnd('FAILED', false));
     } else {
-      setTimeout(() => { setFeedback(''); setFeedbackType(''); }, 10000);
+      const resolveFeedback = () => {
+        feedbackTimeoutRef.current = null;
+        feedbackResolveRef.current = null;
+        setFeedback(''); setFeedbackType(''); setFeedbackClickable(false);
+        onResolved?.();
+      };
+      feedbackResolveRef.current = resolveFeedback;
+      feedbackTimeoutRef.current = setTimeout(resolveFeedback, getFeedbackDuration(feedbackMessage));
     }
+  };
+
+  const skipFeedback = () => {
+    if (!feedbackClickable || !feedbackTimeoutRef.current) return;
+    clearTimeout(feedbackTimeoutRef.current);
+    feedbackTimeoutRef.current = null;
+    if (feedbackClickableTimeoutRef.current) {
+      clearTimeout(feedbackClickableTimeoutRef.current);
+      feedbackClickableTimeoutRef.current = null;
+    }
+    const resolve = feedbackResolveRef.current;
+    feedbackResolveRef.current = null;
+    if (resolve) resolve();
   };
 
   // ── Heart renderer ────────────────────────────────────────────────────────
@@ -1632,34 +1666,33 @@ const DissimilarIslandGame = ({
                                 playWizardAnim(Math.random() < 0.5 ? 'attack1' : 'attack2');
                                 setTimeout(() => launchFireball(() => { actionLocked.current = false; handleAnswerSubmit({ numerator: String(fSNum), denominator: String(fSDen), skipAnim: true }); }), 500);
                               } else {
-                                const willDie = lives <= 1;
                                 const enteredRawMatch = fIsWhole
                                   ? parseInt(finalNumInput) === fRawNum && fRawDen === 1
                                   : parseInt(finalNumInput) === fRawNum && parseInt(finalDenInput) === fRawDen;
                                 const finalMisconceptionType = (fG > 1 && enteredRawMatch) ? 'FAILED_TO_SIMPLIFY' : 'INCORRECT_ANSWER';
                                 setTimeout(() => {
                                   actionLocked.current = false;
-                                  handleWrongAnswer(`${fSNum}${fIsWhole ? '' : '/' + fSDen}`, `${finalNumInput}${finalDenInput ? '/' + finalDenInput : ''}`, finalMisconceptionType);
-                                  if (!willDie) {
-                                    setTimeout(() => {
-                                      setCircleDetected(false); setInteractableVisible(true);
-                                      setN1Visible(false); setD1Visible(false); setN2Visible(false); setD2Visible(false);
-                                      setDragOffsets({ d1:{dx:0,dy:0}, d2:{dx:0,dy:0} });
-                                      setDenominatorPhase(null); setDenExplosion(false); setSdBlinking(false);
-                                      setSdInputVal(''); setSdCorrect(false); setConfirmPressed(false);
-                                      setSdParticles([]); if (sdParticleIvRef.current) { clearInterval(sdParticleIvRef.current); sdParticleIvRef.current = null; }
-                                      setN1CrossPhase(null); setN2CrossPhase(null); setN1CrossVal(''); setN2CrossVal('');
-                                      setN1CrossCorrect(false); setN2CrossCorrect(false); setN1CrossConfirmed(false); setN2CrossConfirmed(false);
-                                      setCrossExplosion(null); setN1CrossParticles([]); setN2CrossParticles([]);
-                                      if (n1CrossParticleIvRef.current) { clearInterval(n1CrossParticleIvRef.current); n1CrossParticleIvRef.current = null; }
-                                      if (n2CrossParticleIvRef.current) { clearInterval(n2CrossParticleIvRef.current); n2CrossParticleIvRef.current = null; }
-                                      setCenterPhase(null); setCenterVal(''); setCenterCorrect(false); setCenterConfirmed(false); setCenterParticles([]);
-                                      if (centerParticleIvRef.current) { clearInterval(centerParticleIvRef.current); centerParticleIvRef.current = null; }
-                                      setCircleFailCount(0); setCircleMistakes([]); setCircleShaking(false);
-                                      setFinalAnswerPhase(false); setFinalNumInput(''); setFinalDenInput(''); setHintUsed(false); setCurrentHint(''); setShowHintConfirm(false);
-                                      setFlyBubbles(null);
-                                    }, 4500);
-                                  }
+                                  // Reset runs as handleWrongAnswer's onResolved callback so it fires
+                                  // exactly when the popup closes (or is skipped) instead of a fixed
+                                  // delay that can fall out of sync with the popup's dynamic duration.
+                                  handleWrongAnswer(`The final answer is ${fSNum}${fIsWhole ? '' : '/' + fSDen}`, `${finalNumInput}${finalDenInput ? '/' + finalDenInput : ''}`, finalMisconceptionType, () => {
+                                    setCircleDetected(false); setInteractableVisible(true);
+                                    setN1Visible(false); setD1Visible(false); setN2Visible(false); setD2Visible(false);
+                                    setDragOffsets({ d1:{dx:0,dy:0}, d2:{dx:0,dy:0} });
+                                    setDenominatorPhase(null); setDenExplosion(false); setSdBlinking(false);
+                                    setSdInputVal(''); setSdCorrect(false); setConfirmPressed(false);
+                                    setSdParticles([]); if (sdParticleIvRef.current) { clearInterval(sdParticleIvRef.current); sdParticleIvRef.current = null; }
+                                    setN1CrossPhase(null); setN2CrossPhase(null); setN1CrossVal(''); setN2CrossVal('');
+                                    setN1CrossCorrect(false); setN2CrossCorrect(false); setN1CrossConfirmed(false); setN2CrossConfirmed(false);
+                                    setCrossExplosion(null); setN1CrossParticles([]); setN2CrossParticles([]);
+                                    if (n1CrossParticleIvRef.current) { clearInterval(n1CrossParticleIvRef.current); n1CrossParticleIvRef.current = null; }
+                                    if (n2CrossParticleIvRef.current) { clearInterval(n2CrossParticleIvRef.current); n2CrossParticleIvRef.current = null; }
+                                    setCenterPhase(null); setCenterVal(''); setCenterCorrect(false); setCenterConfirmed(false); setCenterParticles([]);
+                                    if (centerParticleIvRef.current) { clearInterval(centerParticleIvRef.current); centerParticleIvRef.current = null; }
+                                    setCircleFailCount(0); setCircleMistakes([]); setCircleShaking(false);
+                                    setFinalAnswerPhase(false); setFinalNumInput(''); setFinalDenInput(''); setHintUsed(false); setCurrentHint(''); setShowHintConfirm(false);
+                                    setFlyBubbles(null);
+                                  });
                                 }, 500);
                               }
                             }
@@ -1782,15 +1815,21 @@ const DissimilarIslandGame = ({
 
       {/* Feedback */}
       {feedback && (
-        <div style={{
-          position:'fixed', left:'50%', zIndex:5000,
-          textAlign:'center', padding:'14px 32px',
-          border:'6px solid #fff', background:'#000',
-          color: feedbackType==='correct' ? '#4ade80' : '#f87171',
-          fontSize:'22px', fontWeight:700, whiteSpace:'nowrap',
-          animation:'feedbackSlideToCenter 0.6s ease-out forwards',
-        }}>
-          {corners('#fff')}{feedback}
+        <div onClick={skipFeedback} style={{ position:'fixed', inset:0, zIndex:4999, cursor: feedbackClickable ? 'pointer' : 'default' }}>
+          <div style={{
+            position:'fixed', left:'50%', zIndex:5000,
+            textAlign:'center', padding:'14px 32px',
+            border:'6px solid #fff', background:'#000',
+            color: feedbackType==='correct' ? '#4ade80' : '#f87171',
+            fontSize:'22px', fontWeight:700, whiteSpace:'nowrap',
+            animation:'feedbackSlideToCenter 0.6s ease-out forwards',
+          }}>
+            {corners('#fff')}
+            <div style={{ paddingTop: '6px' }}>{feedback}</div>
+            <div style={{ fontSize: '11px', fontWeight: 400, color: '#fff', opacity: feedbackClickable ? 0.7 : 0, marginTop: '6px' }}>
+              Click anywhere to continue.
+            </div>
+          </div>
         </div>
       )}
 

@@ -71,3 +71,14 @@ export const TIMING = {
   BOOK_FLOAT:          6000,
   BG_BOB:             12000,
 };
+
+// ── Feedback popup duration ──────────────────────────────────────────────
+// Starts at 6s for short messages, then grows with how much text there is to read.
+const FEEDBACK_BASE_DURATION  = 6000;
+const FEEDBACK_BASELINE_CHARS = 20;
+const FEEDBACK_MS_PER_CHAR    = 60;
+
+export const getFeedbackDuration = (text = '') => {
+  const extraChars = Math.max(0, text.length - FEEDBACK_BASELINE_CHARS);
+  return FEEDBACK_BASE_DURATION + extraChars * FEEDBACK_MS_PER_CHAR;
+};

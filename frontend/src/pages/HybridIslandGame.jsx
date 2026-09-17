@@ -6,6 +6,7 @@ import HybridFractionTutorial from '../components/HybridFractionTutorial';
 import GameMenuModal from '../components/GameMenuModal';
 import SettingsPage from './SettingsPage';
 import './game.css';
+import { getFeedbackDuration } from '../utils/gameUtils';
 
 // Pixel-corner bracket decoration — identical to Similar/Dissimilar Island's `corners()`.
 // Module-level (not nested in HybridIslandGame) so every stage component below can use
@@ -570,7 +571,7 @@ const NODE_POS = {
 //   problem         – full problem object
 //   onForgeComplete – ({ imp1: {n,d}, imp2: {n,d} }) called when both fractions are done
 // ─────────────────────────────────────────────────────────────────────────────
-const ForgeCircleStage = ({ problem, playerHealth, onForgeComplete, onWrongAnswer, onRequestHint, onGestureStart }) => {
+const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHint, onGestureStart }) => {
   const [showHint, setShowHint] = useState(true);
   const [gestureDone, setGestureDone] = useState(false);
   const [fracIndex, setFracIndex] = useState(0);
@@ -832,22 +833,20 @@ const ForgeCircleStage = ({ problem, playerHealth, onForgeComplete, onWrongAnswe
   };
 
   const triggerForgeFailSequence = (mistakes) => {
-    const willPlayerDie = playerHealth <= 1;
     setForgeFailSequence('flashing');
     playSfx('/SoundEffects/initialDissimilarFail.wav');
 
     setTimeout(() => { setForgeFailSequence('fading'); }, 2000);
 
+    // The full reset now runs as onWrongAnswer's own onResolved callback, so it
+    // fires exactly when the popup closes (or is skipped) instead of a fixed
+    // delay that can fall out of sync with the popup's message-length-dependent
+    // duration.
     setTimeout(() => {
       setForgeFailSequence(null);
       const last = mistakes[mistakes.length - 1];
-      onWrongAnswer?.(`${last.formula} = ${last.correct}, not ${last.entered}.`, last.entered, last.errorType);
+      onWrongAnswer?.(`${last.formula} = ${last.correct}, not ${last.entered}.`, last.entered, last.errorType, resetForgeState);
     }, 2900);
-
-    setTimeout(() => {
-      if (willPlayerDie) return;
-      resetForgeState();
-    }, 7400);
   };
 
   const recordForgeFail = (formula, entered, correct, errorType) => {
@@ -1313,11 +1312,10 @@ const BUTTERFLY_LABEL_POS = {
 //
 // Props:
 //   problem        – the forged pair of improper fractions: {numerator1, denominator1, numerator2, denominator2, operator}
-//   playerHealth   – current lives, used to decide whether a hard fail resets or lets defeat take over
 //   onAnswerSubmit – ({numerator, denominator}) called once the final answer is confirmed correct
-//   onWrongAnswer  – (hint, submittedValue, errorType) called on a hard fail / wrong final answer
+//   onWrongAnswer  – (hint, submittedValue, errorType, onResolved) called on a hard fail / wrong final answer
 // ─────────────────────────────────────────────────────────────────────────────
-const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAnswer, onRequestHint, onGestureStart }) => {
+const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestHint, onGestureStart }) => {
   const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
 
   const [showHint, setShowHint] = useState(true);
@@ -1731,7 +1729,6 @@ const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAn
   };
 
   const triggerCircleFailSequence = (mistakes) => {
-    const willPlayerDie = playerHealth <= 1;
     setCircleFailSequence('flashing');
     playSfx('/SoundEffects/initialDissimilarFail.wav');
 
@@ -1740,6 +1737,10 @@ const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAn
       setInteractableVisible(false);
     }, 2000);
 
+    // The full reset now runs as onWrongAnswer's own onResolved callback, so it
+    // fires exactly when the popup closes (or is skipped) instead of a fixed
+    // delay that can fall out of sync with the popup's message-length-dependent
+    // duration.
     setTimeout(() => {
       setCircleFailSequence(null);
       const last = mistakes[mistakes.length - 1];
@@ -1752,13 +1753,8 @@ const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAn
         : last.label === 'N1' ? 'WRONG_CROSS_MULTIPLY_LEFT'
         : last.label === 'N2' ? 'WRONG_CROSS_MULTIPLY_RIGHT'
         : 'WRONG_CROSS_PRODUCT_COMBINATION';
-      onWrongAnswer?.(hint, last.entered, misconceptionType);
+      onWrongAnswer?.(hint, last.entered, misconceptionType, resetCircleState);
     }, 2900);
-
-    setTimeout(() => {
-      if (willPlayerDie) return;
-      resetCircleState();
-    }, 7400);
   };
 
   const recordFail = (label, entered, correct, prevMistakes) => {
@@ -1862,8 +1858,10 @@ const ButterflyCircleStage = ({ problem, playerHealth, onAnswerSubmit, onWrongAn
         const finalMisconceptionType = (fG > 1 && enteredRawMatch) ? 'FAILED_TO_SIMPLIFY' : 'INCORRECT_ANSWER';
         setTimeout(() => {
           actionLocked.current = false;
-          onWrongAnswer?.(`${fSNum}${fIsWhole ? '' : '/' + fSDen}`, `${finalNumInput}${finalDenInput ? '/' + finalDenInput : ''}`, finalMisconceptionType);
-          if (playerHealth > 1) setTimeout(resetCircleState, 4500);
+          // Reset runs as onWrongAnswer's onResolved callback so it fires exactly
+          // when the popup closes (or is skipped) instead of a fixed delay that
+          // can fall out of sync with the popup's dynamic duration.
+          onWrongAnswer?.(`${fSNum}${fIsWhole ? '' : '/' + fSDen}`, `${finalNumInput}${finalDenInput ? '/' + finalDenInput : ''}`, finalMisconceptionType, resetCircleState);
         }, 500);
       }
     }
@@ -2222,6 +2220,10 @@ const HybridIslandGame = ({
   const [multiplier,     setMultiplier]     = useState(1.0);
   const [feedback,       setFeedback]       = useState('');
   const [feedbackType,   setFeedbackType]   = useState('');
+  const [feedbackClickable, setFeedbackClickable] = useState(false);
+  const feedbackTimeoutRef = useRef(null);
+  const feedbackResolveRef = useRef(null);
+  const feedbackClickableTimeoutRef = useRef(null);
   const [currentHint,    setCurrentHint]    = useState('');
   const [enemyAttacking, setEnemyAttacking] = useState(false);
   const [gameOver,       setGameOver]       = useState(false);
@@ -2639,8 +2641,11 @@ const HybridIslandGame = ({
     setScore(newScore);
     setEnemyLives(newEnemyLives);
     setCurrentHint('');
-    setFeedback(`✓ Correct! +${pointsEarned} points`);
+    const feedbackMessage = `✓ Correct! +${pointsEarned} points`;
+    setFeedback(feedbackMessage);
     setFeedbackType('correct');
+    setFeedbackClickable(false);
+    feedbackClickableTimeoutRef.current = setTimeout(() => setFeedbackClickable(true), 1000);
 
     saveSpellAttempt({
       gameSessionId: gameSession.sessionId, mechanicType: gameSession.mechanicType || 'HYBRID',
@@ -2656,13 +2661,16 @@ const HybridIslandGame = ({
       return;
     }
 
-    setTimeout(() => {
+    const resolveFeedback = () => {
+      feedbackTimeoutRef.current = null;
+      feedbackResolveRef.current = null;
       const next = generateProblem();
       setProblem(next);
       setButterflyProblem(next);
       setStage(next.isMixed ? 'forge' : 'similar');
       setFeedback('');
       setFeedbackType('');
+      setFeedbackClickable(false);
       // New problem/stage — its gesture hasn't been drawn yet.
       setGestureActive(false);
       // Reveal the card again + bounce the background back to center — mirrors
@@ -2673,7 +2681,9 @@ const HybridIslandGame = ({
         lastBgShiftRef.current = null;
         setTimeout(() => setBgShift(null), 700);
       }
-    }, 10000);
+    };
+    feedbackResolveRef.current = resolveFeedback;
+    feedbackTimeoutRef.current = setTimeout(resolveFeedback, getFeedbackDuration(feedbackMessage));
   };
 
   const handleAnswerSubmit = (payload) => {
@@ -2686,7 +2696,7 @@ const HybridIslandGame = ({
     setTimeout(() => launchFireball(() => resolveCorrectAnswer(payload)), 500);
   };
 
-  const handleWrongAnswer = async (hint, submittedValue, errorType) => {
+  const handleWrongAnswer = async (hint, submittedValue, errorType, onResolved) => {
     // Hide the interactable card + shift the background/pull player&enemy close,
     // immediately — before the enemy-attack/player-hurt sequence plays, matching
     // Similar/Dissimilar Island. The hint bubble is intentionally never populated
@@ -2702,8 +2712,11 @@ const HybridIslandGame = ({
     setEnemyAttacking(true);
     setPlayerFlashing(true);
     setTimeout(() => setPlayerFlashing(false), 500);
-    setFeedback(`✗ Wrong! ${hint || 'Try again.'}`);
+    const feedbackMessage = `✗ Wrong! ${hint || 'Try again.'}`;
+    setFeedback(feedbackMessage);
     setFeedbackType('incorrect');
+    setFeedbackClickable(false);
+    feedbackClickableTimeoutRef.current = setTimeout(() => setFeedbackClickable(true), 1000);
     playSfx('/VoiceLines/castFailure.wav');
 
     saveSpellAttempt({
@@ -2719,18 +2732,37 @@ const HybridIslandGame = ({
       await saveGameEnd('FAILED', false);
       setTimeout(() => setGameOver(true), 800);
     } else {
-      setTimeout(() => {
+      const resolveFeedback = () => {
+        feedbackTimeoutRef.current = null;
+        feedbackResolveRef.current = null;
         setEnemyAttacking(false);
         setFeedback('');
         setFeedbackType('');
+        setFeedbackClickable(false);
         setUiVisible(true);
         if (lastBgShiftRef.current) {
           setBgShift(`return-${lastBgShiftRef.current}`);
           lastBgShiftRef.current = null;
           setTimeout(() => setBgShift(null), 100);
         }
-      }, 10000);
+        onResolved?.();
+      };
+      feedbackResolveRef.current = resolveFeedback;
+      feedbackTimeoutRef.current = setTimeout(resolveFeedback, getFeedbackDuration(feedbackMessage));
     }
+  };
+
+  const skipFeedback = () => {
+    if (!feedbackClickable || !feedbackTimeoutRef.current) return;
+    clearTimeout(feedbackTimeoutRef.current);
+    feedbackTimeoutRef.current = null;
+    if (feedbackClickableTimeoutRef.current) {
+      clearTimeout(feedbackClickableTimeoutRef.current);
+      feedbackClickableTimeoutRef.current = null;
+    }
+    const resolve = feedbackResolveRef.current;
+    feedbackResolveRef.current = null;
+    if (resolve) resolve();
   };
 
   // ── render ──
@@ -2984,7 +3016,7 @@ const HybridIslandGame = ({
                 }}>
                   {corners('#703737')}
                   {stage === 'forge' ? (
-                    <ForgeCircleStage problem={problem} playerHealth={playerHealth} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} />
+                    <ForgeCircleStage problem={problem} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} />
                   ) : stage === 'butterfly' ? (
                     <ButterflyCircleStage
                       problem={butterflyProblem}
@@ -3100,15 +3132,20 @@ const HybridIslandGame = ({
 
       {/* Feedback */}
       {feedback && (
-        <div style={{
-          position: 'fixed', left: '50%', zIndex: 5000, textAlign: 'center', padding: '14px 32px',
-          border: '6px solid #fff', background: '#000',
-          color: feedbackType === 'correct' ? '#4ade80' : '#f87171',
-          fontSize: '22px', fontWeight: 700, whiteSpace: 'nowrap',
-          animation: 'feedbackSlideToCenter 0.6s ease-out forwards',
-        }}>
-          {corners('#fff')}
-          {feedback}
+        <div onClick={skipFeedback} style={{ position: 'fixed', inset: 0, zIndex: 4999, cursor: feedbackClickable ? 'pointer' : 'default' }}>
+          <div style={{
+            position: 'fixed', left: '50%', zIndex: 5000, textAlign: 'center', padding: '14px 32px',
+            border: '6px solid #fff', background: '#000',
+            color: feedbackType === 'correct' ? '#4ade80' : '#f87171',
+            fontSize: '22px', fontWeight: 700, whiteSpace: 'nowrap',
+            animation: 'feedbackSlideToCenter 0.6s ease-out forwards',
+          }}>
+            {corners('#fff')}
+            <div style={{ paddingTop: '6px' }}>{feedback}</div>
+            <div style={{ fontSize: '11px', fontWeight: 400, color: '#fff', opacity: feedbackClickable ? 0.7 : 0, marginTop: '6px' }}>
+              Click anywhere to continue.
+            </div>
+          </div>
         </div>
       )}
 

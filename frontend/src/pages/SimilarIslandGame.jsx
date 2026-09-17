@@ -7,7 +7,7 @@ import SimilarFractionTutorial from '../components/SimilarFractionTutorial';
 import SettingsPage from './SettingsPage';
 import '../components/components.css';
 
-import { buildProblem, buildProblemDissimilar, buildProblemHybrid, getDifficultyParams, TIMING } from '../utils/gameUtils';
+import { buildProblem, buildProblemDissimilar, buildProblemHybrid, getDifficultyParams, TIMING, getFeedbackDuration } from '../utils/gameUtils';
 
 // Detects frame count from a horizontal sprite sheet.
 // Square frames (most common): width is an exact multiple of height → frame count = width / height.
@@ -38,6 +38,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [score, setScore] = useState(0);
   const [problemCount, setProblemCount] = useState(0);
   const [feedbackType, setFeedbackType] = useState('');
+  const [feedbackClickable, setFeedbackClickable] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enemyAttacking, setEnemyAttacking] = useState(false);
   const [gameOver, setGameOver] = useState(false);
@@ -84,6 +85,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const fireballRef = useRef(null);
   const fireballAnimRef = useRef(null);
   const onHitRef = useRef(null);
+  const feedbackTimeoutRef = useRef(null);
+  const feedbackClickableTimeoutRef = useRef(null);
   const [fireball, setFireball] = useState(null);
   const [dBubble, setDBubble] = useState(null);
   const dBubbleRef     = useRef(null);
@@ -637,12 +640,13 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     setScore(newScore);
     setLives(newLives);
     setProblemCount(problemCount + 1);
+    const feedbackMessage = isCorrect
+      ? `Correct! +${pointsEarned} points${hintWasUsed ? ' | Hint used!' : ''}`
+      : `Incorrect. The answer is ${correctAnswerStr}`;
     setFeedbackType(isCorrect ? 'correct' : 'incorrect');
-    setFeedback(
-      isCorrect
-        ? `Correct! +${pointsEarned} points${hintWasUsed ? ' | Hint used!' : ''}`
-        : `Incorrect. The answer is ${correctAnswerStr}`
-    );
+    setFeedback(feedbackMessage);
+    setFeedbackClickable(false);
+    feedbackClickableTimeoutRef.current = setTimeout(() => setFeedbackClickable(true), 1000);
     if (!isCorrect) {
       playSfx('/VoiceLines/castFailure.wav');
     }
@@ -665,14 +669,31 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       return;
     }
 
-    setTimeout(() => {
+    feedbackTimeoutRef.current = setTimeout(() => {
+      feedbackTimeoutRef.current = null;
       setFeedback('');
       setFeedbackType('');
+      setFeedbackClickable(false);
       setCircleDetected(false);
       generateNextProblem();
-    }, 10000);
+    }, getFeedbackDuration(feedbackMessage));
 
     setIsSubmitting(false);
+  };
+
+  const skipFeedback = () => {
+    if (!feedbackClickable || !feedbackTimeoutRef.current) return;
+    clearTimeout(feedbackTimeoutRef.current);
+    feedbackTimeoutRef.current = null;
+    if (feedbackClickableTimeoutRef.current) {
+      clearTimeout(feedbackClickableTimeoutRef.current);
+      feedbackClickableTimeoutRef.current = null;
+    }
+    setFeedback('');
+    setFeedbackType('');
+    setFeedbackClickable(false);
+    setCircleDetected(false);
+    generateNextProblem();
   };
 
   useEffect(() => {
@@ -1617,7 +1638,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                     {/* Numerator / Simplified fraction area — fades in, fades out when D moves */}
                     {nVisible && <div style={{
                       position: 'absolute',
-                      left: '50%', top: finalAnswerVisible ? (simplifiedResultIsWhole ? '62px' : '36px') : '110px',
+                      left: '50%', top: finalAnswerVisible ? (simplifiedResultIsWhole ? '62px' : '36px') : '78px',
                       zIndex: 2,
                       opacity: dBubble ? 0 : 1,
                       transition: 'opacity 0.3s ease',
@@ -1894,31 +1915,36 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
 
 
       {feedback && (
-        <div style={{
-          position: 'fixed',
-          left: '50%',
-          zIndex: 5000,
-          textAlign: 'center',
-          padding: '14px 32px',
-          border: '6px solid #fff',
-          background: '#000',
-          color: feedbackType === 'correct' ? '#4ade80' : '#f87171',
-          fontSize: '22px', fontWeight: 700,
-          whiteSpace: 'nowrap',
-          animation: 'feedbackSlideToCenter 0.6s ease-out forwards',
-        }}>
-          {/* Inner thin border */}
-          <div style={{ position: 'absolute', inset: 7, border: '1px solid #fff', pointerEvents: 'none' }} />
-          {/* Corner squares */}
-          <div style={{ position: 'absolute', top: -8, left: -8, width: 14, height: 14, background: '#fff' }} />
-          <div style={{ position: 'absolute', top: -8, right: -8, width: 14, height: 14, background: '#fff' }} />
-          <div style={{ position: 'absolute', bottom: -8, left: -8, width: 14, height: 14, background: '#fff' }} />
-          <div style={{ position: 'absolute', bottom: -8, right: -8, width: 14, height: 14, background: '#fff' }} />
-          <div style={{ position: 'absolute', top: 4, left: 4, width: 7, height: 7, background: '#fff' }} />
-          <div style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, background: '#fff' }} />
-          <div style={{ position: 'absolute', bottom: 4, left: 4, width: 7, height: 7, background: '#fff' }} />
-          <div style={{ position: 'absolute', bottom: 4, right: 4, width: 7, height: 7, background: '#fff' }} />
-          {feedback}
+        <div onClick={skipFeedback} style={{ position: 'fixed', inset: 0, zIndex: 4999, cursor: feedbackClickable ? 'pointer' : 'default' }}>
+          <div style={{
+            position: 'fixed',
+            left: '50%',
+            zIndex: 5000,
+            textAlign: 'center',
+            padding: '14px 32px',
+            border: '6px solid #fff',
+            background: '#000',
+            color: feedbackType === 'correct' ? '#4ade80' : '#f87171',
+            fontSize: '22px', fontWeight: 700,
+            whiteSpace: 'nowrap',
+            animation: 'feedbackSlideToCenter 0.6s ease-out forwards',
+          }}>
+            {/* Inner thin border */}
+            <div style={{ position: 'absolute', inset: 7, border: '1px solid #fff', pointerEvents: 'none' }} />
+            {/* Corner squares */}
+            <div style={{ position: 'absolute', top: -8, left: -8, width: 14, height: 14, background: '#fff' }} />
+            <div style={{ position: 'absolute', top: -8, right: -8, width: 14, height: 14, background: '#fff' }} />
+            <div style={{ position: 'absolute', bottom: -8, left: -8, width: 14, height: 14, background: '#fff' }} />
+            <div style={{ position: 'absolute', bottom: -8, right: -8, width: 14, height: 14, background: '#fff' }} />
+            <div style={{ position: 'absolute', top: 4, left: 4, width: 7, height: 7, background: '#fff' }} />
+            <div style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, background: '#fff' }} />
+            <div style={{ position: 'absolute', bottom: 4, left: 4, width: 7, height: 7, background: '#fff' }} />
+            <div style={{ position: 'absolute', bottom: 4, right: 4, width: 7, height: 7, background: '#fff' }} />
+            <div style={{ paddingTop: '6px' }}>{feedback}</div>
+            <div style={{ fontSize: '11px', fontWeight: 400, color: '#fff', opacity: feedbackClickable ? 0.7 : 0, marginTop: '6px' }}>
+              Click anywhere to continue.
+            </div>
+          </div>
         </div>
       )}
 
