@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import autoTable from 'jspdf-autotable';
 import CompetencyMasteryCard from '../components/CompetencyMasteryCard';
 import WizardRankBadge from '../components/WizardRankBadge';
 import MisconceptionPanel from '../components/MisconceptionPanel';
@@ -32,11 +32,11 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
   });
 
   // Email-my-progress (PDF) state
-  const pdfContentRef = useRef(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [sendStatus, setSendStatus] = useState('idle'); // idle | generating | sending | success | error
   const [sendError, setSendError] = useState('');
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     const fetchDiagnostics = async () => {
@@ -71,31 +71,122 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
     setEmailInput('');
   };
 
-  const generatePdfBlob = async () => {
-    const node = pdfContentRef.current;
-    const canvas = await html2canvas(node, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#1b0d40',
-    });
-    const imgData = canvas.toDataURL('image/png');
+  const buildPdf = async () => {
+    const summaryData = diagnostics?.summary || {};
+    const competencyData = diagnostics?.competencies || [];
+    const historyData = diagnostics?.gameHistory || [];
+    const misconceptionData = diagnostics?.dissimilarMisconceptions || [];
+    const overallAccuracy = summaryData.totalCorrect + summaryData.totalIncorrect > 0
+      ? Math.round((summaryData.totalCorrect / (summaryData.totalCorrect + summaryData.totalIncorrect)) * 100)
+      : 0;
+
     const pdf = new jsPDF('p', 'pt', 'a4');
+    const marginX = 40;
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let cursorY = 54;
 
-    let heightLeft = imgHeight;
-    let position = 0;
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+    const ensureSpace = (needed) => {
+      if (cursorY + needed > pageHeight - 40) {
+        pdf.addPage();
+        cursorY = 54;
+      }
+    };
+
+    const addSectionTitle = (title) => {
+      ensureSpace(30);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(13);
+      pdf.setTextColor(30, 30, 30);
+      pdf.text(title, marginX, cursorY);
+      cursorY += 10;
+    };
+
+    const addTable = (head, body) => {
+      autoTable(pdf, {
+        startY: cursorY,
+        margin: { left: marginX, right: marginX },
+        theme: 'grid',
+        head: [head],
+        body,
+        headStyles: { fillColor: [88, 28, 135], textColor: 255, fontSize: 10 },
+        styles: { fontSize: 9.5, cellPadding: 6, textColor: [40, 40, 40] },
+        alternateRowStyles: { fillColor: [246, 243, 252] },
+      });
+      cursorY = pdf.lastAutoTable.finalY + 26;
+    };
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(20);
+    pdf.setTextColor(88, 28, 135);
+    pdf.text('WizardFrac Progress Report', marginX, cursorY);
+    cursorY += 22;
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(11);
+    pdf.setTextColor(90, 90, 90);
+    pdf.text(`Wizard: ${studentNickname || 'Wizard'}`, marginX, cursorY);
+    cursorY += 16;
+    pdf.text(`Generated: ${new Date().toLocaleString()}`, marginX, cursorY);
+    cursorY += 28;
+
+    addSectionTitle('Summary');
+    addTable(['Metric', 'Value'], [
+      ['Wizard Rank', summaryData.wizardRank || 'Apprentice'],
+      ['Total Score', (summaryData.totalScore || 0).toLocaleString()],
+      ['Sessions Played', String(summaryData.totalSessions || 0)],
+      ['Correct Answers', String(summaryData.totalCorrect || 0)],
+      ['Wrong Answers', String(summaryData.totalIncorrect || 0)],
+      ['Overall Accuracy', `${overallAccuracy}%`],
+    ]);
+
+    if (competencyData.length > 0) {
+      addSectionTitle('Competency Mastery');
+      addTable(['Competency', 'Mastery Level', 'Accuracy'], competencyData.map(c => [
+        c.competencyName,
+        c.masteryLevel,
+        `${Math.round(c.accuracy)}%`,
+      ]));
     }
-    return pdf.output('blob');
+
+    if (misconceptionData.length > 0) {
+      addSectionTitle('Dissimilar Fraction Misconceptions');
+      addTable(['Misconception', 'Count', 'Recurring'], misconceptionData.map(m => [
+        m.label,
+        String(m.count),
+        m.recurring ? 'Yes' : 'No',
+      ]));
+    }
+
+    if (historyData.length > 0) {
+      addSectionTitle('Game History');
+      addTable(['Nickname', 'Island', 'Level', 'Hint', 'Points', 'Status'], historyData.map(entry => [
+        entry.nickname || '—',
+        entry.island,
+        String(entry.level),
+        entry.hintLabel || '—',
+        String(entry.points),
+        entry.status === 'COMPLETED' ? 'Completed' : 'Not Completed',
+      ]));
+    }
+
+    return pdf;
+  };
+
+  const generatePdfBlob = async () => (await buildPdf()).output('blob');
+
+  const handleDownloadPdf = async () => {
+    setIsDownloading(true);
+    setSendError('');
+    try {
+      const pdf = await buildPdf();
+      pdf.save('wizardfrac-progress.pdf');
+    } catch (err) {
+      setSendStatus('error');
+      setSendError('Failed to generate PDF.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleSendEmail = async () => {
@@ -219,7 +310,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
         </button>
       </div>
 
-      <div ref={pdfContentRef}>
+      <div>
 
       {/* Profile */}
       <div className="profile-bar">
@@ -406,7 +497,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
           ) : (
             <>
               <p className="wizard-menu-message">
-                We'll turn this dashboard into a PDF and send it straight to your inbox.
+                Download your progress, or send it straight to your inbox!
               </p>
               <input
                 type="email"
@@ -423,23 +514,35 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
                 autoFocus
               />
               {sendStatus === 'error' && <p className="email-modal-error">{sendError}</p>}
-              <div className="wizard-menu-actions">
-                <button
-                  type="button"
-                  className="wizard-menu-btn wizard-menu-btn-secondary"
-                  onClick={closeEmailModal}
-                  disabled={sendStatus === 'generating' || sendStatus === 'sending'}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="wizard-menu-btn wizard-menu-btn-primary"
-                  onClick={handleSendEmail}
-                  disabled={sendStatus === 'generating' || sendStatus === 'sending'}
-                >
-                  {sendStatus === 'generating' ? 'Preparing PDF…' : sendStatus === 'sending' ? 'Sending…' : 'Send'}
-                </button>
+              <div className="email-modal-actions-group">
+                <div className="wizard-menu-actions">
+                  <button
+                    type="button"
+                    className="wizard-menu-btn wizard-menu-btn-secondary email-modal-download-btn"
+                    onClick={handleDownloadPdf}
+                    disabled={isDownloading || sendStatus === 'generating' || sendStatus === 'sending'}
+                  >
+                    {isDownloading ? 'Preparing PDF…' : 'Download as PDF'}
+                  </button>
+                </div>
+                <div className="wizard-menu-actions email-modal-split-actions">
+                  <button
+                    type="button"
+                    className="wizard-menu-btn wizard-menu-btn-secondary"
+                    onClick={closeEmailModal}
+                    disabled={sendStatus === 'generating' || sendStatus === 'sending'}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="wizard-menu-btn wizard-menu-btn-primary"
+                    onClick={handleSendEmail}
+                    disabled={sendStatus === 'generating' || sendStatus === 'sending'}
+                  >
+                    {sendStatus === 'generating' ? 'Preparing PDF…' : sendStatus === 'sending' ? 'Sending…' : 'Send'}
+                  </button>
+                </div>
               </div>
             </>
           )}
