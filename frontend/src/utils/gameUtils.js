@@ -36,11 +36,15 @@ export const buildProblemDissimilar = (level = 1) => {
   return `${n1}/${d1} ${op} ${n2}/${d2} = ?`;
 };
 
+export const getDifficultyParamsHybrid = (level = 1) => ({
+  minDen:    Math.min(2 + Math.floor((level - 1) / 2), 4),
+  maxDen:    Math.min(3 + level * 2, 12),
+  maxWhole:  Math.min(1 + Math.floor(level / 2), 5),
+  subChance: Math.min(0.1 + (level - 1) * 0.1, 0.55),
+});
+
 export const buildProblemHybrid = (level = 1) => {
-  const minDen    = Math.min(2 + Math.floor((level - 1) / 2), 4);
-  const maxDen    = Math.min(3 + level * 2, 12);
-  const maxWhole  = Math.min(1 + Math.floor(level / 2), 5);
-  const subChance = Math.min(0.1 + (level - 1) * 0.1, 0.55);
+  const { minDen, maxDen, maxWhole, subChance } = getDifficultyParamsHybrid(level);
   let d1 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
   let d2 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
   while (d2 === d1) d2 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;

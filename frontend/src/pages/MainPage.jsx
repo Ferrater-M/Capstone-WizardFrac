@@ -436,7 +436,7 @@ const MainPage = ({ onStart }) => {
         <div className="main-features">
           {FEATURES.map(f => (
             <div className="main-feature" key={f.label}>
-              <img className="main-feature-icon" src={f.icon} alt="" />
+              <div className="main-feature-icon" style={{ backgroundImage: `url(${f.icon})` }} role="img" aria-hidden="true" />
               <span className="main-feature-label">{f.label}</span>
               <span className="main-feature-desc">{f.desc}</span>
             </div>
@@ -476,7 +476,7 @@ const MainPage = ({ onStart }) => {
                   {ABOUT_SECTIONS.map(sec => (
                     <div className="about-section" key={sec.title}>
                       <div className="about-icon-circle about-icon-circle--img">
-                        <img className="about-icon-img" src={sec.icon} alt="" />
+                        <div className="about-icon-img" style={{ backgroundImage: `url(${sec.icon})` }} role="img" aria-hidden="true" />
                       </div>
                       <div>
                         <h3 className="about-section-title">{sec.title}</h3>
@@ -487,7 +487,7 @@ const MainPage = ({ onStart }) => {
 
                   <div className="about-section">
                     <div className="about-icon-circle about-icon-circle--img">
-                      <img className="about-icon-img" src="/PlayerAssets/trophy.png" alt="" />
+                      <div className="about-icon-img" style={{ backgroundImage: 'url(/PlayerAssets/trophy.png)' }} role="img" aria-hidden="true" />
                     </div>
                     <div>
                       <h3 className="about-section-title">Why WizardFrac?</h3>

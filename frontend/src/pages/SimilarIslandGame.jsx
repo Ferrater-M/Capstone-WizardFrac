@@ -825,13 +825,16 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     const hearts = [];
     for (let i = 0; i < max; i++) {
       hearts.push(
-        <img
+        <div
           key={i}
-          src="/InteractableUI/HeartSprite.png"
-          alt="heart"
+          role="img"
+          aria-label="heart"
           style={{
             width: 28, height: 28,
-            objectFit: 'contain',
+            backgroundImage: 'url(/InteractableUI/HeartSprite.png)',
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
             opacity: i < count ? 1 : 0.25,
             filter: i < count ? 'none' : 'grayscale(1)',
           }}
@@ -1124,13 +1127,15 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 </>
               )}
               {/* Platform at bottom of character box, above Player label */}
-              <img
-                src="/InMatchUIElements/SimilarIsland/SimilarIslandPlatform.png"
-                alt="platform"
+              <div
+                role="img"
+                aria-label="platform"
                 style={{
                   position: 'absolute', bottom: '-50px', left: '50%',
                   transform: 'translateX(-50%)',
-                  width: '120%', objectFit: 'contain',
+                  width: '120%', aspectRatio: '2 / 1',
+                  backgroundImage: 'url(/InMatchUIElements/SimilarIsland/SimilarIslandPlatform.png)',
+                  backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center',
                   pointerEvents: 'none', zIndex: 0,
                 }}
               />
@@ -1633,6 +1638,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         objectFit: 'contain',
                         pointerEvents: 'none',
                         animation: 'problemFadeIn 0.5s ease-out',
+                        opacity: checkPhase ? 0 : 1,
+                        transition: 'opacity 0.6s ease-out',
                       }}
                     />
                     {/* Numerator / Simplified fraction area — fades in, fades out when D moves */}
@@ -1674,6 +1681,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                             outline: 'none', appearance: 'none',
                             fontFamily: '"Press Start 2P", monospace',
                             WebkitAppearance: 'none', MozAppearance: 'none',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.7)',
                           }}
                         />
                       ) : (
@@ -1687,6 +1695,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                               inputMode="numeric"
                               value={simplifiedInput}
                               onChange={e => setSimplifiedInput(e.target.value.replace(/[^0-9-]/g, ''))}
+                              placeholder="?"
                               autoFocus
                               style={{
                                 width: 90, height: 64,
@@ -1708,6 +1717,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 inputMode="numeric"
                                 value={simplifiedInput}
                                 onChange={e => setSimplifiedInput(e.target.value.replace(/[^0-9-]/g, ''))}
+                                placeholder="?"
                                 autoFocus
                                 style={{
                                   width: 90, height: 54,
@@ -1727,6 +1737,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 inputMode="numeric"
                                 value={simplifiedDenInput}
                                 onChange={e => setSimplifiedDenInput(e.target.value.replace(/[^0-9]/g, ''))}
+                                placeholder="?"
                                 style={{
                                   width: 90, height: 54,
                                   fontSize: 28, fontWeight: 800, textAlign: 'center',
@@ -1768,6 +1779,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       width: 40, height: 36,
                       fontSize: 14, fontWeight: 900, textAlign: 'center',
                       background: 'transparent', color: '#ffffff',
+                      textShadow: '0 0 8px rgba(0,0,0,0.9)',
                       zIndex: 2,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       opacity: denVisible && !checkPhase && !dBubble ? 1 : 0,
@@ -1869,13 +1881,15 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 );
               })()}
               {/* Platform at bottom of enemy box, above Enemy label */}
-              <img
-                src="/InMatchUIElements/SimilarIsland/SimilarIslandPlatform.png"
-                alt="platform"
+              <div
+                role="img"
+                aria-label="platform"
                 style={{
                   position: 'absolute', bottom: '-50px', left: '50%',
                   transform: 'translateX(-50%)',
-                  width: '120%', objectFit: 'contain',
+                  width: '120%', aspectRatio: '2 / 1',
+                  backgroundImage: 'url(/InMatchUIElements/SimilarIsland/SimilarIslandPlatform.png)',
+                  backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center',
                   pointerEvents: 'none', zIndex: 0,
                 }}
               />
@@ -1905,7 +1919,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
                 <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
                 <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
-                <img src="/InteractableUI/HeartSprite.png" alt="hp" style={{ width: 24, height: 24, objectFit: 'contain' }} />
+                <div role="img" aria-label="hp" style={{ width: 24, height: 24, backgroundImage: 'url(/InteractableUI/HeartSprite.png)', backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }} />
                 <span style={{ color: '#fff', fontWeight: 700, fontSize: '15px' }}>x{enemyLives}</span>
               </div>
             </div>
