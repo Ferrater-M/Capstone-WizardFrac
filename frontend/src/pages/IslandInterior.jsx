@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './IslandInterior.css';
+import LoadingScreen from '../components/LoadingScreen';
 
 const SQUARE  = 380;
 const P_RAD   = 18;
@@ -21,6 +22,8 @@ const ISLAND_KEY_MAP = {
   Dissimilar: 'dissimilarIsland',
   Hybrid:     'hybridIsland',
 };
+
+const MIN_LOADING_MS = 2000;
 
 // levels: array of level numbers to generate nodes for
 const makeEnemies = (levels = []) => {
@@ -65,11 +68,26 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, onSelectLevel, onBac
   const [playerPos,  setPlayerPos]  = useState({ x: SQUARE / 2, y: SQUARE / 2 });
   const [nearEnemy,  setNearEnemy]  = useState(null);
   const [enemies, setEnemies] = useState([]); // populated from enemyData.txt
+  const [levelsLoading, setLevelsLoading] = useState(true);
 
-  // Load actual level values from enemyData.txt
+  // Load actual level values from enemyData.txt — the loading screen stays up
+  // for at least MIN_LOADING_MS even if the fetch resolves instantly, so it
+  // doesn't just flash on screen.
   useEffect(() => {
+    let cancelled = false;
+    let timeoutId = null;
+    const startTime = Date.now();
+
+    const finishLoading = () => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, MIN_LOADING_MS - elapsed);
+      timeoutId = setTimeout(() => {
+        if (!cancelled) setLevelsLoading(false);
+      }, remaining);
+    };
+
     const key = ISLAND_KEY_MAP[island.name];
-    if (!key) return;
+    if (!key) { finishLoading(); return; }
     fetch(`/enemyData.txt?t=${Date.now()}`)
       .then(r => r.text())
       .then(text => {
@@ -90,9 +108,15 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, onSelectLevel, onBac
             if (enemy.level) levels.push(parseInt(enemy.level));
           }
         }
-        setEnemies(levels.length > 0 ? makeEnemies(levels) : []);
+        if (!cancelled) setEnemies(levels.length > 0 ? makeEnemies(levels) : []);
       })
-      .catch(() => setEnemies([]));
+      .catch(() => { if (!cancelled) setEnemies([]); })
+      .finally(finishLoading);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [island.name]);
 
   const posRef   = useRef({ x: SQUARE / 2, y: SQUARE / 2 });
@@ -156,6 +180,10 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, onSelectLevel, onBac
   };
 
   const overlay = walkableSrc(island.name);
+
+  if (levelsLoading) {
+    return <LoadingScreen message={`LOADING ${island.title?.toUpperCase() || 'ISLAND'}...`} />;
+  }
 
   return (
     <div style={{
