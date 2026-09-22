@@ -1,6 +1,6 @@
 import React, { useState, useLayoutEffect, useRef } from 'react';
 import ForgeDiagram from './ForgeDiagram';
-import SimilarCircleDiagram from './SimilarCircleDiagram';
+import MixedSimilarCircleDiagram from './MixedSimilarCircleDiagram';
 import DissimilarCircleDiagram from './DissimilarCircleDiagram';
 
 const BROWN = '#703737';
@@ -8,15 +8,24 @@ const CREAM = '#e8d5b4';
 const DARK  = '#1a0f0f';
 const PAD   = 10; // spotlight padding around target
 
-// `diagram` is either null (no visual), { type: 'forge', step } for the Forge
-// stage (see ForgeDiagram for its 0-4 step scale), or { type: 'dual' } to
-// preview both possible solving paths side by side.
+// `diagram` is null (no visual) or { type, step }. `type` is 'forge' (see
+// ForgeDiagram, steps 1-4), 'mixedSimilar' (see MixedSimilarCircleDiagram,
+// steps 1-3), or 'dissimilar' (see DissimilarCircleDiagram, steps 1-6).
+//
+// The two routes below are NOT alternate ways to solve the same problem —
+// each problem takes exactly one, decided purely by whether its two
+// denominators already match (mirrors the `stage` logic in
+// HybridIslandGame.jsx): matching denominators skip Forge entirely and go
+// straight to MixedSimilarCircleStage, since forging a mixed number never
+// changes its denominator. Different denominators go through Forge first,
+// which always lands on ButterflyCircleStage afterward (forging can't make
+// two different denominators match).
 const slides = [
   {
     targetId: null,
     diagram: null,
     title: 'HYBRID ISLAND',
-    body: 'Hybrid problems mix whole numbers into your fractions. Convert each one into an improper fraction first, then solve it the Similar or Butterfly way — whichever the denominators call for.',
+    body: "Hybrid problems mix whole numbers into your fractions — mixed numbers, like 1 1/2. First check the denominators (the bottom numbers):\n\n• Already the same? Combine directly, no conversion needed.\n• Different? Forge each one into an improper fraction first, then cross-multiply the Dissimilar way.",
   },
   {
     targetId: 'problem-box',
@@ -26,33 +35,45 @@ const slides = [
   },
   {
     targetId: 'interactable',
+    diagram: { type: 'mixedSimilar', step: 1 },
+    title: 'SAME DENOMINATORS — DRAW A CIRCLE',
+    body: "If both denominators already match, draw a circle to begin. There's nothing to forge — the shared denominator appears on its own.",
+  },
+  {
+    targetId: 'interactable',
+    diagram: { type: 'mixedSimilar', step: 3 },
+    title: 'COMBINE THE WHOLE AND TOP NUMBERS',
+    body: "Add (or subtract) the two whole numbers in one box, and the two numerators in the other, then press Cast Spell.\n\nDemo: 1 + 1 = 2 (whole), 1 + 2 = 3 (numerator)\n\nIf the numerator ends up equal to or bigger than the denominator, you'll simplify it next — drag it onto the whole number, then reduce if it can go further.",
+  },
+  {
+    targetId: 'interactable',
     diagram: { type: 'forge', step: 1 },
-    title: 'STEP 1 — DRAW THE TRIANGLE',
-    body: 'Draw a triangle inside this box to begin. Your whole number, numerator, and denominator appear as draggable pieces.',
+    title: 'DIFFERENT DENOMINATORS — FORGE FIRST',
+    body: 'If the denominators differ, draw a triangle to forge a mixed number into an improper fraction. You do this once for each side, starting with the left.',
   },
   {
     targetId: 'interactable',
     diagram: { type: 'forge', step: 2 },
-    title: 'STEP 2 — MULTIPLY',
+    title: 'FORGE — MULTIPLY',
     body: 'Drag the denominator onto the whole number to multiply them. Type the product, then press Forge.\n\nDemo: 1 × 2 = 2',
   },
   {
     targetId: 'interactable',
     diagram: { type: 'forge', step: 3 },
-    title: 'STEP 3 — ADD',
-    body: "Drag that product onto the numerator to add them. Type the sum, then press Forge again — that's your improper fraction!\n\nDemo: 2 + 1 = 3",
+    title: 'FORGE — ADD',
+    body: "Drag that product onto the numerator to add them. Type the sum, then press Forge — that's your improper fraction! Press Next Fraction and repeat for the other side.\n\nDemo: 2 + 1 = 3",
   },
   {
     targetId: 'interactable',
-    diagram: { type: 'dual' },
-    title: 'STEP 4 — SOLVE',
-    body: 'Once both fractions are improper, the island picks the method:\n\n• Same denominators → draw a circle and combine the top numbers, just like Similar Island.\n• Different denominators → draw the ∞ symbol and drag pieces to cross-multiply, just like Dissimilar Island.',
+    diagram: { type: 'dissimilar', step: 2 },
+    title: 'AFTER FORGING — CROSS MULTIPLY',
+    body: 'Once both sides are improper fractions, their denominators are guaranteed to differ — so you always finish it the Butterfly way, just like Dissimilar Island: draw the ∞ symbol, then drag pieces to cross-multiply, combine, and simplify.',
   },
   {
     targetId: 'interactable',
     diagram: null,
-    title: 'STEP 5 — CAST THE SPELL!',
-    body: 'Enter your final fraction here (numerator on top, denominator below).\n\nSimplify if possible, then press Cast Spell to deal damage!',
+    title: 'CAST THE SPELL!',
+    body: 'Type your final answer — a whole number, a fraction, or both, depending on what survived simplifying.\n\nPress Cast Spell (or Check) to deal damage!',
   },
   {
     targetId: null,
@@ -252,16 +273,14 @@ const HybridFractionTutorial = ({ onComplete }) => {
             <ForgeDiagram step={slide.diagram.step} width={220} />
           </div>
         )}
-        {slide.diagram?.type === 'dual' && (
-          <div style={{ background: DARK, borderBottom:`3px solid ${BROWN}`, display:'flex', justifyContent:'center', alignItems:'flex-start', gap:36, padding:'14px 8px 10px', overflowX:'auto' }}>
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
-              <span style={{ fontSize:8, color:CREAM, fontFamily:'"Press Start 2P", monospace', letterSpacing:0.5 }}>SAME DENOMINATORS</span>
-              <SimilarCircleDiagram step={2} width={220} />
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
-              <span style={{ fontSize:8, color:CREAM, fontFamily:'"Press Start 2P", monospace', letterSpacing:0.5 }}>DIFFERENT DENOMINATORS</span>
-              <DissimilarCircleDiagram step={2} width={260} />
-            </div>
+        {slide.diagram?.type === 'mixedSimilar' && (
+          <div style={{ background: DARK, borderBottom:`3px solid ${BROWN}`, display:'flex', justifyContent:'center', alignItems:'center', padding:'12px 8px', overflowX:'auto' }}>
+            <MixedSimilarCircleDiagram step={slide.diagram.step} width={220} />
+          </div>
+        )}
+        {slide.diagram?.type === 'dissimilar' && (
+          <div style={{ background: DARK, borderBottom:`3px solid ${BROWN}`, display:'flex', justifyContent:'center', alignItems:'center', padding:'14px 8px 10px', overflowX:'auto' }}>
+            <DissimilarCircleDiagram step={slide.diagram.step} width={280} />
           </div>
         )}
 

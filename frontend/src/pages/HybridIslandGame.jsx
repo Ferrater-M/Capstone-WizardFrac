@@ -2990,6 +2990,13 @@ const HybridIslandGame = ({
   const [showTutorial, setShowTutorial] = useState(true);
 
   const [problem,          setProblem]          = useState(() => generateProblem());
+  // Bumped every time a new problem is generated — used as a React `key` on
+  // whichever stage component is mounted so back-to-back rounds that land on
+  // the same stage type (e.g. mixedSimilar -> mixedSimilar) force a fresh
+  // mount instead of reusing the old instance's leftover internal state
+  // (circleDetected, finalAnswerVisible, etc.), which otherwise skipped the
+  // draw-gesture phase entirely on the next problem.
+  const [roundKey,         setRoundKey]         = useState(0);
   // stage: same denominator -> 'mixedSimilar' (draw circle, no forging — forging
   // never changes a denominator, so there's nothing to convert first) | different
   // denominators -> 'forge' -> 'butterfly' (draw triangle, then infinity).
@@ -3043,9 +3050,9 @@ const HybridIslandGame = ({
   const [enemyFlashing,   setEnemyFlashing]    = useState(false);
   const [fireball,        setFireball]         = useState(null);
   const [enemySpriteInfo, setEnemySpriteInfo]  = useState({
-    idle:   { frames: 4, frameW: 280, frameH: 280, missing: false },
-    attack: { frames: 4, frameW: 280, frameH: 280, missing: false },
-    hit:    { frames: 4, frameW: 280, frameH: 280, missing: false },
+    idle:   { frames: 4, frameW: 420, frameH: 420, missing: false },
+    attack: { frames: 4, frameW: 420, frameH: 420, missing: false },
+    hit:    { frames: 4, frameW: 420, frameH: 420, missing: false },
   });
   const enemySpriteInfoRef = useRef(enemySpriteInfo);
   const wizardAnimTimerRef = useRef(null);
@@ -3155,7 +3162,7 @@ const HybridIslandGame = ({
   // Load each PNG sprite sheet, auto-detect frame count, and compute proportional display size
   useEffect(() => {
     if (!enemyData) return;
-    const MAX = 280;
+    const MAX = 420;
     const reset = { idle: { frames: 4, frameW: MAX, frameH: MAX, missing: false }, attack: { frames: 4, frameW: MAX, frameH: MAX, missing: false }, hit: { frames: 4, frameW: MAX, frameH: MAX, missing: false } };
     enemySpriteInfoRef.current = reset;
     setEnemySpriteInfo(reset);
@@ -3466,6 +3473,7 @@ const HybridIslandGame = ({
       setProblem(next);
       setButterflyProblem(next);
       setStage(next.denominator1 === next.denominator2 ? 'mixedSimilar' : 'forge');
+      setRoundKey(k => k + 1);
       setFeedback('');
       setFeedbackType('');
       setFeedbackClickable(false);
@@ -3819,9 +3827,10 @@ const HybridIslandGame = ({
                 }}>
                   {corners('#703737')}
                   {stage === 'forge' ? (
-                    <ForgeCircleStage problem={problem} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} />
+                    <ForgeCircleStage key={`forge-${roundKey}`} problem={problem} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} />
                   ) : stage === 'butterfly' ? (
                     <ButterflyCircleStage
+                      key={`butterfly-${roundKey}`}
                       problem={butterflyProblem}
                       playerHealth={playerHealth}
                       onAnswerSubmit={handleAnswerSubmit}
@@ -3830,7 +3839,7 @@ const HybridIslandGame = ({
                       onGestureStart={() => setGestureActive(true)}
                     />
                   ) : (
-                    <MixedSimilarCircleStage problem={problem} onAnswerSubmit={handleAnswerSubmit} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} />
+                    <MixedSimilarCircleStage key={`mixed-${roundKey}`} problem={problem} onAnswerSubmit={handleAnswerSubmit} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} />
                   )}
                 </div>
               </div>
@@ -3843,7 +3852,7 @@ const HybridIslandGame = ({
               {(() => {
                 const info = enemySpriteInfo[enemyAnim] || enemySpriteInfo.idle;
                 const { frames, frameW, frameH } = info;
-                const BOX = 280;
+                const BOX = 420;
                 const safeName = (enemyData?.name || 'unknown').replace(/\s+/g, '_');
                 const kf = `enemy_${safeName}_${enemyAnim}`;
                 const sprAnim = `${kf} ${(frames / 10).toFixed(2)}s steps(${frames}) ${enemyAnim === 'idle' ? 'infinite' : '1 forwards'}`;
@@ -3866,7 +3875,7 @@ const HybridIslandGame = ({
                     <style>{`@keyframes ${kf} { to { background-position-x: -${frames * frameW}px; } }`}</style>
                     <div style={{
                       position: 'absolute',
-                      bottom: 0,
+                      bottom: 40,
                       left: `calc(50% - ${frameW / 2}px)`,
                       zIndex: 1,
                       width: frameW,

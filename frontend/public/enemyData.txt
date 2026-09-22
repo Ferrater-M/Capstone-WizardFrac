@@ -2,7 +2,7 @@
 similarIsland
 ---
 type:normal
-name:Slime
+name:Wanderer
 level:1
 hp:4
 +++
@@ -11,7 +11,7 @@ hp:4
 similarIsland
 ---
 type:normal
-name:Gnome
+name:Werewolf
 level:2
 hp:4
 +++
@@ -20,7 +20,7 @@ hp:4
 similarIsland
 ---
 type:normal
-name:Troll
+name:Tengu
 level:3
 hp:4
 +++
@@ -29,7 +29,7 @@ hp:4
 similarIsland
 ---
 type:boss
-name:Golem
+name:Satyr
 level:4
 hp:4
 +++
@@ -56,7 +56,7 @@ hp:3
 dissimilarIsland
 ---
 type:normal
-name:Kobold
+name:Skelebow
 level:3
 hp:3
 +++
@@ -65,7 +65,7 @@ hp:3
 dissimilarIsland
 ---
 type:boss
-name:boss
+name:Minotaur
 level:4
 hp:3
 +++
@@ -74,7 +74,8 @@ hp:3
 hybridIsland
 ---
 type:normal
-name:Manaknight
+name:Monk
+
 level:1
 hp:3
 +++
@@ -83,7 +84,8 @@ hp:3
 hybridIsland
 ---
 type:normal
-name:enemy2
+name:Razer
+
 level:2
 hp:3
 +++
@@ -92,7 +94,7 @@ hp:3
 hybridIsland
 ---
 type:normal
-name:enemy3
+name:Kitsune
 level:3
 hp:2
 +++
@@ -101,7 +103,7 @@ hp:2
 hybridIsland
 ---
 type:boss
-name:boss
+name:Gorgon
 level:4
 hp:2
 +++

@@ -130,14 +130,14 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [enemyAnim, setEnemyAnim] = useState('idle');
   const enemyAnimTimerRef = useRef(null);
   const [enemySpriteInfo, setEnemySpriteInfo] = useState({
-    idle:   { frames: 4, frameW: 280, frameH: 280, missing: false },
-    attack: { frames: 4, frameW: 280, frameH: 280, missing: false },
-    hit:    { frames: 4, frameW: 280, frameH: 280, missing: false },
+    idle:   { frames: 4, frameW: 420, frameH: 420, missing: false },
+    attack: { frames: 4, frameW: 420, frameH: 420, missing: false },
+    hit:    { frames: 4, frameW: 420, frameH: 420, missing: false },
   });
   const enemySpriteInfoRef = useRef({
-    idle:   { frames: 4, frameW: 280, frameH: 280, missing: false },
-    attack: { frames: 4, frameW: 280, frameH: 280, missing: false },
-    hit:    { frames: 4, frameW: 280, frameH: 280, missing: false },
+    idle:   { frames: 4, frameW: 420, frameH: 420, missing: false },
+    attack: { frames: 4, frameW: 420, frameH: 420, missing: false },
+    hit:    { frames: 4, frameW: 420, frameH: 420, missing: false },
   });
 
   const playOST = (src) => {
@@ -270,8 +270,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   // Load each PNG sprite sheet, auto-detect frame count, and compute proportional display size
   useEffect(() => {
     if (!enemyData) return;
-    const MAX = 280;
-    const reset = { idle: { frames: 4, displayW: MAX, displayH: MAX, missing: false }, attack: { frames: 4, displayW: MAX, displayH: MAX, missing: false }, hit: { frames: 4, displayW: MAX, displayH: MAX, missing: false } };
+    const MAX = 420;
+    const reset = { idle: { frames: 4, frameW: MAX, frameH: MAX, missing: false }, attack: { frames: 4, frameW: MAX, frameH: MAX, missing: false }, hit: { frames: 4, frameW: MAX, frameH: MAX, missing: false } };
     enemySpriteInfoRef.current = reset;
     setEnemySpriteInfo(reset);
 
@@ -1838,7 +1838,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               {(() => {
                 const info = enemySpriteInfo[enemyAnim];
                 const { frames, frameW, frameH } = info;
-                const BOX = 280;
+                const BOX = 420;
                 const safeName = (enemyData?.name || 'unknown').replace(/\s+/g, '_');
                 const kf = `enemy_${safeName}_${enemyAnim}`;
                 const sprAnim = `${kf} ${(frames / 10).toFixed(2)}s steps(${frames}) ${enemyAnim === 'idle' ? 'infinite' : '1 forwards'}`;
@@ -1863,7 +1863,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                     <style>{`@keyframes ${kf} { to { background-position-x: -${frames * frameW}px; } }`}</style>
                     <div style={{
                       position: 'absolute',
-                      bottom: 0,
+                      bottom: 40,
                       left: `calc(50% - ${frameW / 2}px)`,
                       zIndex: 1,
                       width: frameW,
