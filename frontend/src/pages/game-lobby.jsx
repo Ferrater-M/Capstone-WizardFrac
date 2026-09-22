@@ -6,6 +6,7 @@ import IslandInterior from './IslandInterior';
 import GameMechanicsIntro from '../components/GameMechanicsIntro';
 import SettingsPage from './SettingsPage';
 import Leaderboard from './Leaderboard';
+import { API_BASE_URL } from '../config';
 
 const MECHANICS_INTRO_KEY = 'wizardfrac_seen_mechanics_intro';
 
@@ -497,7 +498,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const loadGameProgress = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:8082/api/game-progress/${studentId}`);
+      const res = await fetch(`${API_BASE_URL}/api/game-progress/${studentId}`);
       if (res.status === 404) {
         setGameProgress({ similarIslandMaxStage: 0, dissimilarIslandUnlocked: false, hybridIslandUnlocked: false });
       } else {
@@ -514,7 +515,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
 
   const loadStageStars = async () => {
     try {
-      const res = await fetch(`http://localhost:8082/api/game-progress/stars/${studentId}`);
+      const res = await fetch(`${API_BASE_URL}/api/game-progress/stars/${studentId}`);
       if (!res.ok) return;
       const data = await res.json();
       const map = {};
@@ -540,7 +541,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     let isMounted = true;
     const loadSelectedCharacter = async () => {
       try {
-        const res = await fetch(`http://localhost:8082/api/characters/student/${studentId}`);
+        const res = await fetch(`${API_BASE_URL}/api/characters/student/${studentId}`);
         if (!res.ok) {
           return;
         }
@@ -648,7 +649,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const handleSelectLevel = async (level) => {
     try {
       const response = await fetch(
-        `http://localhost:8082/api/game-lobby/start-stage/${studentId}`,
+        `${API_BASE_URL}/api/game-lobby/start-stage/${studentId}`,
         {
           method: 'POST',
           headers: {
@@ -737,7 +738,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     return character?.imageUrl || '/Male.png';
   };
 
-  const profilePictureUrl = studentId ? `http://localhost:8082/api/students/${studentId}/profile-picture` : null;
+  const profilePictureUrl = studentId ? `${API_BASE_URL}/api/students/${studentId}/profile-picture` : null;
 
   const totalStarsAll = islands.reduce((sum, isl) => sum + islandStarTotal(isl.name), 0);
   const totalStarsPossible = islands.reduce((sum, isl) => sum + (isl.totalStages || 0) * STARS_PER_STAGE, 0);

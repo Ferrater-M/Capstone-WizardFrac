@@ -7,6 +7,7 @@ import GameMenuModal from '../components/GameMenuModal';
 import SettingsPage from './SettingsPage';
 import './game.css';
 import { getFeedbackDuration, getDifficultyParamsHybrid } from '../utils/gameUtils';
+import { API_BASE_URL } from '../config';
 
 // Debug/compliance toggle — false (default) makes generateProblem() order same-
 // denominator subtraction's W and N independently so neither ever goes negative,
@@ -3330,7 +3331,7 @@ const HybridIslandGame = ({
   const saveSpellAttempt = async (attempt) => {
     try {
       const res = await fetch(
-        `http://localhost:8082/api/game-progress/spell-attempt/${gameSession.sessionId}`,
+        `${API_BASE_URL}/api/game-progress/spell-attempt/${gameSession.sessionId}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(attempt) }
       );
       if (!res.ok) console.error('Failed to save spell attempt');
@@ -3340,7 +3341,7 @@ const HybridIslandGame = ({
   const saveGameEnd = async (status, isWon) => {
     try {
       const res = await fetch(
-        `http://localhost:8082/api/game-progress/end-session/${gameSession.sessionId}`,
+        `${API_BASE_URL}/api/game-progress/end-session/${gameSession.sessionId}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status, isWon, hintsUsed: 0 }) }
       );

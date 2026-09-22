@@ -7,6 +7,7 @@ import MisconceptionPanel from '../components/MisconceptionPanel';
 import GameMenuModal from '../components/GameMenuModal';
 import './StudentDashboard.css';
 import LoadingScreen from '../components/LoadingScreen';
+import { API_BASE_URL } from '../config';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -41,13 +42,13 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
   useEffect(() => {
     const fetchDiagnostics = async () => {
       try {
-        const response = await fetch(`http://localhost:8082/api/game-progress/diagnostics/${studentId}`);
+        const response = await fetch(`${API_BASE_URL}/api/game-progress/diagnostics/${studentId}`);
         if (!response.ok) throw new Error('Failed to fetch diagnostics');
         const data = await response.json();
         setDiagnostics(data);
       } catch (err) {
         const message = err.message === 'Failed to fetch'
-          ? 'Cannot reach the server. Make sure the backend is running on http://localhost:8082.'
+          ? `Cannot reach the server. Make sure the backend is running on ${API_BASE_URL}.`
           : err.message;
         setError(message);
       } finally {
@@ -204,7 +205,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
       const formData = new FormData();
       formData.append('email', trimmed);
       formData.append('file', pdfBlob, 'wizardfrac-progress.pdf');
-      const res = await fetch('http://localhost:8082/api/email/send-diagnostics', {
+      const res = await fetch(`${API_BASE_URL}/api/email/send-diagnostics`, {
         method: 'POST',
         body: formData,
       });
@@ -316,7 +317,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
       <div className="profile-bar">
         <img
           className="profile-avatar"
-          src={studentId ? `http://localhost:8082/api/students/${studentId}/profile-picture` : characterFallbackAvatar}
+          src={studentId ? `${API_BASE_URL}/api/students/${studentId}/profile-picture` : characterFallbackAvatar}
           alt="Player avatar"
           onError={(e) => {
             if (e.currentTarget.src !== characterFallbackAvatar) {
