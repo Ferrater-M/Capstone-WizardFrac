@@ -6,7 +6,7 @@ WORKDIR /app
 COPY gradlew ./
 COPY gradle ./gradle
 COPY build.gradle settings.gradle ./
-RUN ./gradlew --version
+RUN chmod +x gradlew && ./gradlew --version
 
 # Copy source and build the executable jar
 COPY src ./src
