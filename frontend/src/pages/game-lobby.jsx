@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { playSfx, getSfxVolume } from '../utils/audio';
 import './game-lobby.css';
 import LoadingScreen from '../components/LoadingScreen';
@@ -36,6 +36,26 @@ const PET_CHATS = [
 // ────────────────────────────────────────────────────────────────────────────
 
 const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+// Pixel-bracket corner decoration — matches the settings popup's frame style.
+// Purely cosmetic, absolutely positioned children of a `position: relative`
+// (or fixed) panel. `edgeOffset` lets straddling squares (-6, the tutorial's
+// look) be pulled fully inside (0) for panels that clip overflow.
+const pixelCorners = (color, edgeOffset = -6) => (
+  <>
+    <div style={{ position: 'absolute', inset: 5, border: `1px solid ${color}`, pointerEvents: 'none' }} />
+    {[[edgeOffset, edgeOffset], [null, edgeOffset], [edgeOffset, null], [null, null]].map(([t, l], i) => (
+      <div
+        key={i}
+        style={{
+          position: 'absolute', zIndex: 10, pointerEvents: 'none', width: 12, height: 12, background: color,
+          ...(t !== null ? { top: t } : { bottom: edgeOffset }),
+          ...(l !== null ? { left: l } : { right: edgeOffset }),
+        }}
+      />
+    ))}
+  </>
+);
 
 // Maps island name -> the section key used for it in enemyData.txt
 const ISLAND_ENEMY_KEY = { Similar: 'similarIsland', Dissimilar: 'dissimilarIsland', Hybrid: 'hybridIsland' };
@@ -231,12 +251,29 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const canvasRef = useRef(null);
   const galaxyFrameRef = useRef(null);
   const titleBoxRef = useRef(null);
+  const playerCardRef = useRef(null);
   const islandCardRefs = useRef({});
   const sparkleRef = useRef(null);
   const [animPhase, setAnimPhase] = useState(null);
   const [animIsland, setAnimIsland] = useState(null);
   const [sparkleStart, setSparkleStart] = useState({ x: 0, y: 0 });
   const [sparkleEnd, setSparkleEnd] = useState({ x: 0, y: 0 });
+  const [cardBurstRect, setCardBurstRect] = useState(null);
+
+  // Random burst directions for the player card's particle-dissolve effect,
+  // regenerated once per island-entry attempt (not on every re-render).
+  const cardParticles = useMemo(() => {
+    if (!animIsland) return [];
+    return Array.from({ length: 18 }, () => {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 90 + Math.random() * 160;
+      return {
+        dx: Math.cos(angle) * dist,
+        dy: Math.sin(angle) * dist,
+        delay: Math.random() * 150,
+      };
+    });
+  }, [animIsland]);
 
   useEffect(() => {
     if (showInterior) return;
@@ -533,6 +570,10 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     if (!island.unlocked || actionLocked.current) return;
     actionLocked.current = true;
     playSfx('/SoundEffects/islandSelect.wav');
+    const cardRect = playerCardRef.current?.getBoundingClientRect();
+    if (cardRect) {
+      setCardBurstRect({ top: cardRect.top, left: cardRect.left, width: cardRect.width, height: cardRect.height });
+    }
     setAnimIsland(island);
     setAnimPhase('flash');
   };
@@ -745,12 +786,25 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       {loading && <LoadingScreen />}
 
       <div className="lobby-top-right">
-        <div className="currency-badge"><span className="currency-star">⭐</span> {starCurrency}</div>
-        <button className="icon-pill" onClick={() => setShowMechanicsIntro(true)}>Help</button>
-        <button className="icon-pill icon-pill-round" onClick={() => setShowSettings(true)} aria-label="Settings">⚙️</button>
+        <div className="currency-badge">
+          {pixelCorners('var(--gl-border)', 0)}
+          <span className="currency-star">⭐</span> {starCurrency}
+        </div>
+        <button className="icon-pill" onClick={() => setShowMechanicsIntro(true)}>
+          {pixelCorners('var(--gl-border)', 0)}
+          Help
+        </button>
+        <button className="icon-pill icon-pill-round" onClick={() => setShowSettings(true)} aria-label="Settings">
+          {pixelCorners('var(--gl-border)', 0)}
+          ⚙️
+        </button>
       </div>
 
-      <div className="player-card-fixed">
+      <div
+        ref={playerCardRef}
+        className={`player-card-fixed${animPhase === 'flash' ? ' anim-flash' : ''}${animPhase && animPhase !== 'flash' ? ' anim-hidden' : ''}`}
+      >
+        {pixelCorners('var(--gl-border)', 0)}
         <img
           className="player-avatar"
           src={profilePictureUrl || getAvatarImage()}
@@ -769,6 +823,21 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
           <p className="xp-text">{xpIntoLevel} / {xpForNextLevel} XP</p>
         </div>
       </div>
+
+      {animPhase && cardBurstRect && (
+        <div
+          className="card-particle-burst"
+          style={{ top: cardBurstRect.top, left: cardBurstRect.left, width: cardBurstRect.width, height: cardBurstRect.height }}
+        >
+          {cardParticles.map((p, i) => (
+            <span
+              key={i}
+              className="card-particle"
+              style={{ '--dx': `${p.dx}px`, '--dy': `${p.dy}px`, animationDelay: `${p.delay}ms` }}
+            />
+          ))}
+        </div>
+      )}
 
       <div
         className="lobby-pet-fixed"
@@ -807,10 +876,14 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       <div className="left-panel-slider">
         <div className="left-panel-content">
           <nav className="lobby-sidebar">
+            {pixelCorners('var(--gl-border)')}
             <button className="sidebar-item active" onClick={onOpenDashboard}><span>🏠</span>Dashboard</button>
             <button className="sidebar-item" onClick={onOpenDashboard}><span>📊</span>Progress</button>
             <button className="sidebar-item" onClick={() => setShowLeaderboard(true)}><span>👑</span>Leaderboard</button>
-            <button className="sidebar-item soon" disabled><span>🏆</span>Achievements<span className="soon-tag">Soon</span></button>
+            <button className="sidebar-item soon" disabled>
+              <span className="sidebar-item-row"><span>🏆</span>Achievements</span>
+              <span className="soon-tag">Soon</span>
+            </button>
             <button className="sidebar-item" onClick={() => setShowSettings(true)}><span>⚙️</span>Settings</button>
           </nav>
         </div>
@@ -825,6 +898,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
             ref={titleBoxRef}
             className={`lobby-title-box${animPhase === 'flash' ? ' anim-flash' : ''}${animPhase && animPhase !== 'flash' ? ' anim-hidden' : ''}`}
           >
+            {pixelCorners('var(--gl-border)')}
             <div className="lobby-title-gem"><span className="lobby-title-gem-inner"></span></div>
             <h1 className="lobby-title">WIZARD ISLANDS</h1>
             <p className="lobby-subtitle">
@@ -912,6 +986,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
         </div>
         <div className="side-cards-panel">
           <div className="side-card quest-card">
+            {pixelCorners('var(--gl-border)')}
             <p className="side-card-title"><span>📜</span> DAILY QUEST</p>
             <p className="quest-desc">Solve {dailyQuestTarget} fraction problems</p>
             <p className="quest-count">{dailyQuestProgress} / {dailyQuestTarget}</p>
@@ -923,6 +998,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
             </div>
           </div>
           <div className="side-card streak-card">
+            {pixelCorners('var(--gl-border)')}
             <p className="side-card-title"><span>🔥</span> WIZARD STREAK</p>
             <div className="streak-flame">🔥</div>
             <p className="streak-days">{currentStreak} <small>days</small></p>

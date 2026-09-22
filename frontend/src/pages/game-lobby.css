@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Outfit:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Outfit:wght@400;600;700;800&family=Press+Start+2P&display=swap');
 
 .game-lobby {
   --gl-bg1: #08051C;
@@ -18,7 +18,8 @@
   overflow: hidden;
   background: linear-gradient(160deg, var(--gl-bg2) 0%, var(--gl-bg1) 70%);
   box-sizing: border-box;
-  font-family: 'Outfit', 'Segoe UI', sans-serif;
+  /* Pixel font throughout, matching the settings popup. */
+  font-family: 'Press Start 2P', 'Outfit', 'Segoe UI', monospace;
   position: relative;
 }
 
@@ -43,14 +44,17 @@
 }
 
 .currency-badge {
+  position: relative;
+  box-sizing: border-box;
+  height: 54px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 16px;
+  padding: 0 24px;
   background: var(--gl-panel2);
   color: var(--gl-gold);
-  border: 1px solid var(--gl-border);
-  border-radius: 50px;
+  border: 4px solid var(--gl-border);
+  border-radius: 0;
   font-weight: 800;
   font-size: 0.9em;
   box-shadow: 0 0 14px rgba(168, 85, 247, 0.18);
@@ -61,12 +65,18 @@
 }
 
 .icon-pill {
-  padding: 10px 18px;
+  position: relative;
+  box-sizing: border-box;
+  height: 54px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 26px;
   background: var(--gl-panel2);
   color: var(--gl-text);
-  border: 1px solid var(--gl-border);
-  border-radius: 50px;
-  font-family: 'Outfit', 'Segoe UI', sans-serif;
+  border: 4px solid var(--gl-border);
+  border-radius: 0;
+  font-family: 'Press Start 2P', 'Outfit', 'Segoe UI', monospace;
   font-size: 0.78em;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -77,12 +87,8 @@
 }
 
 .icon-pill-round {
-  width: 38px;
-  height: 38px;
+  width: 54px;
   padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   font-size: 1em;
 }
 
@@ -141,12 +147,12 @@
 }
 
 .player-avatar {
-  width: 55px;
-  height: 52px;
+  width: 78px;
+  height: 78px;
   object-fit: contain;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--gl-panel2);
-  border: 2px solid var(--gl-gold);
+  border: 4px solid var(--gl-gold);
   padding: 4px;
   flex: 0 0 auto;
 }
@@ -161,7 +167,7 @@
   margin: 0;
   color: var(--gl-text);
   font-weight: 800;
-  font-size: 0.85em;
+  font-size: 0.68em;
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
@@ -170,7 +176,7 @@
   margin: 1px 0 6px;
   color: var(--gl-gold);
   font-weight: 700;
-  font-size: 0.78em;
+  font-size: 0.62em;
 }
 
 .player-rank-inline {
@@ -182,7 +188,7 @@
 .xp-text {
   margin: 4px 0 0;
   color: var(--gl-text2);
-  font-size: 0.68em;
+  font-size: 0.55em;
   font-weight: 600;
 }
 
@@ -217,15 +223,16 @@
 
 /* ── Sidebar nav ── */
 .lobby-sidebar {
+  position: relative;
   grid-area: sidebar;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   background-color: var(--gl-panel);
   background-image: linear-gradient(165deg, var(--gl-panel) 0%, #170a34 100%);
-  border: 1px solid var(--gl-border);
-  border-radius: 16px;
-  padding: 12px;
+  border: 4px solid var(--gl-border);
+  border-radius: 0;
+  padding: 20px;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 10px 24px rgba(0, 0, 0, 0.5);
 }
 
@@ -233,17 +240,20 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 14px 14px;
   background: transparent;
   border: none;
   border-radius: 10px;
   color: var(--gl-text2);
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.82em;
+  /* Press Start 2P is much wider per character than Outfit was, so the
+     nav labels need a smaller size to still fit this panel's width. */
+  font-family: 'Press Start 2P', 'Outfit', 'Segoe UI', monospace;
+  font-size: 0.7em;
   font-weight: 700;
-  letter-spacing: 0.3px;
+  letter-spacing: 0;
   cursor: pointer;
   text-align: left;
+  white-space: nowrap;
   transition: background 0.2s ease, color 0.2s ease;
 }
 
@@ -265,11 +275,21 @@
 .sidebar-item.soon {
   cursor: default;
   opacity: 0.55;
+  /* Pixel-font "Achievements" plus the Soon badge no longer fit on one
+     line, so the badge sits on its own row below the icon + label. */
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.sidebar-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .soon-tag {
-  margin-left: auto;
-  font-size: 0.62em;
+  font-size: 0.75em;
   font-weight: 800;
   color: var(--gl-muted);
   background: rgba(255, 255, 255, 0.06);
@@ -296,8 +316,8 @@
   position: relative;
   background-color: var(--gl-panel);
   background-image: linear-gradient(165deg, var(--gl-panel) 0%, #170a34 100%);
-  border: 1px solid var(--gl-border);
-  border-radius: 20px;
+  border: 4px solid var(--gl-border);
+  border-radius: 0;
   box-shadow:
     0 0 24px rgba(168, 85, 247, 0.15),
     0 20px 40px rgba(0, 0, 0, 0.6),
@@ -329,8 +349,8 @@
 .lobby-title {
   text-align: center;
   color: var(--gl-gold);
-  font-family: 'Fredoka One', 'Outfit', sans-serif;
-  font-size: clamp(1.6em, 3.2vw, 3em);
+  font-family: 'Press Start 2P', 'Outfit', 'Segoe UI', monospace;
+  font-size: clamp(1.1em, 2.4vw, 2em);
   margin: 4px 0 0;
   padding-top: 0;
   text-shadow:
@@ -418,7 +438,7 @@
   gap: 8px;
   padding: 10px 10px 0;
   color: var(--gl-text);
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Press Start 2P', 'Outfit', 'Segoe UI', monospace;
   font-size: 0.82em;
   font-weight: 800;
   letter-spacing: 1px;
@@ -433,7 +453,7 @@
   z-index: 2;
   text-align: center;
   color: var(--gl-text2);
-  font-size: 0.82em;
+  font-size: 0.65em;
   font-weight: 600;
   margin: 12px 0 4px;
 }
@@ -544,10 +564,11 @@
 }
 
 .side-card {
+  position: relative;
   background: var(--gl-panel2);
-  border: 1px solid var(--gl-border);
-  border-radius: 16px;
-  padding: 16px;
+  border: 4px solid var(--gl-border);
+  border-radius: 0;
+  padding: 20px;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 10px 24px rgba(0, 0, 0, 0.5);
 }
 
@@ -555,24 +576,24 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   color: var(--gl-gold);
-  font-size: 0.76em;
+  font-size: 0.88em;
   font-weight: 800;
   letter-spacing: 0.5px;
 }
 
 .quest-desc {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   color: var(--gl-text);
-  font-size: 0.8em;
+  font-size: 0.92em;
   font-weight: 600;
 }
 
 .quest-count {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   color: var(--gl-text2);
-  font-size: 0.78em;
+  font-size: 0.9em;
   font-weight: 700;
 }
 
@@ -580,15 +601,15 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 12px;
-  font-size: 0.8em;
+  margin-top: 14px;
+  font-size: 0.92em;
   font-weight: 700;
   color: var(--gl-text2);
 }
 
 .quest-reward-label {
   color: var(--gl-muted);
-  font-size: 0.85em;
+  font-size: 0.95em;
   font-weight: 800;
   letter-spacing: 0.5px;
   margin-right: 2px;
@@ -599,14 +620,14 @@
 }
 
 .streak-flame {
-  font-size: 2.4em;
+  font-size: 2.9em;
   filter: drop-shadow(0 0 14px rgba(245, 158, 11, 0.6));
 }
 
 .streak-days {
-  margin: 4px 0 2px;
+  margin: 6px 0 2px;
   color: var(--gl-text);
-  font-size: 1.6em;
+  font-size: 1.9em;
   font-weight: 800;
 }
 
@@ -619,7 +640,7 @@
 .streak-note {
   margin: 0;
   color: var(--gl-text2);
-  font-size: 0.74em;
+  font-size: 0.86em;
   font-weight: 600;
 }
 
@@ -1143,9 +1164,12 @@
 .side-cards-panel {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 16px;
-  width: 220px;
+  gap: 22px;
+  padding: 20px;
+  width: 280px;
+  /* Same guard as .left-panel-content: don't let overflow bleed into the
+     always-visible collapsed tab strip. */
+  overflow: hidden;
 }
 
 /* ── Fixed player card (top-left) ── */
@@ -1161,11 +1185,11 @@
   gap: 12px;
   background-color: var(--gl-panel);
   background-image: linear-gradient(165deg, var(--gl-panel) 0%, #170a34 100%);
-  border: 1px solid var(--gl-border);
-  border-radius: 16px;
+  border: 4px solid var(--gl-border);
+  border-radius: 0;
   padding: 15px 16px;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 10px 24px rgba(0, 0, 0, 0.5);
-  width: 320px;
+  width: 410px;
   max-height: 150px;
   box-sizing: border-box;
   overflow: hidden;
@@ -1391,8 +1415,11 @@
 .left-panel-content {
   display: flex;
   flex-direction: column;
-  padding: 12px;
-  width: 200px;
+  padding: 20px;
+  width: 280px;
+  /* Anything that overflows this panel's width would otherwise bleed into
+     the always-visible collapsed tab strip next to it. */
+  overflow: hidden;
 }
 
 .left-panel-tab {
@@ -1450,4 +1477,41 @@
 .lobby-title-box.anim-hidden {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Player card: same shine as the title, but it dissolves into particles
+   in place instead of turning into a star that travels to the island. */
+.player-card-fixed.anim-flash {
+  animation: titleFlash 0.5s ease-out forwards;
+  pointer-events: none;
+}
+
+.player-card-fixed.anim-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.card-particle-burst {
+  position: fixed;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.card-particle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.95);
+  opacity: 0;
+  animation: cardParticleFly 0.6s ease-out forwards;
+}
+
+@keyframes cardParticleFly {
+  0%   { opacity: 0;   transform: translate(-50%, -50%) scale(1); }
+  10%  { opacity: 1; }
+  100% { opacity: 0;   transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.5); }
 }
