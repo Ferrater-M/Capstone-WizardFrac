@@ -1379,7 +1379,7 @@ const DissimilarIslandGame = ({
                             position:'absolute', left:177, top:128,
                             width:40, height:40,
                             display:'flex', alignItems:'center', justifyContent:'center',
-                            border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333',
+                            border:'3px dashed #ffffff', borderRadius:0, background:'transparent',
                             pointerEvents:'auto', zIndex:5, overflow:'visible',
                           }}>
                             <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position:'absolute', width:80, height:80, left:-20, top:-20, animation:'sparkleSpinPulse 2.4s ease-in-out infinite', pointerEvents:'none' }} />
@@ -1457,7 +1457,7 @@ const DissimilarIslandGame = ({
                             position:'absolute', left:177, top:210,
                             width:40, height:40,
                             display:'flex', alignItems:'center', justifyContent:'center',
-                            border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333',
+                            border:'3px dashed #ffffff', borderRadius:0, background:'transparent',
                             animation: `sdBlink ${sdCorrect ? '2s' : '0.6s'} ease-in-out infinite`,
                             zIndex:5,
                           }}>
@@ -1516,16 +1516,16 @@ const DissimilarIslandGame = ({
                             {isWhole ? (
                               <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput}
                                 onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g,''))}
-                                style={fieldStyle} />
+                                placeholder="?" style={fieldStyle} />
                             ) : (
                               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
                                 <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput}
                                   onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g,''))}
-                                  style={fieldStyle} />
+                                  placeholder="?" style={fieldStyle} />
                                 <div style={{ width:110, height:4, background:'#333333', borderRadius:2 }} />
                                 <input type="text" inputMode="numeric" value={finalDenInput}
                                   onChange={e => setFinalDenInput(e.target.value.replace(/[^0-9-]/g,''))}
-                                  style={fieldStyle} />
+                                  placeholder="?" style={fieldStyle} />
                               </div>
                             )}
                           </div>

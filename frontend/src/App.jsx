@@ -31,6 +31,32 @@ function App() {
   const audioRef = useRef(null);
   const endActionLocked = useRef(false);
 
+  // ── Content protection ──────────────────────────────────────────────────
+  // Makes the game behave like a normal app: no dragging images out of the
+  // page, no right-click "Save image as…", no Ctrl/Cmd+S to save the page.
+  // Purely event-level — nothing here touches pointer-events, so every
+  // element (including animated sprites) stays fully clickable, and nothing
+  // here touches how any animation is triggered or timed.
+  useEffect(() => {
+    const onDragStart = (e) => {
+      if (e.target.tagName === 'IMG') e.preventDefault();
+    };
+    const onContextMenu = (e) => e.preventDefault();
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('dragstart', onDragStart);
+    document.addEventListener('contextmenu', onContextMenu);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('dragstart', onDragStart);
+      document.removeEventListener('contextmenu', onContextMenu);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, []);
+
   // Cursor sparkle trail
   useEffect(() => {
     let last = 0;

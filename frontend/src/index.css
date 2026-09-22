@@ -54,6 +54,38 @@ body {
   margin: 0;
 }
 
+/* ── Content protection: text-selection lock ──
+   Disabled globally so the game behaves like a normal app (no easy text
+   highlighting), but explicitly re-enabled for actual text-entry elements
+   so forms keep working normally. */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable],
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* ── Content protection: image-drag lock ──
+   Purely visual/CSS — does not touch pointer-events, so every img stays
+   fully clickable, and does not affect animation, which runs off CSS
+   `animation`/keyframes or `src`/class swaps, neither of which this
+   touches. */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
 #root {
   width: 100%;
   min-height: 100svh;

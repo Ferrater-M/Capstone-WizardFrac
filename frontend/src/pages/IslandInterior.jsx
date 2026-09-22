@@ -217,10 +217,11 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, onSelectLevel, onBac
         <div className="island-float-wrapper">
           {/* WalkableArea island PNG — larger than the square so edges aren't clipped */}
           {overlay && (
-            <img
-              src={overlay}
-              alt="island"
+            <div
+              role="img"
+              aria-label="island"
               className="walkable-area-float"
+              style={{ backgroundImage: `url(${overlay})` }}
             />
           )}
 

@@ -442,7 +442,9 @@
 .about-icon-img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: drop-shadow(0 0 10px rgba(246, 184, 37, 0.35));
 }
 
@@ -564,7 +566,9 @@
 .main-feature-icon {
   width: clamp(72px, 9vw, 108px);
   height: clamp(72px, 9vw, 108px);
-  object-fit: contain;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: drop-shadow(0 0 10px rgba(246, 184, 37, 0.45));
 }
 

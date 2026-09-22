@@ -266,7 +266,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
           {achievements.map(a => (
             <div key={a.id} className="achievement-row" data-tooltip={a.hint}>
               <div className="achievement-hero" style={{ backgroundImage: `url(${a.heroImage})` }} />
-              <span className="achievement-icon"><img src={a.icon} alt="" /></span>
+              <span className="achievement-icon" style={{ backgroundImage: `url(${a.icon})` }} role="img" aria-hidden="true" />
               <div className="achievement-body">
                 <p className="achievement-title">{a.title}</p>
                 <p className="achievement-desc">{a.description}</p>
