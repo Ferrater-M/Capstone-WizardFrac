@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './Leaderboard.css';
 import LoadingScreen from '../components/LoadingScreen';
+import { API_BASE_URL } from '../config';
 
 const TABS = [
   { key: 'all-time', label: 'All Time', enabled: true },
@@ -30,13 +31,13 @@ const Leaderboard = ({ studentId, onBack }) => {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('http://localhost:8082/api/game-progress/leaderboard');
+        const res = await fetch(`${API_BASE_URL}/api/game-progress/leaderboard`);
         if (!res.ok) throw new Error('Failed to fetch leaderboard');
         const data = await res.json();
         setEntries(data);
       } catch (err) {
         const message = err.message === 'Failed to fetch'
-          ? 'Cannot reach the server. Make sure the backend is running on http://localhost:8082.'
+          ? `Cannot reach the server. Make sure the backend is running on ${API_BASE_URL}.`
           : err.message;
         setError(message);
       } finally {

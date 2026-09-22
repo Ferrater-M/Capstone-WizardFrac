@@ -3,8 +3,9 @@ import GameMenuModal from '../components/GameMenuModal';
 import Toast from '../components/Toast';
 import { MASTER_VOLUME_KEY, SFX_VOLUME_KEY } from '../utils/audio';
 import './SettingsPage.css';
+import { API_BASE_URL } from '../config';
 
-const API_BASE = 'http://localhost:8082';
+const API_BASE = API_BASE_URL;
 const MAX_PICTURE_BYTES = 5 * 1024 * 1024; // 5MB
 
 const readStoredVolume = (key, fallback) => {

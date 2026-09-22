@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './game.css';
+import { API_BASE_URL } from '../config';
 
 const Game = ({ studentId, gameSession, onGameEnd }) => {
   const [currentProblem, setCurrentProblem] = useState(gameSession.firstProblem);
@@ -67,7 +68,7 @@ const Game = ({ studentId, gameSession, onGameEnd }) => {
   const saveSpellAttempt = async (attempt) => {
     try {
       const response = await fetch(
-        `http://localhost:8082/api/game-progress/spell-attempt/${gameSession.sessionId}`,
+        `${API_BASE_URL}/api/game-progress/spell-attempt/${gameSession.sessionId}`,
         {
           method: 'POST',
           headers: {
@@ -166,7 +167,7 @@ const Game = ({ studentId, gameSession, onGameEnd }) => {
   const handleGameEnd = async (status, isWon) => {
     try {
       const response = await fetch(
-        `http://localhost:8082/api/game-progress/end-session/${gameSession.sessionId}`,
+        `${API_BASE_URL}/api/game-progress/end-session/${gameSession.sessionId}`,
         {
           method: 'POST',
           headers: {

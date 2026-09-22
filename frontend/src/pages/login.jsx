@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './login.css';
+import { API_BASE_URL } from '../config';
 
-const API_BASE = 'http://localhost:8082';
+const API_BASE = API_BASE_URL;
 
 const LandingPage = ({ onLoginSuccess }) => {
   const [nickname, setNickname] = useState('');
