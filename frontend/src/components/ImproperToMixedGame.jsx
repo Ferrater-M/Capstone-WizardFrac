@@ -194,6 +194,9 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
   const afterTimers = useRef([]);
   const prevInJar = useRef(0);
   const prevFull = useRef(0);
+  const [locks, setLocks] = useState({}); // jar index -> { from: starting angle in degrees } once its lock has popped up
+  const lockScheduled = useRef(new Set());
+  const [locksGone, setLocksGone] = useState(false); // locks are removed once the jars move to their final spots
   const [guide, setGuide] = useState(null); // { key, shard, jar } while a demonstration is playing
   const shardsRef = useRef(shards);
   shardsRef.current = shards;
@@ -373,6 +376,13 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
     return () => { clearTimeout(timer); setGuide(null); };
   }, [phase, done, finalPhase, dismissed, draggingId, totalIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // When the jars move to their final spots the locks fade out and are removed.
+  useEffect(() => {
+    if (!finalMoved) return undefined;
+    const t = setTimeout(() => setLocksGone(true), 400);
+    return () => clearTimeout(t);
+  }, [finalMoved]);
+
   const uiStage = ['shine', 'pair', 'divide'].includes(phase) ? 'check' : 'confirm';
   const uiCanSubmit = uiStage === 'check' ? phase === 'divide' && !!qInput : done;
   actionRef.current = () => {
@@ -392,7 +402,20 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
   useEffect(() => {
     if (totalIn > prevInJar.current) {
       const fullCount = jarFull.filter(Boolean).length;
-      playSfx(fullCount > prevFull.current ? '/SoundEffects/confirmDrawing.wav' : '/SoundEffects/sparkleSound.wav');
+      const newlyFull = fullCount > prevFull.current;
+      playSfx(newlyFull ? '/SoundEffects/confirmDrawing.wav' : '/SoundEffects/sparkleSound.wav');
+      if (newlyFull) {
+        // Half a second after that sound, a lock pops onto each newly full jar with its own sound.
+        jarFull.forEach((full, j) => {
+          if (!full || lockScheduled.current.has(j)) return;
+          lockScheduled.current.add(j);
+          later(500, () => {
+            playSfx('/SoundEffects/gemLock.wav');
+            const dir = Math.random() < 0.5 ? -1 : 1; // spins back to upright to the left or to the right
+            setLocks(prev => ({ ...prev, [j]: { from: dir * (140 + Math.floor(Math.random() * 180)) } }));
+          });
+        });
+      }
       prevFull.current = fullCount;
     }
     prevInJar.current = totalIn;
@@ -564,6 +587,11 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
           100% { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
         }
         @keyframes gemBob { 0%, 100% { transform: translateY(-1.5px); } 50% { transform: translateY(1.5px); } }
+        @keyframes jarLockSpin {
+          0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--lr)) scale(0.4); }
+          55% { opacity: 1; }
+          100% { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+        }
         @keyframes gemSlideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
 
@@ -701,7 +729,9 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
                 : finalMoved && !inJar
                   ? `left ${SETTLE_MOVE}s cubic-bezier(.2,.8,.3,1), top ${SETTLE_MOVE}s cubic-bezier(.2,.8,.3,1), width ${SETTLE_MOVE}s ease, height ${SETTLE_MOVE}s ease, transform ${SETTLE_MOVE}s ease, opacity 0.6s, filter 0.2s ease`
                   : 'left 1s cubic-bezier(.15,.85,.3,1), top 1s cubic-bezier(.15,.85,.3,1), width 1s ease, height 1s ease, transform 1s cubic-bezier(.15,.85,.3,1), opacity 0.6s, filter 0.2s ease',
-              transitionDelay: finalMoved && !inJar ? `${freeIdx * SETTLE_STAGGER}s` : '0s',
+              // The stagger only delays the move (left, top, width, height, transform, opacity), not the pulse
+              // glow (filter): a delayed glow on the later shards would end before it ever started.
+              transitionDelay: finalMoved && !inJar ? `${Array(6).fill(`${freeIdx * SETTLE_STAGGER}s`).join(', ')}, 0s` : '0s',
               zIndex: dragging ? 26 : 25,
               cursor: phase === 'play' && !inJar ? 'grab' : 'default',
               pointerEvents: phase === 'play' && !inJar && !finalPhase ? 'auto' : 'none',
@@ -733,20 +763,19 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
         const leftPx = jt ? jt.cx - jarW / 2 : hidden ? INPUT_POS.x - jarW / 2 : left0;
         const jarPulse = finalSettled && tick % wholes === j;
         const ease = 'cubic-bezier(.2,.8,.3,1)';
+        const jarBox = {
+          position: 'absolute', left: leftPx, top, width: jarW, height: jarH,
+          opacity: hidden || dismissed ? 0 : 1,
+          transform: hidden ? 'scale(0.25) rotate(-40deg)' : jt ? `scale(${jt.scale}) rotate(0deg)` : 'scale(1) rotate(0deg)',
+          transition: finalMoved
+            ? `left ${SETTLE_MOVE}s ${ease}, top ${SETTLE_MOVE}s ${ease}, opacity 0.4s ease, transform ${SETTLE_MOVE}s ${ease}`
+            : `left 0.9s ${ease}, top 0.9s ${ease}, opacity 0.4s ease, transform 0.9s ${ease}`,
+          transitionDelay: finalMoved ? `${j * SETTLE_STAGGER}s` : jarStage === 'bottom' ? `${(j * JAR_STAGGER) / 1000}s` : '0s',
+          pointerEvents: 'none',
+        };
         return (
-          <div
-            key={j}
-            style={{
-              position: 'absolute', left: leftPx, top, width: jarW, height: jarH,
-              opacity: hidden || dismissed ? 0 : 1,
-              transform: hidden ? 'scale(0.25) rotate(-40deg)' : jt ? `scale(${jt.scale}) rotate(0deg)` : 'scale(1) rotate(0deg)',
-              transition: finalMoved
-                ? `left ${SETTLE_MOVE}s ${ease}, top ${SETTLE_MOVE}s ${ease}, opacity 0.4s ease, transform ${SETTLE_MOVE}s ${ease}`
-                : `left 0.9s ${ease}, top 0.9s ${ease}, opacity 0.4s ease, transform 0.9s ${ease}`,
-              transitionDelay: finalMoved ? `${j * SETTLE_STAGGER}s` : jarStage === 'bottom' ? `${(j * JAR_STAGGER) / 1000}s` : '0s',
-              zIndex: 20, pointerEvents: 'none',
-            }}
-          >
+          <React.Fragment key={j}>
+          <div style={{ ...jarBox, zIndex: 20 }}>
             <img
               src="/InteractableUI/GemJar.png"
               alt="gem jar"
@@ -759,6 +788,28 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
               }}
             />
           </div>
+          {/* Lock in the middle of a full jar, above the shards. It fades out and is removed once the jars move
+              to their final spots. */}
+          {locks[j] && !locksGone && (
+            <div style={{ ...jarBox, zIndex: 27 }}>
+              <div style={{
+                position: 'relative', width: '100%', height: '100%',
+                opacity: finalMoved ? 0 : 1, transition: 'opacity 0.3s ease',
+              }}>
+                <img
+                  src="/InteractableUI/jarLock.png"
+                  alt="jar lock"
+                  draggable={false}
+                  style={{
+                    position: 'absolute', left: '50%', top: '50%', width: Math.round(jarW * 0.36), height: Math.round(jarW * 0.36),
+                    '--lr': `${locks[j].from}deg`, imageRendering: 'auto', pointerEvents: 'none',
+                    animation: 'jarLockSpin 0.55s cubic-bezier(.16,.9,.3,1) both',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          </React.Fragment>
         );
       })}
 

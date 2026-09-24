@@ -32,37 +32,56 @@ const DissimilarIslandGame = ({
   const lastFailedProblemKey = useRef(null);
 
   // ── Problem generation ─────────────────────────────────────────────────────
-  // Difficulty is fixed per level (see getDissimilarTier); every level uses proper fractions,
-  // the boss included, and every level goes through the same convert-then-simplify flow.
+  // Difficulty is fixed per level (see getDissimilarTier); every level, the boss included, goes
+  // through the same convert-then-simplify flow. Sums of 2-3 wholes use improper addends.
   const generateProblem = () => {
-    const { minDen, maxDen, subChance, improperChance, maxImproperDen, leftover } = getDissimilarTier(gameSession.level ?? 1);
+    const {
+      minDen, maxDen, subChance, improperChance, maxImproperDen, bigChance, threeWholeChance, leftover, maxShards, bigMaxDen,
+    } = getDissimilarTier(gameSession.level ?? 1);
     const dens = Array.from({ length: maxDen - minDen + 1 }, (_, i) => minDen + i);
     const mk = (d1, n1, operator, d2, n2) => ({ whole1: 0, numerator1: n1, denominator1: d1, whole2: 0, numerator2: n2, denominator2: d2, operator, isMixed: false });
     const isRepeat = (c) => lastFailedProblemKey.current && problemKey(c) === lastFailedProblemKey.current;
-    const operator = Math.random() < subChance ? '-' : '+';
-    let candidate;
 
-    if (operator === '+' && Math.random() < improperChance) {
-      // Improper sum that needs the improper → mixed step. Pick how many shards are left outside
-      // the jar (1, 2-3 or 4+) from the level's weights, then a random problem with that leftover.
+    // Every addition whose sum is exactly `wholes` wholes and a bit, grouped by how many shards are
+    // left outside the jar (1, 2-3, 4+). One whole uses proper fractions; more use improper ones.
+    const buildPool = (wholes) => {
       const pool = { one: [], few: [], many: [] };
+      const denLimit = wholes === 1 ? maxImproperDen : bigMaxDen[wholes];
       for (const d1 of dens) for (const d2 of dens) {
         const rawDen = d1 * d2;
-        if (d1 === d2 || rawDen > maxImproperDen) continue;
-        for (let n1 = 1; n1 < d1; n1++) for (let n2 = 1; n2 < d2; n2++) {
+        if (d1 === d2 || rawDen > denLimit) continue;
+        const n1Max = wholes === 1 ? d1 - 1 : Math.floor(maxShards / d2);
+        const n2Max = wholes === 1 ? d2 - 1 : Math.floor(maxShards / d1);
+        for (let n1 = 1; n1 <= n1Max; n1++) for (let n2 = 1; n2 <= n2Max; n2++) {
           const rawNum = n1 * d2 + n2 * d1;
-          if (rawNum <= rawDen || rawNum % rawDen === 0) continue;
-          const left = rawNum - rawDen;
+          if (rawNum > maxShards || Math.floor(rawNum / rawDen) !== wholes || rawNum % rawDen === 0) continue;
+          if (wholes > 1 && (n1 % d1 === 0 || n2 % d2 === 0)) continue; // skip addends that are just whole numbers, like 6/2
+          const left = rawNum - wholes * rawDen;
           const c = mk(d1, n1, '+', d2, n2);
           if (!isRepeat(c)) pool[left === 1 ? 'one' : left <= 3 ? 'few' : 'many'].push(c);
         }
       }
+      return pool;
+    };
+    // Pick a leftover bucket from the level's weights (only among buckets that have problems), then a random problem.
+    const fromPool = (pool) => {
       const buckets = Object.keys(pool).filter(k => pool[k].length);
-      if (buckets.length) {
-        let r = Math.random() * buckets.reduce((sum, k) => sum + leftover[k], 0);
-        const key = buckets.find(k => (r -= leftover[k]) < 0) ?? buckets[buckets.length - 1];
-        candidate = pool[key][Math.floor(Math.random() * pool[key].length)];
-      }
+      if (!buckets.length) return null;
+      let r = Math.random() * buckets.reduce((sum, k) => sum + leftover[k], 0);
+      const key = buckets.find(k => (r -= leftover[k]) < 0) ?? buckets[buckets.length - 1];
+      return pool[key][Math.floor(Math.random() * pool[key].length)];
+    };
+
+    let candidate = null;
+    if (Math.random() < bigChance) {
+      // Sum of 2 (or, on the boss, sometimes 3) wholes.
+      candidate = fromPool(buildPool(Math.random() < threeWholeChance ? 3 : 2));
+    }
+
+    const operator = Math.random() < subChance ? '-' : '+';
+    if (!candidate && operator === '+' && Math.random() < improperChance) {
+      // Improper sum of 1 whole that needs the improper → mixed step.
+      candidate = fromPool(buildPool(1));
     }
 
     if (!candidate) {

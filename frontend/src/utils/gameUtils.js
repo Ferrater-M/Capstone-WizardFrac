@@ -59,15 +59,24 @@ export const buildProblemDissimilar = (level = 1) => {
 // sums only use pairs whose product is at most maxImproperDen. improperChance is the share of
 // additions that are steered to an improper sum (the rest stay proper). leftover says how many
 // shards are left outside the jar (the new numerator): weights for exactly 1, 2-3, or 4+.
+// bigChance is the share of all problems whose sum reaches 2 or 3 wholes (the addends themselves are
+// improper fractions, like Similar Island's bigger problems): 2 wholes, or 3 with probability
+// threeWholeChance. Those are capped by DISSIMILAR_BIG so the gem game stays playable.
 const DISSIMILAR_TIERS = {
-  1: { minDen: 2, maxDen: 4, subChance: 0.1,  improperChance: 0.4,  maxImproperDen: 12, leftover: { one: 0.4,  few: 0.45, many: 0.15 } },
-  2: { minDen: 2, maxDen: 5, subChance: 0.2,  improperChance: 0.5,  maxImproperDen: 15, leftover: { one: 0.3,  few: 0.4,  many: 0.3 } },
-  3: { minDen: 2, maxDen: 6, subChance: 0.3,  improperChance: 0.6,  maxImproperDen: 15, leftover: { one: 0.2,  few: 0.4,  many: 0.4 } },
-  4: { minDen: 2, maxDen: 8, subChance: 0.4,  improperChance: 0.75, maxImproperDen: 15, leftover: { one: 0.15, few: 0.35, many: 0.5 } },
+  1: { minDen: 2, maxDen: 4, subChance: 0.1,  improperChance: 0.4,  maxImproperDen: 12, bigChance: 0,    threeWholeChance: 0,   leftover: { one: 0.4,  few: 0.45, many: 0.15 } },
+  2: { minDen: 2, maxDen: 5, subChance: 0.2,  improperChance: 0.5,  maxImproperDen: 15, bigChance: 0.1,  threeWholeChance: 0,   leftover: { one: 0.3,  few: 0.4,  many: 0.3 } },
+  3: { minDen: 2, maxDen: 6, subChance: 0.3,  improperChance: 0.6,  maxImproperDen: 15, bigChance: 0.25, threeWholeChance: 0,   leftover: { one: 0.2,  few: 0.4,  many: 0.4 } },
+  4: { minDen: 2, maxDen: 8, subChance: 0.4,  improperChance: 0.75, maxImproperDen: 15, bigChance: 0.4,  threeWholeChance: 0.5, leftover: { one: 0.15, few: 0.35, many: 0.5 } },
 };
 
-export const getDissimilarTier = (level = 1) =>
-  DISSIMILAR_TIERS[Math.min(Math.max(Math.round(level) || 1, 1), 4)];
+// Limits for sums of 2+ wholes: most shards on screen (Similar Island tops out at 31), and the largest
+// d1 * d2 allowed for 2 and for 3 wholes.
+const DISSIMILAR_BIG = { maxShards: 31, bigMaxDen: { 2: 12, 3: 8 } };
+
+export const getDissimilarTier = (level = 1) => ({
+  ...DISSIMILAR_TIERS[Math.min(Math.max(Math.round(level) || 1, 1), 4)],
+  ...DISSIMILAR_BIG,
+});
 
 export const getDifficultyParamsHybrid = (level = 1) => ({
   minDen:    Math.min(2 + Math.floor((level - 1) / 2), 4),
