@@ -9,6 +9,22 @@ export const getDifficultyParams = (level = 1) => ({
 
 export const buildProblem = (level = 1) => {
   const { minDen, maxDen, subChance } = getDifficultyParams(level);
+
+  // From level 2 on, some sums reach 2-3 wholes (the addends themselves are improper),
+  // so students also practise turning a bigger improper fraction into a mixed number.
+  // The game has 4 levels: rare at 2 (medium), more at 3 (hard), most at 4 (boss).
+  const bigChance = level < 2 ? 0 : Math.min(0.1 + (level - 2) * 0.15, 0.4);
+  if (Math.random() < bigChance) {
+    const lo = Math.max(minDen, 3);
+    const hi = Math.max(lo, Math.min(maxDen, 8));
+    const bigDen = lo + Math.floor(Math.random() * (hi - lo + 1));
+    const wholes = level >= 4 && Math.random() < 0.5 ? 3 : 2;
+    const rem = 1 + Math.floor(Math.random() * (bigDen - 1));
+    const sum = wholes * bigDen + rem;
+    const a = 1 + Math.floor(Math.random() * (sum - 1));
+    return `${a}/${bigDen} + ${sum - a}/${bigDen} = ?`;
+  }
+
   let den, n1, n2, op, resNum, attempts = 0;
   do {
     den = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;

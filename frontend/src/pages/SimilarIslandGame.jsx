@@ -4,6 +4,7 @@ import './game.css';
 import DrawingCanvas from '../components/DrawingCanvas';
 import FractionPattern from '../components/FractionPattern';
 import SimilarFractionTutorial from '../components/SimilarFractionTutorial';
+import ImproperToMixedGame from '../components/ImproperToMixedGame';
 import SettingsPage from './SettingsPage';
 import '../components/components.css';
 
@@ -51,6 +52,17 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [checkPhase, setCheckPhase] = useState(false);
   const [simplifiedInput, setSimplifiedInput] = useState('');
   const [simplifiedDenInput, setSimplifiedDenInput] = useState('');
+  const [simplifiedWholeInput, setSimplifiedWholeInput] = useState('');
+  const [carryPhase, setCarryPhase] = useState(false);
+  const [carryFinal, setCarryFinal] = useState(false);
+  const [finalInputsShown, setFinalInputsShown] = useState(false);
+  const [carryHintUsed, setCarryHintUsed] = useState(false);
+  const [unsimplified, setUnsimplified] = useState(null);
+  const [perfectPopup, setPerfectPopup] = useState(false);
+  const perfectTimeoutRef = useRef(null);
+  const [carryStart, setCarryStart] = useState(null);
+  const [carryUi, setCarryUi] = useState({ stage: 'none', canSubmit: false, prompt: '' });
+  const carryActionRef = useRef(null);
   const [hintUsed, setHintUsed] = useState(false);
   const [phase2HintUsed, setPhase2HintUsed] = useState(false);
   const [interactableVisible, setInteractableVisible] = useState(true);
@@ -450,7 +462,11 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       const resDen = parseInt(match[2]);
       const divisor = gcd(Math.abs(resNum), resDen);
       const sn = resNum / divisor, sd = resDen / divisor;
-      correctAnswerStr = sd === 1 ? `${sn}` : `${sn}/${sd}`;
+      correctAnswerStr = sd === 1
+        ? `${sn}`
+        : sn > sd
+          ? `${Math.floor(sn / sd)} ${sn % sd}/${sd}`
+          : `${sn}/${sd}`;
     }
 
     const attempt = {
@@ -487,10 +503,17 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     setNVisible(false);
     setHintUsed(false);
     setPhase2HintUsed(false);
+    setCarryHintUsed(false);
+    setUnsimplified(null);
     setFormulaVisible(false);
     setCheckPhase(false);
     setSimplifiedInput('');
     setSimplifiedDenInput('');
+    setSimplifiedWholeInput('');
+    setCarryPhase(false);
+    setCarryUi({ stage: 'none', canSubmit: false, prompt: '' });
+    setCarryFinal(false);
+    setFinalInputsShown(false);
     setFinalAnswerVisible(false);
     setCheckButtonReady(false);
     setShowNSparkle(false);
@@ -574,7 +597,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     }, 800);
   };
 
-  const handleAnswerSubmit = async (submittedAnswer) => {
+  const handleAnswerSubmit = async (submittedAnswer, incorrectText) => {
     setAnswer(submittedAnswer);
     setIsSubmitting(true);
 
@@ -593,25 +616,35 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       const divisor = gcd(Math.abs(resNum), resDen);
       const simplifiedNum = resNum / divisor;
       const simplifiedDen = resDen / divisor;
-      
-      const nonSimplifiedAnswer = `${resNum}/${resDen}`;
-      const simplifiedAnswer = `${simplifiedNum}/${simplifiedDen}`;
+      const isImproper = simplifiedDen !== 1 && simplifiedNum > simplifiedDen;
 
-      correctAnswerStr = simplifiedDen === 1 ? `${simplifiedNum}` : simplifiedAnswer;
-      isCorrect = submittedAnswer === nonSimplifiedAnswer || submittedAnswer === simplifiedAnswer || 
-                   (submittedAnswer === `${simplifiedNum}` && simplifiedDen === 1);
+      const simplifiedAnswer = `${simplifiedNum}/${simplifiedDen}`;
+      const mixedAnswer = isImproper
+        ? `${Math.floor(simplifiedNum / simplifiedDen)} ${simplifiedNum % simplifiedDen}/${simplifiedDen}`
+        : null;
+
+      correctAnswerStr = simplifiedDen === 1
+        ? `${simplifiedNum}`
+        : isImproper
+          ? mixedAnswer
+          : simplifiedAnswer;
+      isCorrect = isImproper
+        ? submittedAnswer === mixedAnswer
+        : submittedAnswer === simplifiedAnswer ||
+          (submittedAnswer === `${simplifiedNum}` && simplifiedDen === 1);
     }
     
     const totalHp = enemyData?.hp || enemyLives || 1;
     const hpPerHit = Math.floor(100 / totalHp);
     const newEnemyLives = isCorrect ? Math.max(0, enemyLives - 1) : enemyLives;
     const newEnemyHealth = Math.max(0, enemyHealth - (isCorrect ? hpPerHit : 0));
-    const hintWasUsed = hintUsed || phase2HintUsed;
+    const hintCount = [hintUsed, phase2HintUsed, carryHintUsed].filter(Boolean).length;
+    const hintWasUsed = hintCount > 0;
     const newStreak = isCorrect && !hintWasUsed ? streak + 1 : 0;
     const newMultiplier = Math.min(2.0, 1.0 + newStreak * 0.2);
     const rawPoints = isCorrect ? Math.floor(10 * newMultiplier) : 0;
-    const pointsEarned = (hintUsed && phase2HintUsed) ? 0
-      : (hintUsed || phase2HintUsed) ? Math.floor(rawPoints / 2)
+    const pointsEarned = hintCount >= 2 ? 0
+      : hintCount === 1 ? Math.floor(rawPoints / 2)
       : rawPoints;
     const newScore = score + pointsEarned;
     const newLives = isCorrect ? lives : lives - 1;
@@ -643,7 +676,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     setProblemCount(problemCount + 1);
     const feedbackMessage = isCorrect
       ? `Correct! +${pointsEarned} points${hintWasUsed ? ' | Hint used!' : ''}`
-      : `Incorrect. The answer is ${correctAnswerStr}`;
+      : (incorrectText ?? `Incorrect. The answer is ${correctAnswerStr}`);
     setFeedbackType(isCorrect ? 'correct' : 'incorrect');
     setFeedback(feedbackMessage);
     setFeedbackClickable(false);
@@ -765,10 +798,17 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     setNVisible(false);
     setHintUsed(false);
     setPhase2HintUsed(false);
+    setCarryHintUsed(false);
+    setUnsimplified(null);
     setFormulaVisible(false);
     setCheckPhase(false);
     setSimplifiedInput('');
     setSimplifiedDenInput('');
+    setSimplifiedWholeInput('');
+    setCarryPhase(false);
+    setCarryUi({ stage: 'none', canSubmit: false, prompt: '' });
+    setCarryFinal(false);
+    setFinalInputsShown(false);
     setDBubble(null);
     setFinalAnswerVisible(false);
     setCheckButtonReady(false);
@@ -788,6 +828,20 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     setBubbles(null);
     if (arcAnimRef.current) { cancelAnimationFrame(arcAnimRef.current); arcAnimRef.current = null; }
     setCurrentProblem(buildProblem(gameSession.level));
+  };
+
+  const revealFinalAnswer = () => {
+    setCarryFinal(true);
+    setFinalAnswerVisible(true);
+    setFormulaVisible(false);
+    // With the gem game, the final inputs (and Check) wait for handleFinalSettled instead.
+    if (!carryPhase) setTimeout(() => { setCheckButtonReady(true); actionLocked.current = false; }, 600);
+  };
+
+  const handleFinalSettled = () => {
+    playSfx('/SoundEffects/circleAppear.wav');
+    setFinalInputsShown(true);
+    setTimeout(() => { setCheckButtonReady(true); actionLocked.current = false; }, 600);
   };
 
   const handleGameEnd = async (status, isWon) => {
@@ -811,16 +865,37 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const displayNum2 = problemMatch ? problemMatch[4] : '?';
   const displayDen2 = problemMatch ? problemMatch[5] : '?';
 
-  // Determine if the simplified result is a whole number (for Phase 2 input UI)
-  const simplifiedResultIsWhole = (() => {
-    if (!problemMatch) return false;
+  // Determine if the simplified result is a whole number, or an improper fraction
+  // (needs mixed-number entry), for Phase 2 input UI
+  const { simplifiedResultIsWhole, simplifiedResultIsImproper } = (() => {
+    if (!problemMatch) return { simplifiedResultIsWhole: false, simplifiedResultIsImproper: false };
     const n1 = parseInt(displayNum1), op = displayOp, n2 = parseInt(displayNum2);
     const rn = op === '+' ? n1 + n2 : n1 - n2;
     const d  = parseInt(displayDen1);
     let a = Math.abs(rn), b = d;
     while (b) { const t = b; b = a % b; a = t; }
-    return d / a === 1;
+    const sn = Math.abs(rn) / a, sd = d / a;
+    const isWhole = sd === 1;
+    return { simplifiedResultIsWhole: isWhole, simplifiedResultIsImproper: !isWhole && sn > sd };
   })();
+
+  const rawNumerator = problemMatch
+    ? (displayOp === '+' ? parseInt(displayNum1) + parseInt(displayNum2) : parseInt(displayNum1) - parseInt(displayNum2))
+    : 0;
+  const rawWhole = Math.floor(rawNumerator / (parseInt(displayDen1) || 1));
+  const rawLeft = rawNumerator - rawWhole * (parseInt(displayDen1) || 1);
+  const simplifyHintText = rawWhole > 0
+    ? `Simplify: ${rawWhole}${rawLeft ? ` ${rawLeft}/${displayDen1}` : ''}`
+    : `Simplify: ${rawNumerator}/${displayDen1}`;
+
+  const hideFinal = carryPhase && carryFinal && !finalInputsShown;
+  const carryPromptShown = carryPhase && !carryFinal && carryHintUsed && !!carryUi.prompt;
+
+  const phase2InputsFilled = simplifiedResultIsWhole
+    ? !!simplifiedInput
+    : simplifiedResultIsImproper
+      ? !!(simplifiedWholeInput && simplifiedInput && simplifiedDenInput)
+      : !!(simplifiedInput && simplifiedDenInput);
 
   const renderHearts = (count, max) => {
     const hearts = [];
@@ -899,9 +974,9 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         </div>
 
         {/* Hint display in header — glows white then settles to white-border + black */}
-        {formulaVisible && (
+        {(unsimplified || (formulaVisible && (!(carryPhase && !carryFinal) || carryPromptShown))) && (
           <div
-            key={`hint-${hintUsed}-${phase2HintUsed}`}
+            key={`hint-${hintUsed}-${phase2HintUsed}-${carryPromptShown ? carryUi.prompt : ''}-${unsimplified ? 'simp' : ''}`}
             style={{
               position: 'relative',
               border: '4px solid #fff',
@@ -925,9 +1000,13 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
             <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
             <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
-            {finalAnswerVisible
-              ? `Simplify: ${parseInt(displayNum1) + (displayOp === '+' ? parseInt(displayNum2) : -parseInt(displayNum2))}/${displayDen1}`
-              : `${displayNum1} ${displayOp} ${displayNum2} =`}
+            {unsimplified
+              ? 'Can be simplified!'
+              : carryPromptShown
+              ? carryUi.prompt
+              : finalAnswerVisible
+                ? simplifyHintText
+                : `${displayNum1} ${displayOp} ${displayNum2} =`}
           </div>
         )}
 
@@ -1398,7 +1477,40 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   zIndex: 4,
                   animation: 'nAreaFadeIn 0.5s ease-out forwards',
                 }}>
-                  {!checkPhase ? (
+                  {carryPhase && !carryFinal ? (
+                  /* Improper → mixed game: Check (quotient) / Continue */
+                  (
+                  <button
+                    style={{
+                      padding: '4px 56px',
+                      background: '#703737',
+                      border: '4px solid #703737',
+                      borderRadius: 0,
+                      boxShadow: 'none',
+                      position: 'relative',
+                      fontSize: 13, fontWeight: 700,
+                      fontFamily: '"Press Start 2P", monospace',
+                      cursor: carryUi.canSubmit ? 'pointer' : 'not-allowed',
+                      color: '#e8d5b4',
+                      opacity: carryUi.canSubmit ? 1 : 0.45,
+                      backdropFilter: 'blur(6px)',
+                      transition: 'opacity 0.2s ease',
+                    }}
+                    disabled={!carryUi.canSubmit}
+                    onClick={() => carryActionRef.current?.()}
+                  >
+                    <div style={{position:'absolute',top:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',top:-6,right:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',bottom:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',bottom:-6,right:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',top:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',top:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',bottom:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                    <div style={{position:'absolute',bottom:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
+                    {carryUi.stage === 'confirm' ? 'Confirm' : 'Check'}
+                  </button>
+                  )
+                  ) : !checkPhase ? (
                   /* Phase 1 — Cast Spell */
                   <button
                     style={{
@@ -1423,8 +1535,27 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       const m = currentProblem.match(/(\d+)\/(\d+)\s*([+-])\s*(\d+)\/(\d+)/);
                       if (m) {
                         const n1 = parseInt(m[1]), op = m[3], n2 = parseInt(m[4]);
-                        if (parseInt(magicN) === (op === '+' ? n1 + n2 : n1 - n2)) {
+                        const rawSum = op === '+' ? n1 + n2 : n1 - n2;
+                        const needsCarry = rawSum >= parseInt(m[2]);
+                        if (parseInt(magicN) === rawSum) {
                           setCheckPhase(true);
+                          if (needsCarry) {
+                            setFormulaVisible(false);
+                            const cont = circleContainerRef.current;
+                            const nEl = document.querySelector('[data-carry="n"]');
+                            const dEl = document.querySelector('[data-carry="d"]');
+                            if (cont && nEl && dEl) {
+                              const cr = cont.getBoundingClientRect();
+                              const sc = cr.width / cont.offsetWidth;
+                              const center = (el) => {
+                                const r = el.getBoundingClientRect();
+                                return { x: (r.left + r.width / 2 - cr.left) / sc - 4, y: (r.top + r.height / 2 - cr.top) / sc - 4 };
+                              };
+                              setCarryStart({ n: center(nEl), d: center(dEl) });
+                            }
+                            setCarryPhase(true);
+                            return;
+                          }
                           // Animate D bubble up to N position
                           if (circleContainerRef.current) {
                             const cRect = circleContainerRef.current.getBoundingClientRect();
@@ -1453,10 +1584,9 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 explode.play().catch(() => {});
                                 explode.addEventListener('ended', () => {
                                   setDBubble(null);
-                                  setFinalAnswerVisible(true);
                                   setFormulaVisible(false);
-                                  setTimeout(() => { setCheckButtonReady(true); actionLocked.current = false; }, 600);
                                   playSfx('/SoundEffects/circleAppear.wav');
+                                  revealFinalAnswer();
                                 });
                               }
                             };
@@ -1483,7 +1613,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                     <div style={{position:'absolute',bottom:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
                     Cast Spell
                   </button>
-                  ) : finalAnswerVisible ? (
+                  ) : finalAnswerVisible && !hideFinal ? (
                   /* Phase 2 — Check (validates simplified fraction) */
                   <button
                     style={{
@@ -1495,23 +1625,49 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       position: 'relative',
                       fontSize: 13, fontWeight: 700,
                       fontFamily: '"Press Start 2P", monospace',
-                      cursor: checkButtonReady && (simplifiedResultIsWhole ? simplifiedInput : simplifiedInput && simplifiedDenInput) ? 'pointer' : 'not-allowed',
+                      cursor: checkButtonReady && phase2InputsFilled ? 'pointer' : 'not-allowed',
                       color: '#e8d5b4',
-                      opacity: checkButtonReady ? ((simplifiedResultIsWhole ? simplifiedInput : simplifiedInput && simplifiedDenInput) ? 1 : 0.45) : undefined,
+                      opacity: checkButtonReady ? (phase2InputsFilled ? 1 : 0.45) : undefined,
                       pointerEvents: checkButtonReady ? 'auto' : 'none',
                       backdropFilter: 'blur(6px)',
                       animation: checkButtonReady ? 'none' : 'dimFadeIn 0.6s ease-out forwards',
                       transition: checkButtonReady ? 'opacity 0.2s ease' : 'none',
                     }}
-                    disabled={!checkButtonReady || (simplifiedResultIsWhole ? !simplifiedInput : (!simplifiedInput || !simplifiedDenInput))}
+                    disabled={!checkButtonReady || !phase2InputsFilled}
                     onClick={() => {
                       if (actionLocked.current) return;
                       actionLocked.current = true;
+                      if (!simplifiedResultIsWhole) {
+                        // Right whole number (if any) and an equivalent but unreduced fraction: ask for the simplified form.
+                        const wv = simplifiedResultIsImproper ? parseInt(simplifiedWholeInput) : 0;
+                        const nv = parseInt(simplifiedInput), dv = parseInt(simplifiedDenInput);
+                        const mm = currentProblem.match(/(\d+)\/(\d+)\s*([+-])\s*(\d+)\/(\d+)/);
+                        if (mm && nv > 0 && dv > 0) {
+                          const dd = parseInt(mm[2]);
+                          const rn = mm[3] === '+' ? parseInt(mm[1]) + parseInt(mm[4]) : parseInt(mm[1]) - parseInt(mm[4]);
+                          const g = gcd(Math.abs(rn), dd);
+                          const sn = rn / g, sd = dd / g;
+                          const targetWhole = simplifiedResultIsImproper ? Math.floor(sn / sd) : 0;
+                          const targetNum = simplifiedResultIsImproper ? sn % sd : sn;
+                          if (wv === targetWhole && nv * sd === targetNum * dv && !(nv === targetNum && dv === sd)) {
+                            setUnsimplified({ n: nv, d: dv });
+                            setSimplifiedInput('');
+                            setSimplifiedDenInput('');
+                            actionLocked.current = false;
+                            playSfx('/SoundEffects/starAppear.wav');
+                            setTimeout(() => document.querySelector('[data-final="num"]')?.focus(), 60);
+                            return;
+                          }
+                        }
+                      }
                       const answer = simplifiedResultIsWhole
                         ? simplifiedInput.trim()
-                        : `${simplifiedInput.trim()}/${simplifiedDenInput.trim()}`;
+                        : simplifiedResultIsImproper
+                          ? `${simplifiedWholeInput.trim()} ${simplifiedInput.trim()}/${simplifiedDenInput.trim()}`
+                          : `${simplifiedInput.trim()}/${simplifiedDenInput.trim()}`;
                       setSimplifiedInput('');
                       setSimplifiedDenInput('');
+                      setSimplifiedWholeInput('');
                       setCheckPhase(false);
                       setInteractableVisible(false);
                       const m = currentProblem.match(/(\d+)\/(\d+)\s*([+-])\s*(\d+)\/(\d+)/);
@@ -1521,7 +1677,20 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         const rn = op === '+' ? n1 + n2 : n1 - n2;
                         const div = gcd(Math.abs(rn), d);
                         const sn = rn / div, sd = d / div;
-                        correct = answer === `${sn}/${sd}` || (answer === `${sn}` && sd === 1);
+                        if (sd === 1) {
+                          correct = answer === `${sn}`;
+                        } else if (sn > sd) {
+                          correct = answer === `${Math.floor(sn / sd)} ${sn % sd}/${sd}`;
+                        } else {
+                          correct = answer === `${sn}/${sd}`;
+                        }
+                      }
+                      if (correct && !simplifiedResultIsWhole && !unsimplified && (simplifiedResultIsImproper ? rawLeft > 0 && gcd(rawLeft, parseInt(displayDen1)) > 1 : gcd(rawNumerator, parseInt(displayDen1)) > 1)) {
+                        // Went straight to the simplified fraction without the unsimplified step first.
+                        setPerfectPopup(true);
+                        playSfx('/SoundEffects/starAppear.wav');
+                        if (perfectTimeoutRef.current) clearTimeout(perfectTimeoutRef.current);
+                        perfectTimeoutRef.current = setTimeout(() => setPerfectPopup(false), 2250);
                       }
                       const dir = correct ? 'right' : 'left';
                       setBgShift(dir); lastBgShiftRef.current = dir;
@@ -1547,7 +1716,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                     Check
                   </button>
                   ) : null}
-                  {((!hintUsed && !checkPhase) || (!phase2HintUsed && finalAnswerVisible)) && (
+                  {((!hintUsed && !checkPhase) || (!phase2HintUsed && finalAnswerVisible && !hideFinal) || (carryPhase && !carryFinal && !carryHintUsed && !!carryUi.prompt)) && (
                     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
                     <button
                       onClick={() => setShowHintConfirm(true)}
@@ -1616,6 +1785,10 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
                       to   { opacity: 1; transform: translateX(-50%) translateY(0); }
                     }
+                    @keyframes unsimpSlide {
+                      from { transform: translateX(-90px); opacity: 0.2; }
+                      to   { transform: translateX(0); opacity: 1; }
+                    }
                     @keyframes magicFloat {
                       0%, 100% { transform: translateY(0px); }
                       50%       { transform: translateY(-22px); }
@@ -1626,7 +1799,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   <div style={{
                     position: 'absolute', top: 32, left: 0, right: 0,
                     height: '300px',
-                    animation: 'magicFloat 4s ease-in-out infinite',
+                    animation: carryFinal ? 'none' : 'magicFloat 4s ease-in-out infinite',
                     zIndex: 2,
                   }}>
                     <img
@@ -1644,13 +1817,13 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       }}
                     />
                     {/* Numerator / Simplified fraction area — fades in, fades out when D moves */}
-                    {nVisible && <div style={{
+                    {nVisible && !(carryPhase && !carryFinal) && <div style={{
                       position: 'absolute',
                       left: '50%', top: finalAnswerVisible ? (simplifiedResultIsWhole ? '62px' : '36px') : '78px',
                       zIndex: 2,
-                      opacity: dBubble ? 0 : 1,
+                      opacity: dBubble || hideFinal ? 0 : 1,
                       transition: 'opacity 0.3s ease',
-                      pointerEvents: dBubble ? 'none' : 'auto',
+                      pointerEvents: dBubble || hideFinal ? 'none' : 'auto',
                     }}>
                     <div style={{
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
@@ -1670,6 +1843,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         <input
                           type="text"
                           inputMode="numeric"
+                          data-carry="n"
                           value={magicN}
                           onChange={e => setMagicN(e.target.value.replace(/[^0-9-]/g, ''))}
                           placeholder="?"
@@ -1692,6 +1866,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                           {simplifiedResultIsWhole ? (
                             /* Whole number — single field */
                             <input
+                              data-final="whole"
                               type="text"
                               inputMode="numeric"
                               value={simplifiedInput}
@@ -1710,10 +1885,91 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 textShadow: '0 0 8px rgba(0,0,0,0.9)',
                               }}
                             />
+                          ) : simplifiedResultIsImproper ? (
+                            /* Mixed number — whole number + fraction */
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
+                              <input
+                                data-final="whole"
+                                type="text"
+                                inputMode="numeric"
+                                value={simplifiedWholeInput}
+                                onChange={e => setSimplifiedWholeInput(e.target.value.replace(/[^0-9-]/g, ''))}
+                                readOnly={!!unsimplified}
+                                tabIndex={unsimplified ? -1 : 0}
+                                placeholder="?"
+                                autoFocus
+                                style={{
+                                  width: 70, height: 54,
+                                  fontSize: 26, fontWeight: 800, textAlign: 'center',
+                                  border: unsimplified ? '3px solid transparent' : '3px dashed #e8d5b4', borderRadius: 0,
+                                  background: unsimplified ? 'transparent' : '#333333', color: unsimplified ? '#000000' : '#ffffff',
+                                  outline: 'none', appearance: 'none',
+                            fontFamily: '"Press Start 2P", monospace',
+                                  WebkitAppearance: 'none', MozAppearance: 'none',
+                                  boxShadow: unsimplified ? 'none' : '0 4px 16px rgba(0,0,0,0.7)',
+                                  textShadow: unsimplified ? '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' : '0 0 8px rgba(0,0,0,0.9)',
+                                  transition: 'all 0.5s ease',
+                                }}
+                              />
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                                <input
+                                  data-final="num"
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={simplifiedInput}
+                                  onChange={e => setSimplifiedInput(e.target.value.replace(/[^0-9-]/g, ''))}
+                                  placeholder="?"
+                                  style={{
+                                    width: 70, height: 54,
+                                    fontSize: 20, fontWeight: 800, textAlign: 'center',
+                                    border: '3px dashed #e8d5b4', borderRadius: 0,
+                                    background: '#333333', color: '#ffffff',
+                                    outline: 'none', appearance: 'none',
+                            fontFamily: '"Press Start 2P", monospace',
+                                    WebkitAppearance: 'none', MozAppearance: 'none',
+                                    boxShadow: '0 4px 16px rgba(0,0,0,0.7)',
+                                    textShadow: '0 0 8px rgba(0,0,0,0.9)',
+                                  }}
+                                />
+                                <div style={{ width: 86, height: 3, background: '#333333', borderRadius: 2 }} />
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={simplifiedDenInput}
+                                  onChange={e => setSimplifiedDenInput(e.target.value.replace(/[^0-9]/g, ''))}
+                                  placeholder="?"
+                                  style={{
+                                    width: 70, height: 54,
+                                    fontSize: 20, fontWeight: 800, textAlign: 'center',
+                                    border: '3px dashed #e8d5b4', borderRadius: 0,
+                                    background: '#333333', color: '#ffffff',
+                                    outline: 'none', appearance: 'none',
+                            fontFamily: '"Press Start 2P", monospace',
+                                    WebkitAppearance: 'none', MozAppearance: 'none',
+                                    boxShadow: '0 4px 16px rgba(0,0,0,0.7)',
+                                    textShadow: '0 0 8px rgba(0,0,0,0.9)',
+                                  }}
+                                />
+                              </div>
+                              {unsimplified && (
+                                <div style={{ position: 'absolute', left: '100%', top: '50%', marginLeft: 14, transform: 'translateY(-50%)' }}>
+                                  <div style={{
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                                    animation: 'unsimpSlide 0.6s ease-out', color: '#000', fontWeight: 800, fontSize: 20,
+                                    fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)',
+                                  }}>
+                                    <span>{unsimplified.n}</span>
+                                    <div style={{ width: 40, height: 3, background: '#000', borderRadius: 2 }} />
+                                    <span>{unsimplified.d}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             /* Fraction — numerator / bar / denominator */
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, position: 'relative' }}>
                               <input
+                                data-final="num"
                                 type="text"
                                 inputMode="numeric"
                                 value={simplifiedInput}
@@ -1751,6 +2007,19 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                   textShadow: '0 0 8px rgba(0,0,0,0.9)',
                                 }}
                               />
+                              {unsimplified && (
+                                <div style={{ position: 'absolute', left: '100%', top: '50%', marginLeft: 14, transform: 'translateY(-50%)' }}>
+                                  <div style={{
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                                    animation: 'unsimpSlide 0.6s ease-out', color: '#000', fontWeight: 800, fontSize: 20,
+                                    fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)',
+                                  }}>
+                                    <span>{unsimplified.n}</span>
+                                    <div style={{ width: 40, height: 3, background: '#000', borderRadius: 2 }} />
+                                    <span>{unsimplified.d}</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1773,7 +2042,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                     )}
 
                     {/* Denominator — appears only after animation completes */}
-                    <div style={{
+                    <div data-carry="d" style={{
                       position: 'absolute',
                       left: '50%', top: '235px',
                       transform: 'translateX(-50%)',
@@ -1789,6 +2058,28 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       {denVisible ? displayDen1 : ''}
                     </div>
                   </div>
+
+                  {carryPhase && (
+                    <ImproperToMixedGame
+                      numerator={rawNumerator}
+                      denominator={parseInt(displayDen1)}
+                      actionRef={carryActionRef}
+                      startPos={carryStart}
+                      finalPhase={carryFinal}
+                      dismiss={!!unsimplified}
+                      onFinalSettled={handleFinalSettled}
+                      onUiChange={setCarryUi}
+                      onWrong={(quotient) => {
+                        setInteractableVisible(false);
+                        setBgShift('left'); lastBgShiftRef.current = 'left';
+                        setTimeout(() => handleAnswerSubmit(
+                          quotient,
+                          `Incorrect. ${rawNumerator} ÷ ${displayDen1} = ${rawWhole}`
+                        ), 500);
+                      }}
+                      onComplete={revealFinalAnswer}
+                    />
+                  )}
                 </>
               )}
             </div>
@@ -1963,6 +2254,41 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         </div>
       )}
 
+      {perfectPopup && (
+        <div style={{
+          position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+          zIndex: 5001, pointerEvents: 'none', textAlign: 'center',
+          padding: '14px 32px', border: '6px solid #fff', background: '#000',
+          color: '#4ade80', fontSize: '22px', fontWeight: 700, whiteSpace: 'nowrap',
+          animation: 'perfectFlash 2.2s ease-in-out forwards',
+        }}>
+          <style>{`
+            @keyframes perfectFlash {
+              0%   { opacity: 0;    box-shadow: 0 0 0 0 rgba(255,255,255,0);       text-shadow: 0 0 0 rgba(255,255,255,0); }
+              4.5% { opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+              9%   { opacity: 0.35; box-shadow: 0 0 8px 2px rgba(255,255,255,0.4); text-shadow: 0 0 4px #fff; }
+              13.5%{ opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+              18%  { opacity: 0.35; box-shadow: 0 0 8px 2px rgba(255,255,255,0.4); text-shadow: 0 0 4px #fff; }
+              22.5%{ opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+              27%  { opacity: 1;    box-shadow: 0 0 14px 4px rgba(255,255,255,0.6); text-shadow: 0 0 8px #fff; }
+              72%  { opacity: 1;    box-shadow: 0 0 14px 4px rgba(255,255,255,0.6); text-shadow: 0 0 8px #fff; }
+              78%  { opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+              100% { opacity: 0;    box-shadow: 0 0 0 0 rgba(255,255,255,0);       text-shadow: 0 0 0 rgba(255,255,255,0); }
+            }
+          `}</style>
+          <div style={{ position: 'absolute', inset: 7, border: '1px solid #fff', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: -8, left: -8, width: 14, height: 14, background: '#fff' }} />
+          <div style={{ position: 'absolute', top: -8, right: -8, width: 14, height: 14, background: '#fff' }} />
+          <div style={{ position: 'absolute', bottom: -8, left: -8, width: 14, height: 14, background: '#fff' }} />
+          <div style={{ position: 'absolute', bottom: -8, right: -8, width: 14, height: 14, background: '#fff' }} />
+          <div style={{ position: 'absolute', top: 4, left: 4, width: 7, height: 7, background: '#fff' }} />
+          <div style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, background: '#fff' }} />
+          <div style={{ position: 'absolute', bottom: 4, left: 4, width: 7, height: 7, background: '#fff' }} />
+          <div style={{ position: 'absolute', bottom: 4, right: 4, width: 7, height: 7, background: '#fff' }} />
+          <div style={{ paddingTop: '6px' }}>Perfect!</div>
+        </div>
+      )}
+
       {gameOver && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 1000,
@@ -2095,7 +2421,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             <p style={{ fontSize:11, color:'#2a1a1a', margin:'0 0 8px', lineHeight:1.9 }}>Using a hint will <span style={{color:'#b91c1c', fontWeight:900}}>reduce your score</span> for this problem.</p>
             <p style={{ fontSize:11, color:'#2a1a1a', margin:'0 0 24px', lineHeight:1.9 }}>Your answer will <span style={{color:'#b91c1c', fontWeight:900}}>not be fully recorded</span> in your progress.</p>
             <div style={{ display:'flex', gap:12, justifyContent:'center' }}>
-              <button onClick={() => { recordHintUsed(); if (finalAnswerVisible) { setPhase2HintUsed(true); } else { setHintUsed(true); } setFormulaVisible(true); setShowHintConfirm(false); }}
+              <button onClick={() => { recordHintUsed(); if (carryPhase && !carryFinal) { setCarryHintUsed(true); } else if (finalAnswerVisible) { setPhase2HintUsed(true); } else { setHintUsed(true); } setFormulaVisible(true); setShowHintConfirm(false); }}
                 style={{ position:'relative', padding:'10px 20px', fontWeight:700, fontFamily:'"Press Start 2P", monospace', fontSize:12, background:'#703737', border:'4px solid #703737', color:'#e8d5b4', cursor:'pointer', borderRadius:0 }}>
                 YES, SHOW HINT
               </button>
