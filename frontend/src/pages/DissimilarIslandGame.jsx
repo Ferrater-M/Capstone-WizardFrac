@@ -1974,7 +1974,7 @@ const DissimilarIslandGame = ({
                               if (correct && !fIsWhole && !unsimplified && (resIsImproper ? rawLeft > 0 && gcd(rawLeft, rawDen) > 1 : gcd(rawNum, rawDen) > 1)) {
                                 // Went straight to the simplified answer without the unsimplified step first.
                                 setPerfectPopup(true);
-                                playSfx('/SoundEffects/starAppear.wav');
+                                playSfx('/SoundEffects/perfectEffect.wav');
                                 if (perfectTimeoutRef.current) clearTimeout(perfectTimeoutRef.current);
                                 perfectTimeoutRef.current = setTimeout(() => setPerfectPopup(false), 2250);
                               }

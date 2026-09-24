@@ -1684,7 +1684,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       if (correct && !simplifiedResultIsWhole && !unsimplified && (simplifiedResultIsImproper ? rawLeft > 0 && gcd(rawLeft, parseInt(displayDen1)) > 1 : gcd(rawNumerator, parseInt(displayDen1)) > 1)) {
                         // Went straight to the simplified fraction without the unsimplified step first.
                         setPerfectPopup(true);
-                        playSfx('/SoundEffects/starAppear.wav');
+                        playSfx('/SoundEffects/perfectEffect.wav');
                         if (perfectTimeoutRef.current) clearTimeout(perfectTimeoutRef.current);
                         perfectTimeoutRef.current = setTimeout(() => setPerfectPopup(false), 2250);
                       }
