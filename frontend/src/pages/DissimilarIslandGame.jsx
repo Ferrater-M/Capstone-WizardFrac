@@ -463,6 +463,7 @@ const DissimilarIslandGame = ({
         setFlyBubbles(null);
         setInMagnetZone({ n1:false, n2:false, d1:false, d2:false });
         setPulsatingWhite({ n1:false, n2:false, d1:false, d2:false });
+        setProblem(generateProblem()); setCurrentStep(1); // new problem, never the one just failed
       });
     }, 2900);
   };
@@ -1103,7 +1104,14 @@ const DissimilarIslandGame = ({
     actionLocked.current = false;
   };
 
-  const handleAnswerSubmit =async ({ numerator, denominator, skipAnim = false }) => {
+  // After a wrong answer: reset the panel and move on to a NEW problem (never the one just failed —
+  // handleWrongAnswer has already remembered it in lastFailedProblemKey), same as a correct answer does.
+  const resetForNewProblem = () => {
+    setProblem(generateProblem()); setCurrentStep(1);
+    resetRound();
+  };
+
+  const handleAnswerSubmit = async ({ numerator, denominator, skipAnim = false }) => {
     const totalHp   = enemyData?.hp || enemyLives || 1;
     const hpPerHit  = Math.floor(100 / totalHp);
     const newELives = Math.max(0, (enemyLives ?? 1) - 1);
@@ -2013,7 +2021,7 @@ const DissimilarIslandGame = ({
                                   // Reset runs as handleWrongAnswer's onResolved callback so it fires
                                   // exactly when the popup closes (or is skipped) instead of a fixed
                                   // delay that can fall out of sync with the popup's dynamic duration.
-                                  handleWrongAnswer(`The final answer is ${correctText}`, enteredText, finalMisconceptionType, resetRound);
+                                  handleWrongAnswer(`The final answer is ${correctText}`, enteredText, finalMisconceptionType, resetForNewProblem);
                                 }, 500);
                               }
                             }
@@ -2071,7 +2079,7 @@ const DissimilarIslandGame = ({
                           // A wrong quotient fails the round right away, like a wrong final answer.
                           pendingBgShiftRef.current = 'left';
                           setInteractableVisible(false);
-                          setTimeout(() => handleWrongAnswer(`${rawNum} ÷ ${rawDen} = ${rawWhole}`, String(quotient), 'INCORRECT_ANSWER', resetRound), 500);
+                          setTimeout(() => handleWrongAnswer(`${rawNum} ÷ ${rawDen} = ${rawWhole}`, String(quotient), 'INCORRECT_ANSWER', resetForNewProblem), 500);
                         }}
                         onComplete={revealFinalAnswer}
                       />
