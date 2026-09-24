@@ -5,6 +5,7 @@ import DrawingCanvas from '../components/DrawingCanvas';
 import FractionPattern from '../components/FractionPattern';
 import SimilarFractionTutorial from '../components/SimilarFractionTutorial';
 import ImproperToMixedGame from '../components/ImproperToMixedGame';
+import InputGuideCursor from '../components/InputGuideCursor';
 import SettingsPage from './SettingsPage';
 import '../components/components.css';
 
@@ -123,6 +124,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const bubble2Ref = useRef(null);
   const arcAnimRef  = useRef(null);
   const actionLocked = useRef(false);
+  const sessionHintsUsed = useRef(0); // hints used this session; saved with the session when it ends
   const [bossPosition, setBossPosition] = useState({ x: 0, y: 0 });
   const enemySectionRef = useRef(null);
   const animationFrameRef = useRef(null);
@@ -528,7 +530,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status, isWon }),
+          body: JSON.stringify({ status, isWon, hintsUsed: sessionHintsUsed.current }),
         }
       );
       if (!res.ok) {
@@ -540,16 +542,10 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     }
   };
 
-  const recordHintUsed = async () => {
+  // The backend stores a session's hint count from the end-session request (see saveGameEnd), which also
+  // feeds the stage's star rating. There is no per-hint endpoint, so just count them here.
+  const recordHintUsed = () => {
     sessionHintsUsed.current += 1;
-    try {
-      await fetch(
-        `${API_BASE_URL}/api/game-progress/hint-used/${gameSession.sessionId}`,
-        { method: 'POST' }
-      );
-    } catch (err) {
-      console.error('Error recording hint:', err);
-    }
   };
 
   const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
@@ -2058,6 +2054,13 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       {denVisible ? displayDen1 : ''}
                     </div>
                   </div>
+
+                  {/* Idle guide for typing steps: pulses at the bottom right of an empty input */}
+                  <InputGuideCursor
+                    containerRef={circleContainerRef}
+                    waitForAppear
+                    enabled={circleDetected && interactableVisible && !showTutorial && !showSettings && !showHintConfirm && !feedback && !gameOver}
+                  />
 
                   {carryPhase && (
                     <ImproperToMixedGame

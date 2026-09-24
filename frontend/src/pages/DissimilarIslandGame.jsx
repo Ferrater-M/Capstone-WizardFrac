@@ -8,7 +8,9 @@ import ButterflyTutorial from '../components/ButterflyTutorial';
 import SettingsPage from './SettingsPage';
 import './game.css';
 import '../components/components.css';
-import { getDifficultyParams, buildProblemDissimilar, TIMING, getFeedbackDuration } from '../utils/gameUtils';
+import { getDissimilarTier, TIMING, getFeedbackDuration } from '../utils/gameUtils';
+import ImproperToMixedGame from '../components/ImproperToMixedGame';
+import InputGuideCursor from '../components/InputGuideCursor';
 import { API_BASE_URL } from '../config';
 
 const detectFrameCount = (width, height) => {
@@ -30,35 +32,69 @@ const DissimilarIslandGame = ({
   const lastFailedProblemKey = useRef(null);
 
   // ── Problem generation ─────────────────────────────────────────────────────
+  // Difficulty is fixed per level (see getDissimilarTier); every level uses proper fractions,
+  // the boss included, and every level goes through the same convert-then-simplify flow.
   const generateProblem = () => {
-    const level = gameSession.level ?? 1;
-    const { minDen, maxDen, subChance } = getDifficultyParams(level);
-    const capDen = Math.min(maxDen, 12);
-    let candidate, attempts = 0;
-    do {
-      const isMixed = gameSession.isBoss ? Math.random() > 0.4 : false;
-      const operator = Math.random() < subChance ? '-' : '+';
-      const d1 = Math.floor(Math.random() * (capDen - minDen + 1)) + minDen;
-      let d2 = Math.floor(Math.random() * (capDen - minDen + 1)) + minDen;
-      while (d2 === d1) d2 = Math.floor(Math.random() * (capDen - minDen + 1)) + minDen;
-      const n1 = Math.floor(Math.random() * (d1 - 1)) + 1;
-      const n2 = Math.floor(Math.random() * (d2 - 1)) + 1;
-      const w1 = isMixed ? Math.floor(Math.random() * 3) + 1 : 0;
-      const w2 = isMixed ? Math.floor(Math.random() * 3) + 1 : 0;
-      candidate = operator === '-' && w1 + n1 / d1 < w2 + n2 / d2
-        ? { whole1: w2, numerator1: n2, denominator1: d2, whole2: w1, numerator2: n1, denominator2: d1, operator, isMixed }
-        : { whole1: w1, numerator1: n1, denominator1: d1, whole2: w2, numerator2: n2, denominator2: d2, operator, isMixed };
-      attempts++;
-    } while (
-      lastFailedProblemKey.current &&
-      problemKey(candidate) === lastFailedProblemKey.current &&
-      attempts < 20
-    );
+    const { minDen, maxDen, subChance, improperChance, maxImproperDen, leftover } = getDissimilarTier(gameSession.level ?? 1);
+    const dens = Array.from({ length: maxDen - minDen + 1 }, (_, i) => minDen + i);
+    const mk = (d1, n1, operator, d2, n2) => ({ whole1: 0, numerator1: n1, denominator1: d1, whole2: 0, numerator2: n2, denominator2: d2, operator, isMixed: false });
+    const isRepeat = (c) => lastFailedProblemKey.current && problemKey(c) === lastFailedProblemKey.current;
+    const operator = Math.random() < subChance ? '-' : '+';
+    let candidate;
+
+    if (operator === '+' && Math.random() < improperChance) {
+      // Improper sum that needs the improper → mixed step. Pick how many shards are left outside
+      // the jar (1, 2-3 or 4+) from the level's weights, then a random problem with that leftover.
+      const pool = { one: [], few: [], many: [] };
+      for (const d1 of dens) for (const d2 of dens) {
+        const rawDen = d1 * d2;
+        if (d1 === d2 || rawDen > maxImproperDen) continue;
+        for (let n1 = 1; n1 < d1; n1++) for (let n2 = 1; n2 < d2; n2++) {
+          const rawNum = n1 * d2 + n2 * d1;
+          if (rawNum <= rawDen || rawNum % rawDen === 0) continue;
+          const left = rawNum - rawDen;
+          const c = mk(d1, n1, '+', d2, n2);
+          if (!isRepeat(c)) pool[left === 1 ? 'one' : left <= 3 ? 'few' : 'many'].push(c);
+        }
+      }
+      const buckets = Object.keys(pool).filter(k => pool[k].length);
+      if (buckets.length) {
+        let r = Math.random() * buckets.reduce((sum, k) => sum + leftover[k], 0);
+        const key = buckets.find(k => (r -= leftover[k]) < 0) ?? buckets[buckets.length - 1];
+        candidate = pool[key][Math.floor(Math.random() * pool[key].length)];
+      }
+    }
+
+    if (!candidate) {
+      // Proper result: no whole-number or zero results and no repeat of the problem just failed.
+      const pickDen = () => dens[Math.floor(Math.random() * dens.length)];
+      let attempts = 0, ok;
+      do {
+        const d1 = pickDen();
+        let d2 = pickDen();
+        while (d2 === d1) d2 = pickDen();
+        const n1 = Math.floor(Math.random() * (d1 - 1)) + 1;
+        const n2 = Math.floor(Math.random() * (d2 - 1)) + 1;
+        candidate = operator === '-' && n1 * d2 < n2 * d1 ? mk(d2, n2, operator, d1, n1) : mk(d1, n1, operator, d2, n2);
+        const rawNum = operator === '+' ? n1 * d2 + n2 * d1 : Math.abs(n1 * d2 - n2 * d1);
+        ok = rawNum < d1 * d2 && rawNum > 0 && !isRepeat(candidate);
+        attempts++;
+      } while (!ok && attempts < 200);
+    }
     lastFailedProblemKey.current = null; // clear after generating a new problem
     return candidate;
   };
 
   const [problem, setProblem] = useState(generateProblem);
+
+  // Result of the current problem. The butterfly method's denominator is d1 * d2; an improper
+  // result (needsCarry) is converted to a mixed number first, then simplified.
+  const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+  const rawDen = problem.denominator1 * problem.denominator2;
+  const rawNum = problem.operator === '+'
+    ? problem.denominator2 * problem.numerator1 + problem.denominator1 * problem.numerator2
+    : problem.denominator2 * problem.numerator1 - problem.denominator1 * problem.numerator2;
+  const needsCarry = rawNum >= rawDen;
   const [currentStep, setCurrentStep] = useState(1);
   const [showTutorial, setShowTutorial] = useState(true);
   const butterflyPanelRef = useRef(null);
@@ -138,9 +174,33 @@ const DissimilarIslandGame = ({
   const centerInputRef = useRef(null);
   const centerParticleIvRef = useRef(null);
   const [finalAnswerPhase, setFinalAnswerPhase] = useState(false);
+  const [finalWholeInput, setFinalWholeInput]   = useState('');
   const [finalNumInput, setFinalNumInput]       = useState('');
   const [finalDenInput, setFinalDenInput]       = useState('');
   const finalNumRef = useRef(null);
+  // Improper → mixed (gem/jar game) runs first, then the answer is simplified — same flow as Similar Island.
+  const [carryPhase, setCarryPhase]             = useState(false);
+  const [carryFinal, setCarryFinal]             = useState(false);
+  const [finalInputsShown, setFinalInputsShown] = useState(false);
+  const [carryHintUsed, setCarryHintUsed]       = useState(false);
+  const [phase2HintUsed, setPhase2HintUsed]     = useState(false);
+  const [carryUi, setCarryUi]                   = useState({ stage: 'none', canSubmit: false, prompt: '' });
+  const [carryStart, setCarryStart]             = useState(null);
+  const carryActionRef = useRef(null);
+  // New common denominator (SD) glowing under the problem, with particles from both denominators.
+  const problemWrapRef = useRef(null);
+  const opRef = useRef(null);
+  const [sdGuide, setSdGuide] = useState(null);
+  const [sdGuideParticles, setSdGuideParticles] = useState([]);
+  // Idle guide: after 2 s without input, a ghost of the next drag (D → its N, or D1 → D2) plays with the guide cursor.
+  const GUIDE_LOOP_MS = 2600;
+  const [guideActive, setGuideActive] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
+  const guideTimerRef = useRef(null);
+  const guideActiveRef = useRef(false);
+  const [unsimplified, setUnsimplified]         = useState(null);
+  const [perfectPopup, setPerfectPopup]         = useState(false);
+  const perfectTimeoutRef = useRef(null);
   const [circleFailCount, setCircleFailCount] = useState(0);
   const [circleMistakes, setCircleMistakes] = useState([]);
   const [circleFailSequence, setCircleFailSequence] = useState(null);
@@ -764,15 +824,129 @@ const DissimilarIslandGame = ({
     }
   }, [sdCorrect, n1CrossCorrect, n2CrossCorrect]);
 
+  // Drags the player hasn't done yet (same rules as the drag handlers). The guide only shows these.
+  const guideActions = [];
+  if (!n2CrossPhase) guideActions.push({ from: 'd1', to: 'n2' });
+  if (!n1CrossPhase) guideActions.push({ from: 'd2', to: 'n1' });
+  // Combining the denominators works in either direction.
+  if (!denominatorPhase && !sdBlinking && !sdCorrect) guideActions.push({ from: 'd1', to: 'd2' }, { from: 'd2', to: 'd1' });
+  const crossInputPending = (n1CrossPhase === 'blinking' && !n1CrossConfirmed) || (n2CrossPhase === 'blinking' && !n2CrossConfirmed);
+  const guideEligible = circleDetected && interactableVisible && n1Visible && d1Visible && n2Visible && d2Visible
+    && !showTutorial && !showSettings && !showHintConfirm && !feedback && !gameOver
+    && !circleFailSequence && !carryPhase && !finalAnswerPhase && !centerPhase && !crossExplosion && !dragScreenPos
+    && (!denominatorPhase || confirmPressed) && !crossInputPending && guideActions.length > 0;
+  const guideKey = guideActions.map(a => `${a.from}${a.to}`).join('|');
+
   useEffect(() => {
-    if (centerCorrect && !finalAnswerPhase) {
+    if (!guideEligible) {
+      clearTimeout(guideTimerRef.current);
+      guideActiveRef.current = false;
+      setGuideActive(false);
+      return undefined;
+    }
+    const cont = circleContainerRef.current;
+    const show = () => { guideActiveRef.current = true; setGuideStep(0); setGuideActive(true); };
+    // While the guide is up only a click on a D dismisses it; before that, any activity restarts the 2 s wait.
+    const arm = (e) => {
+      if (guideActiveRef.current) {
+        const t = e?.target;
+        const onD = e?.type === 'pointerdown' && (d1OverlayRef.current?.contains(t) || d2OverlayRef.current?.contains(t));
+        if (!onD) return;
+        guideActiveRef.current = false;
+        setGuideActive(false);
+      }
+      clearTimeout(guideTimerRef.current);
+      guideTimerRef.current = setTimeout(show, 2000);
+    };
+    arm();
+    const evs = ['pointerdown', 'pointermove', 'keydown'];
+    evs.forEach(ev => cont?.addEventListener(ev, arm, true));
+    window.addEventListener('keydown', arm);
+    return () => {
+      clearTimeout(guideTimerRef.current);
+      evs.forEach(ev => cont?.removeEventListener(ev, arm, true));
+      window.removeEventListener('keydown', arm);
+    };
+  }, [guideEligible, guideKey]);
+
+  useEffect(() => {
+    if (!guideActive) return undefined;
+    const iv = setInterval(() => setGuideStep(n => n + 1), GUIDE_LOOP_MS);
+    return () => clearInterval(iv);
+  }, [guideActive]);
+
+  // Once the new denominator is solved, show it glowing under the problem (centred between the two
+  // fractions) and stream particles to it from each fraction's denominator.
+  useEffect(() => {
+    if (!sdCorrect) { setSdGuide(null); setSdGuideParticles([]); return; }
+    const wrap = problemWrapRef.current, op = opRef.current, d1 = den1Ref.current, d2 = den2Ref.current;
+    if (!wrap || !op || !d1 || !d2) return;
+    const wr = wrap.getBoundingClientRect();
+    const sc = wr.width / wrap.offsetWidth || 1;
+    const center = (el) => {
+      const r = el.getBoundingClientRect();
+      return { x: (r.left + r.width / 2 - wr.left) / sc, y: (r.top + r.height / 2 - wr.top) / sc };
+    };
+    setSdGuide({ target: { x: center(op).x + 5, y: wrap.offsetHeight + 28 }, sources: [center(d1), center(d2)] });
+  }, [sdCorrect]);
+
+  useEffect(() => {
+    if (!sdGuide) { setSdGuideParticles([]); return undefined; }
+    const spawn = () => {
+      const pid = Date.now(), ps = [];
+      sdGuide.sources.forEach((src, si) => {
+        for (let i = 0; i < 5; i++) {
+          const j = () => (Math.random() - 0.5) * 14;
+          ps.push({ id: pid + si * 10 + i, sl: src.x + j(), st: src.y + j(), tx: sdGuide.target.x - src.x + j(), ty: sdGuide.target.y - src.y + j(), delay: Math.random() * 0.25, size: Math.floor(Math.random() * 5 + 4) });
+        }
+      });
+      setSdGuideParticles(ps);
+    };
+    spawn();
+    const iv = setInterval(spawn, 700);
+    return () => clearInterval(iv);
+  }, [sdGuide]);
+
+  useEffect(() => {
+    if (centerCorrect && !finalAnswerPhase && !carryPhase) {
       setTimeout(() => {
+        if (needsCarry) {
+          // Improper result: convert to a mixed number first (gem/jar game), starting from the
+          // centre node (numerator) and the SD node (denominator).
+          const cont = circleContainerRef.current;
+          const nEl = document.querySelector('[data-carry="n"]');
+          const dEl = document.querySelector('[data-carry="d"]');
+          if (cont && nEl && dEl) {
+            const cr = cont.getBoundingClientRect();
+            const sc = cr.width / cont.offsetWidth;
+            const center = (el) => {
+              const r = el.getBoundingClientRect();
+              return { x: (r.left + r.width / 2 - cr.left) / sc - 4, y: (r.top + r.height / 2 - cr.top) / sc - 4 };
+            };
+            setCarryStart({ n: center(nEl), d: center(dEl) });
+          }
+          setCarryPhase(true);
+          return;
+        }
         setFinalAnswerPhase(true);
-        setFinalNumInput(''); setFinalDenInput('');
+        setFinalWholeInput(''); setFinalNumInput(''); setFinalDenInput('');
         setTimeout(() => finalNumRef.current?.focus(), 100);
       }, 1200);
     }
   }, [centerCorrect]);
+
+  // Gem game finished: the final inputs appear once the jars and leftover shards have settled.
+  const revealFinalAnswer = () => {
+    setCarryFinal(true);
+    setFinalAnswerPhase(true);
+    setFinalWholeInput(''); setFinalNumInput(''); setFinalDenInput('');
+  };
+
+  const handleFinalSettled = () => {
+    playSfx('/SoundEffects/circleAppear.wav');
+    setFinalInputsShown(true);
+    setTimeout(() => finalNumRef.current?.focus(), 100);
+  };
 
   // ── Defeat trigger ────────────────────────────────────────────────────────
   const triggerDefeat = (target, onComplete) => {
@@ -824,7 +998,21 @@ const DissimilarIslandGame = ({
   };
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+  const resGcd = gcd(Math.abs(rawNum), rawDen);
+  const resSNum = rawNum / resGcd, resSDen = rawDen / resGcd;
+  const resIsWhole = resSDen === 1;
+  const resIsImproper = !resIsWhole && resSNum > resSDen;
+  const rawWhole = Math.floor(rawNum / rawDen);
+  const rawLeft = rawNum - rawWhole * rawDen;
+  const targetWhole = resIsImproper ? Math.floor(resSNum / resSDen) : 0;
+  const targetNum = resIsImproper ? resSNum % resSDen : resSNum;
+  const simplifyHintText = rawWhole > 0
+    ? `Simplify: ${rawWhole}${rawLeft ? ` ${rawLeft}/${rawDen}` : ''}`
+    : `Simplify: ${rawNum}/${rawDen}`;
+  const carryActive = carryPhase && !carryFinal;
+  const hideFinal = carryPhase && carryFinal && !finalInputsShown;
+  const carryPromptShown = carryActive && carryHintUsed && !!carryUi.prompt;
+  const headerHint = unsimplified ? 'Can be simplified!' : carryPromptShown ? carryUi.prompt : currentHint;
 
   const getCorrectAnswerStr = (p = problem) => {
     const imp1 = p.whole1 * p.denominator1 + p.numerator1;
@@ -870,7 +1058,33 @@ const DissimilarIslandGame = ({
   const handleMasterVolumeChanged = (volume01) => { if (ostRef.current) ostRef.current.volume = volume01; };
 
   // ── Answer handlers ───────────────────────────────────────────────────────
-  const handleAnswerSubmit = async ({ numerator, denominator, skipAnim = false }) => {
+  // Puts the interactable panel back to its starting state (next problem, or retry after a wrong answer).
+  const resetRound = () => {
+    setCircleDetected(false); setInteractableVisible(true);
+    setN1Visible(false); setD1Visible(false); setN2Visible(false); setD2Visible(false);
+    setDragOffsets({ d1:{dx:0,dy:0}, d2:{dx:0,dy:0} });
+    setDenominatorPhase(null); setDenExplosion(false); setSdBlinking(false);
+    setSdInputVal(''); setSdCorrect(false); setConfirmPressed(false);
+    setSdParticles([]); if (sdParticleIvRef.current) { clearInterval(sdParticleIvRef.current); sdParticleIvRef.current = null; }
+    setN1CrossPhase(null); setN2CrossPhase(null); setN1CrossVal(''); setN2CrossVal('');
+    setN1CrossCorrect(false); setN2CrossCorrect(false); setN1CrossConfirmed(false); setN2CrossConfirmed(false);
+    setCrossExplosion(null); setN1CrossParticles([]); setN2CrossParticles([]);
+    if (n1CrossParticleIvRef.current) { clearInterval(n1CrossParticleIvRef.current); n1CrossParticleIvRef.current = null; }
+    if (n2CrossParticleIvRef.current) { clearInterval(n2CrossParticleIvRef.current); n2CrossParticleIvRef.current = null; }
+    setCenterPhase(null); setCenterVal(''); setCenterCorrect(false); setCenterConfirmed(false); setCenterParticles([]);
+    if (centerParticleIvRef.current) { clearInterval(centerParticleIvRef.current); centerParticleIvRef.current = null; }
+    setCircleFailCount(0); setCircleMistakes([]); setCircleFailSequence(null); setCircleShaking(false);
+    setFinalAnswerPhase(false); setFinalWholeInput(''); setFinalNumInput(''); setFinalDenInput('');
+    setCarryPhase(false); setCarryFinal(false); setFinalInputsShown(false);
+    setCarryHintUsed(false); setPhase2HintUsed(false); setCarryStart(null);
+    setCarryUi({ stage: 'none', canSubmit: false, prompt: '' });
+    setUnsimplified(null);
+    setHintUsed(false); setCurrentHint(''); setShowHintConfirm(false);
+    setFlyBubbles(null); if (flyArcRef.current) cancelAnimationFrame(flyArcRef.current);
+    actionLocked.current = false;
+  };
+
+  const handleAnswerSubmit =async ({ numerator, denominator, skipAnim = false }) => {
     const totalHp   = enemyData?.hp || enemyLives || 1;
     const hpPerHit  = Math.floor(100 / totalHp);
     const newELives = Math.max(0, (enemyLives ?? 1) - 1);
@@ -908,22 +1122,7 @@ const DissimilarIslandGame = ({
           feedbackResolveRef.current = null;
           setFeedback(''); setFeedbackType(''); setFeedbackClickable(false);
           setProblem(generateProblem()); setCurrentStep(1);
-          setCircleDetected(false); setInteractableVisible(true);
-          setN1Visible(false); setD1Visible(false); setN2Visible(false); setD2Visible(false);
-          setDragOffsets({ d1:{dx:0,dy:0}, d2:{dx:0,dy:0} });
-          setDenominatorPhase(null); setDenExplosion(false); setSdBlinking(false);
-          setSdInputVal(''); setSdCorrect(false); setConfirmPressed(false);
-          setSdParticles([]); if (sdParticleIvRef.current) { clearInterval(sdParticleIvRef.current); sdParticleIvRef.current = null; }
-          setN1CrossPhase(null); setN2CrossPhase(null); setN1CrossVal(''); setN2CrossVal('');
-          setN1CrossCorrect(false); setN2CrossCorrect(false); setN1CrossConfirmed(false); setN2CrossConfirmed(false);
-          setCrossExplosion(null); setN1CrossParticles([]); setN2CrossParticles([]);
-          if (n1CrossParticleIvRef.current) { clearInterval(n1CrossParticleIvRef.current); n1CrossParticleIvRef.current = null; }
-          if (n2CrossParticleIvRef.current) { clearInterval(n2CrossParticleIvRef.current); n2CrossParticleIvRef.current = null; }
-          setCenterPhase(null); setCenterVal(''); setCenterCorrect(false); setCenterConfirmed(false); setCenterParticles([]);
-          if (centerParticleIvRef.current) { clearInterval(centerParticleIvRef.current); centerParticleIvRef.current = null; }
-          setCircleFailCount(0); setCircleMistakes([]); setCircleFailSequence(null); setCircleShaking(false);
-          setFinalAnswerPhase(false); setFinalNumInput(''); setFinalDenInput(''); setHintUsed(false); setCurrentHint(''); setShowHintConfirm(false);
-          setFlyBubbles(null); if (flyArcRef.current) cancelAnimationFrame(flyArcRef.current);
+          resetRound();
         };
         feedbackResolveRef.current = resolveFeedback;
         feedbackTimeoutRef.current = setTimeout(resolveFeedback, getFeedbackDuration(feedbackMessage));
@@ -1042,8 +1241,8 @@ const DissimilarIslandGame = ({
           <span style={{ color: '#222', fontSize: '13px' }}>Score: {score}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Level: {gameSession.level}/{totalLevels ?? '...'}</span>
         </div>
-        {currentHint && (
-          <div key={currentHint} style={{
+        {headerHint && (
+          <div key={headerHint} style={{
             position:'relative', border:'4px solid #fff', background:'#000', color:'#fff',
             fontSize:'13px', fontWeight:700, fontFamily:'"Press Start 2P", monospace',
             display:'flex', alignItems:'center', padding:'0 8px', margin:'0 100px',
@@ -1059,7 +1258,7 @@ const DissimilarIslandGame = ({
             <div style={{position:'absolute',top:3,right:3,width:5,height:5,background:'#fff'}}/>
             <div style={{position:'absolute',bottom:3,left:3,width:5,height:5,background:'#fff'}}/>
             <div style={{position:'absolute',bottom:3,right:3,width:5,height:5,background:'#fff'}}/>
-            {currentHint}
+            {headerHint}
           </div>
         )}
         <div style={{ display: 'flex', gap: 10 }}>
@@ -1160,7 +1359,7 @@ const DissimilarIslandGame = ({
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'8px', paddingTop:'32px', minHeight:0, overflow:'hidden', zIndex:1, opacity: interactableVisible ? 1 : 0, transition:'opacity 0.4s ease' }}>
 
             {/* Problem display */}
-            <div style={{
+            <div ref={problemWrapRef} style={{
               animation:'magicFloat 3s ease-in-out infinite', position:'relative',
               filter: pulse>0.15 ? `drop-shadow(0 0 ${(pulse*32).toFixed(1)}px rgba(112,55,55,${Math.min(pulse*1.2,1).toFixed(2)}))` : 'none',
               transform:`scale(${(1+pulse*0.07).toFixed(4)})`,
@@ -1176,7 +1375,7 @@ const DissimilarIslandGame = ({
                   <div style={{ width:50, height:3, background:'#222', borderRadius:2, margin:'3px 0' }} />
                   <span ref={den1Ref} style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.denominator1}</span>
                 </div>
-                <span style={{ fontSize:32, fontWeight:800, color:'#222' }}>{problem.operator}</span>
+                <span ref={opRef} style={{ fontSize:32, fontWeight:800, color:'#222' }}>{problem.operator}</span>
                 {problem.whole2 > 0 && <span style={{ fontSize:28, fontWeight:800, color:'#222' }}>{problem.whole2}</span>}
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
                   <span ref={num2Ref} style={{ fontSize:28, fontWeight:800, color:'#222', minWidth:40, textAlign:'center' }}>{problem.numerator2}</span>
@@ -1185,6 +1384,20 @@ const DissimilarIslandGame = ({
                 </div>
                 <span style={{ fontSize:28, fontWeight:800, color:'#555' }}>= ?</span>
               </div>
+
+              {/* New common denominator: glows white under the problem, fed by particles from both denominators */}
+              {sdGuide && (
+                <>
+                  {sdGuideParticles.map(p => (
+                    <div key={p.id} style={{ position:'absolute', left:p.sl, top:p.st, width:p.size, height:p.size, background:'#ffffff', pointerEvents:'none', zIndex:8, '--tx':p.tx+'px', '--ty':p.ty+'px', animation:`sdToTarget 0.75s ${p.delay}s ease-out forwards` }} />
+                  ))}
+                  <div style={{ position:'absolute', left:sdGuide.target.x, top:sdGuide.target.y, transform:'translate(-50%, -50%)', zIndex:7, pointerEvents:'none' }}>
+                    <div style={{ fontSize:34, fontWeight:900, color:'#ffffff', fontFamily:'"Press Start 2P", monospace', animation:'numFadeIn 0.5s ease-out both, sdLabelGlow 1.6s ease-in-out infinite' }}>
+                      {problem.denominator1 * problem.denominator2}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Square particles emitting from the bottom — same as Similar Island */}
               {[
@@ -1277,13 +1490,14 @@ const DissimilarIslandGame = ({
                   <>
                     <style>{`
                       @keyframes dimFadeIn { from{opacity:0;transform:translateY(-10px)} to{opacity:0.3;transform:translateY(0)} }
+                      @keyframes unsimpSlide { from{transform:translateX(-90px);opacity:0.2} to{transform:translateX(0);opacity:1} }
                     `}</style>
                     <div style={{ position:'absolute', inset:0, zIndex:2, animation: circleShaking ? 'circleShake 0.5s ease-in-out 2' : 'none' }}>
                     <div ref={floatingDivRef} style={{
                       position:'absolute', top:32, left:0, right:0, height:'300px',
                       animation: 'magicFloat 4s ease-in-out infinite',
-                      opacity: circleFailSequence === 'fading' || finalAnswerPhase ? 0 : 1,
-                      transition: (circleFailSequence === 'fading' || finalAnswerPhase) ? 'opacity 0.6s ease-out' : undefined,
+                      opacity: circleFailSequence === 'fading' || finalAnswerPhase || carryPhase ? 0 : 1,
+                      transition: (circleFailSequence === 'fading' || finalAnswerPhase || carryPhase) ? 'opacity 0.6s ease-out' : undefined,
                     }}>
                       <img src="/InteractableUI/DissimilarMagicCircle.png" alt="magic circle" style={{
                         position:'absolute', top:0, left:0, right:0, width:'100%', height:'100%',
@@ -1337,6 +1551,7 @@ const DissimilarIslandGame = ({
                               const setCrossVal = key === 'n1' ? setN1CrossVal : setN2CrossVal;
                               const crossAnswer = key === 'n1' ? problem.denominator2 * problem.numerator1 : problem.denominator1 * problem.numerator2;
                               if (crossPhase) return (
+                                <>
                                 <div style={{
                                   width:size, height:size,
                                   display:'flex', alignItems:'center', justifyContent:'center',
@@ -1353,6 +1568,31 @@ const DissimilarIslandGame = ({
                                         style={{ width:'100%', height:'100%', textAlign:'center', fontSize:numFontSize(crossVal||0,size), fontWeight:900, color:'#ffffff', background:'transparent', border:'none', outline:'none', fontFamily:'"Press Start 2P", monospace', padding:0 }} />
                                   }
                                 </div>
+                                {/* The original numerator stays visible beside the cross-product box: to the right for
+                                    N2 (D1 dragged onto it), to the left for N1 (D2 dragged onto it). */}
+                                <div style={{
+                                  position:'absolute', top:0, height:size,
+                                  ...(key === 'n2' ? { left:'100%', marginLeft:10 } : { right:'100%', marginRight:10 }),
+                                  display:'flex', alignItems:'center',
+                                  fontSize:numFontSize(val,size), fontWeight:900, color:'#ffffff',
+                                  fontFamily:'"Press Start 2P", monospace', whiteSpace:'nowrap', pointerEvents:'none',
+                                  textShadow:'2px 2px 0 #000, 0 0 6px #000, 0 0 12px #000',
+                                  // Once the cross product is solved the old numerator fades slowly away while particles play.
+                                  animation: crossCorrect
+                                    ? 'oldNFadeAway 1.8s ease-out forwards'
+                                    : `${key === 'n2' ? 'oldNSlideRight' : 'oldNSlideLeft'} 0.35s cubic-bezier(0.22, 1, 0.36, 1) both`,
+                                }}>
+                                  {val}
+                                  {crossCorrect && [
+                                    {dx:'-26px',dy:'-26px',s:6,t:0},{dx:'0px',dy:'-34px',s:5,t:0.1},{dx:'26px',dy:'-26px',s:6,t:0.2},
+                                    {dx:'34px',dy:'0px',s:5,t:0.3},{dx:'26px',dy:'26px',s:6,t:0.4},{dx:'0px',dy:'34px',s:5,t:0.5},
+                                    {dx:'-26px',dy:'26px',s:6,t:0.6},{dx:'-34px',dy:'0px',s:5,t:0.7},
+                                    {dx:'-14px',dy:'-40px',s:4,t:0.8},{dx:'16px',dy:'-38px',s:4,t:0.9},{dx:'38px',dy:'14px',s:4,t:1.0},{dx:'-38px',dy:'16px',s:4,t:1.1},
+                                  ].map((d, i) => (
+                                    <div key={i} style={{ position:'absolute', left:'50%', top:'50%', width:d.s, height:d.s, background:'#ffffff', opacity:0, pointerEvents:'none', '--dx':d.dx, '--dy':d.dy, animation:`squareBurst 0.8s ${d.t}s ease-out forwards` }} />
+                                  ))}
+                                </div>
+                                </>
                               );
                               return (
                                 <div style={{
@@ -1373,10 +1613,36 @@ const DissimilarIslandGame = ({
                           </div>
                         );
                       })}
+                      {/* Idle guide: transparent ghost of the next drag + guide cursor */}
+                      {guideActive && guideEligible && (() => {
+                        const act = guideActions[guideStep % guideActions.length];
+                        if (!act) return null;
+                        const f = BASE_POS[act.from], t = BASE_POS[act.to];
+                        const fx = f.left + f.size / 2, fy = f.top + f.size / 2;
+                        const gx = t.left + t.size / 2 - fx, gy = t.top + t.size / 2 - fy;
+                        const val = act.from === 'd1' ? problem.denominator1 : problem.denominator2;
+                        const anim = `guideMove ${GUIDE_LOOP_MS}ms ease-in-out forwards`;
+                        return (
+                          <div key={guideStep} style={{ position:'absolute', left:0, top:0, width:0, height:0, pointerEvents:'none', zIndex:9, '--gx':gx+'px', '--gy':gy+'px' }}>
+                            <div style={{ position:'absolute', left:f.left, top:f.top, width:f.size, height:f.size, opacity:0.5 }}>
+                              <div style={{
+                                width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center',
+                                fontSize:numFontSize(val, f.size), fontWeight:900, color:'#ffffff',
+                                border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333',
+                                fontFamily:'"Press Start 2P", monospace', animation:anim,
+                              }}>{val}</div>
+                            </div>
+                            <img src="/InteractableUI/GuideCursor.png" alt="" draggable={false} style={{
+                              position:'absolute', left:fx + f.size / 2 - 8, top:fy + f.size / 2 - 4, width:48, height:48,
+                              imageRendering:'pixelated', animation:anim,
+                            }} />
+                          </div>
+                        );
+                      })()}
                       {/* Center node — input when all three solved */}
                       {n1Visible && d1Visible && n2Visible && d2Visible && (
                         centerPhase ? (
-                          <div style={{
+                          <div data-carry="n" style={{
                             position:'absolute', left:177, top:128,
                             width:40, height:40,
                             display:'flex', alignItems:'center', justifyContent:'center',
@@ -1454,7 +1720,7 @@ const DissimilarIslandGame = ({
                       {/* SD — bottom node, appears with the buttons */}
                       {n1Visible && d1Visible && n2Visible && d2Visible && (
                         denominatorPhase === 'sd-input' || sdBlinking ? (
-                          <div style={{
+                          <div data-carry="d" style={{
                             position:'absolute', left:177, top:210,
                             width:40, height:40,
                             display:'flex', alignItems:'center', justifyContent:'center',
@@ -1500,33 +1766,69 @@ const DissimilarIslandGame = ({
                     </div>{/* end shake wrapper */}
 
                     {/* ── Final answer input — centered over the container ── */}
+                    {/* Whole number / fraction / mixed number, depending on the simplified result.
+                        For an improper result the gem game has already converted it (jars = whole,
+                        leftover shards = numerator); the player then simplifies. */}
                     {finalAnswerPhase && (() => {
-                      const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
-                      const n1s = problem.denominator2 * problem.numerator1;
-                      const n2s = problem.denominator1 * problem.numerator2;
-                      const rawNum = problem.operator === '+' ? n1s + n2s : n1s - n2s;
-                      const rawDen = problem.denominator1 * problem.denominator2;
-                      const g = gcd(Math.abs(rawNum), rawDen);
-                      const sNum = rawNum / g, sDen = rawDen / g;
-                      const isWhole = sDen === 1;
-                      const fieldStyle = { width:90, height:64, fontSize:28, fontWeight:800, textAlign:'center', border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333', color:'#ffffff', outline:'none', appearance:'none', fontFamily:'"Press Start 2P", monospace', WebkitAppearance:'none', boxShadow:'0 4px 16px rgba(0,0,0,0.7)', textShadow:'0 0 8px rgba(0,0,0,0.9)' };
+                      const inputBase = { fontWeight:800, textAlign:'center', border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333', color:'#ffffff', outline:'none', appearance:'none', fontFamily:'"Press Start 2P", monospace', WebkitAppearance:'none', MozAppearance:'none', boxShadow:'0 4px 16px rgba(0,0,0,0.7)', textShadow:'0 0 8px rgba(0,0,0,0.9)' };
+                      const fieldStyle = { ...inputBase, width:90, height:64, fontSize:28 };
+                      const mixedStyle = { ...inputBase, width:70, height:54, fontSize:20 };
+                      const unsimpStyle = { display:'flex', flexDirection:'column', alignItems:'center', gap:2, animation:'unsimpSlide 0.6s ease-out', color:'#000', fontWeight:800, fontSize:20, fontFamily:'"Press Start 2P", monospace', textShadow:'3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' };
+                      const unsimpFraction = unsimplified && (
+                        <div style={{ position:'absolute', left:'100%', top:'50%', marginLeft:14, transform:'translateY(-50%)' }}>
+                          <div style={unsimpStyle}>
+                            <span>{unsimplified.n}</span>
+                            <div style={{ width:40, height:3, background:'#000', borderRadius:2 }} />
+                            <span>{unsimplified.d}</span>
+                          </div>
+                        </div>
+                      );
+                      const numOf = (style, ref) => (
+                        <input ref={ref} data-final="num" type="text" inputMode="numeric" value={finalNumInput}
+                          onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g,''))}
+                          placeholder="?" style={style} />
+                      );
+                      const denOf = (style) => (
+                        <input type="text" inputMode="numeric" value={finalDenInput}
+                          onChange={e => setFinalDenInput(e.target.value.replace(/[^0-9]/g,''))}
+                          placeholder="?" style={style} />
+                      );
                       return (
-                        <div style={{ position:'absolute', top:'32px', left:0, right:0, height:'300px', display:'flex', alignItems:'center', justifyContent:'center', animation:'magicFloat 4s ease-in-out infinite', zIndex:10 }}>
+                        <div style={{ position:'absolute', top:'32px', left:0, right:0, height:'300px', display:'flex', alignItems:'center', justifyContent:'center', zIndex:10, opacity: hideFinal ? 0 : 1, pointerEvents: hideFinal ? 'none' : 'auto', transition:'opacity 0.3s ease' }}>
                           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, animation:'numFadeIn 0.5s ease-out both' }}>
                             <span style={{ fontSize:13, fontWeight:700, color:'#fff', fontFamily:'"Press Start 2P", monospace', textShadow:'1px 1px 4px rgba(0,0,0,0.7)', whiteSpace:'nowrap', padding:'6px 14px', border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333' }}>Final Answer:</span>
-                            {isWhole ? (
-                              <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput}
+                            {resIsWhole ? (
+                              <input ref={finalNumRef} data-final="whole" type="text" inputMode="numeric" value={finalNumInput}
                                 onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g,''))}
                                 placeholder="?" style={fieldStyle} />
+                            ) : resIsImproper ? (
+                              <div style={{ display:'flex', alignItems:'center', gap:10, position:'relative' }}>
+                                <input ref={finalNumRef} data-final="whole" type="text" inputMode="numeric" value={finalWholeInput}
+                                  onChange={e => setFinalWholeInput(e.target.value.replace(/[^0-9-]/g,''))}
+                                  readOnly={!!unsimplified} tabIndex={unsimplified ? -1 : 0}
+                                  placeholder="?"
+                                  style={{
+                                    ...mixedStyle, fontSize:26,
+                                    border: unsimplified ? '3px solid transparent' : '3px dashed #e8d5b4',
+                                    background: unsimplified ? 'transparent' : '#333333',
+                                    color: unsimplified ? '#000000' : '#ffffff',
+                                    boxShadow: unsimplified ? 'none' : '0 4px 16px rgba(0,0,0,0.7)',
+                                    textShadow: unsimplified ? '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' : '0 0 8px rgba(0,0,0,0.9)',
+                                    transition: 'all 0.5s ease',
+                                  }} />
+                                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                                  {numOf(mixedStyle)}
+                                  <div style={{ width:86, height:3, background:'#333333', borderRadius:2 }} />
+                                  {denOf(mixedStyle)}
+                                </div>
+                                {unsimpFraction}
+                              </div>
                             ) : (
-                              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-                                <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput}
-                                  onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g,''))}
-                                  placeholder="?" style={fieldStyle} />
-                                <div style={{ width:110, height:4, background:'#333333', borderRadius:2 }} />
-                                <input type="text" inputMode="numeric" value={finalDenInput}
-                                  onChange={e => setFinalDenInput(e.target.value.replace(/[^0-9-]/g,''))}
-                                  placeholder="?" style={fieldStyle} />
+                              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, position:'relative' }}>
+                                {numOf({ ...fieldStyle, height:54 }, finalNumRef)}
+                                <div style={{ width:110, height:3, background:'#333333', borderRadius:2 }} />
+                                {denOf({ ...fieldStyle, height:54 })}
+                                {unsimpFraction}
                               </div>
                             )}
                           </div>
@@ -1539,21 +1841,17 @@ const DissimilarIslandGame = ({
                       <div style={{ position:'absolute', bottom:12, left:'50%', display:'flex', gap:10, zIndex:4, animation:'nAreaFadeIn 0.5s ease-out forwards' }}>
                         {/* Confirm button */}
                         {(() => {
-                          const gcd2 = (a, b) => b === 0 ? a : gcd2(b, a % b);
-                          const fn1s = problem.denominator2 * problem.numerator1;
-                          const fn2s = problem.denominator1 * problem.numerator2;
-                          const fRawNum = problem.operator === '+' ? fn1s + fn2s : fn1s - fn2s;
-                          const fRawDen = problem.denominator1 * problem.denominator2;
-                          const fG = gcd2(Math.abs(fRawNum), fRawDen);
-                          const fSNum = fRawNum / fG, fSDen = fRawDen / fG;
-                          const fIsWhole = fSDen === 1;
-                          const sdActive     = denominatorPhase === 'sd-input' && !confirmPressed && !!sdInputVal && !circleFailSequence;
+                          const fSNum = resSNum, fSDen = resSDen, fIsWhole = resIsWhole;
+                          const sdActive    = denominatorPhase === 'sd-input' && !confirmPressed && !!sdInputVal && !circleFailSequence;
                           const n1Active     = n1CrossPhase === 'blinking' && !n1CrossConfirmed && !!n1CrossVal && !circleFailSequence;
                           const n2Active     = n2CrossPhase === 'blinking' && !n2CrossConfirmed && !!n2CrossVal && !circleFailSequence;
                           const centerActive = centerPhase === 'blinking' && !centerConfirmed && !!centerVal && !circleFailSequence;
-                          const finalActive  = finalAnswerPhase && (fIsWhole ? !!finalNumInput : !!finalNumInput && !!finalDenInput);
+                          const finalFilled  = fIsWhole ? !!finalNumInput
+                            : resIsImproper ? !!(finalWholeInput && finalNumInput && finalDenInput)
+                            : !!(finalNumInput && finalDenInput);
+                          const finalActive  = finalAnswerPhase && !hideFinal && finalFilled;
                           const allSolved    = sdCorrect && n1CrossCorrect && n2CrossCorrect;
-                          const active = sdActive || n1Active || n2Active || centerActive || finalActive;
+                          const active = carryActive ? carryUi.canSubmit : (sdActive || n1Active || n2Active || centerActive || finalActive);
                           const spawnCrossParticles = (setFn, ivRef, slBase, stBase, txBase, tyBase) => {
                             const spawn = () => {
                               const spread=18, pid=Date.now(), ps=[];
@@ -1570,8 +1868,9 @@ const DissimilarIslandGame = ({
                         <button
                           disabled={!active}
                           onClick={() => {
+                            if (carryActive) { carryActionRef.current?.(); return; }
                             setCurrentHint('');
-                            const recordFail = (label, entered, correct, prevMistakes) => {
+                            const recordFail =(label, entered, correct, prevMistakes) => {
                               const updated = [...prevMistakes, { label, entered: String(entered), correct: String(correct) }];
                               setCircleMistakes(updated);
                               const newCount = circleFailCount + 1;
@@ -1656,9 +1955,29 @@ const DissimilarIslandGame = ({
                             } else if (finalActive) {
                               if (actionLocked.current) return;
                               actionLocked.current = true;
+                              const wv = resIsImproper ? parseInt(finalWholeInput) : 0;
+                              const nv = parseInt(finalNumInput), dv = parseInt(finalDenInput);
+                              // Right whole number (if any) and an equivalent but unreduced fraction:
+                              // don't fail yet, ask for the simplified form.
+                              const equivalent = !fIsWhole && nv > 0 && dv > 0 && wv === targetWhole && nv * fSDen === targetNum * dv;
+                              if (equivalent && !unsimplified && !(nv === targetNum && dv === fSDen)) {
+                                setUnsimplified({ n: nv, d: dv });
+                                setFinalNumInput(''); setFinalDenInput('');
+                                actionLocked.current = false;
+                                playSfx('/SoundEffects/starAppear.wav');
+                                setTimeout(() => document.querySelector('[data-final="num"]')?.focus(), 60);
+                                return;
+                              }
                               const correct = fIsWhole
-                                ? parseInt(finalNumInput) === fSNum
-                                : parseInt(finalNumInput) === fSNum && parseInt(finalDenInput) === fSDen;
+                                ? nv === fSNum
+                                : wv === targetWhole && nv === targetNum && dv === fSDen;
+                              if (correct && !fIsWhole && !unsimplified && (resIsImproper ? rawLeft > 0 && gcd(rawLeft, rawDen) > 1 : gcd(rawNum, rawDen) > 1)) {
+                                // Went straight to the simplified answer without the unsimplified step first.
+                                setPerfectPopup(true);
+                                playSfx('/SoundEffects/starAppear.wav');
+                                if (perfectTimeoutRef.current) clearTimeout(perfectTimeoutRef.current);
+                                perfectTimeoutRef.current = setTimeout(() => setPerfectPopup(false), 2250);
+                              }
                               setFinalAnswerPhase(false);
                               pendingBgShiftRef.current = correct ? 'right' : 'left';
                               setInteractableVisible(false);
@@ -1667,33 +1986,15 @@ const DissimilarIslandGame = ({
                                 playWizardAnim(Math.random() < 0.5 ? 'attack1' : 'attack2');
                                 setTimeout(() => launchFireball(() => { actionLocked.current = false; handleAnswerSubmit({ numerator: String(fSNum), denominator: String(fSDen), skipAnim: true }); }), 500);
                               } else {
-                                const enteredRawMatch = fIsWhole
-                                  ? parseInt(finalNumInput) === fRawNum && fRawDen === 1
-                                  : parseInt(finalNumInput) === fRawNum && parseInt(finalDenInput) === fRawDen;
-                                const finalMisconceptionType = (fG > 1 && enteredRawMatch) ? 'FAILED_TO_SIMPLIFY' : 'INCORRECT_ANSWER';
+                                const finalMisconceptionType = equivalent ? 'FAILED_TO_SIMPLIFY' : 'INCORRECT_ANSWER';
+                                const correctText = fIsWhole ? `${fSNum}` : resIsImproper ? `${targetWhole} ${targetNum}/${fSDen}` : `${fSNum}/${fSDen}`;
+                                const enteredText = fIsWhole ? finalNumInput : `${resIsImproper ? finalWholeInput + ' ' : ''}${finalNumInput}/${finalDenInput}`;
                                 setTimeout(() => {
                                   actionLocked.current = false;
                                   // Reset runs as handleWrongAnswer's onResolved callback so it fires
                                   // exactly when the popup closes (or is skipped) instead of a fixed
                                   // delay that can fall out of sync with the popup's dynamic duration.
-                                  handleWrongAnswer(`The final answer is ${fSNum}${fIsWhole ? '' : '/' + fSDen}`, `${finalNumInput}${finalDenInput ? '/' + finalDenInput : ''}`, finalMisconceptionType, () => {
-                                    setCircleDetected(false); setInteractableVisible(true);
-                                    setN1Visible(false); setD1Visible(false); setN2Visible(false); setD2Visible(false);
-                                    setDragOffsets({ d1:{dx:0,dy:0}, d2:{dx:0,dy:0} });
-                                    setDenominatorPhase(null); setDenExplosion(false); setSdBlinking(false);
-                                    setSdInputVal(''); setSdCorrect(false); setConfirmPressed(false);
-                                    setSdParticles([]); if (sdParticleIvRef.current) { clearInterval(sdParticleIvRef.current); sdParticleIvRef.current = null; }
-                                    setN1CrossPhase(null); setN2CrossPhase(null); setN1CrossVal(''); setN2CrossVal('');
-                                    setN1CrossCorrect(false); setN2CrossCorrect(false); setN1CrossConfirmed(false); setN2CrossConfirmed(false);
-                                    setCrossExplosion(null); setN1CrossParticles([]); setN2CrossParticles([]);
-                                    if (n1CrossParticleIvRef.current) { clearInterval(n1CrossParticleIvRef.current); n1CrossParticleIvRef.current = null; }
-                                    if (n2CrossParticleIvRef.current) { clearInterval(n2CrossParticleIvRef.current); n2CrossParticleIvRef.current = null; }
-                                    setCenterPhase(null); setCenterVal(''); setCenterCorrect(false); setCenterConfirmed(false); setCenterParticles([]);
-                                    if (centerParticleIvRef.current) { clearInterval(centerParticleIvRef.current); centerParticleIvRef.current = null; }
-                                    setCircleFailCount(0); setCircleMistakes([]); setCircleShaking(false);
-                                    setFinalAnswerPhase(false); setFinalNumInput(''); setFinalDenInput(''); setHintUsed(false); setCurrentHint(''); setShowHintConfirm(false);
-                                    setFlyBubbles(null);
-                                  });
+                                  handleWrongAnswer(`The final answer is ${correctText}`, enteredText, finalMisconceptionType, resetRound);
                                 }, 500);
                               }
                             }
@@ -1707,11 +2008,11 @@ const DissimilarIslandGame = ({
                           <div style={{position:'absolute',top:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
                           <div style={{position:'absolute',bottom:3,left:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
                           <div style={{position:'absolute',bottom:3,right:3,width:5,height:5,background:'#703737',pointerEvents:'none'}}/>
-                          {allSolved ? 'Cast Spell' : 'Confirm'}
+                          {carryActive ? (carryUi.stage === 'confirm' ? 'Confirm' : 'Check') : allSolved ? 'Cast Spell' : 'Confirm'}
                         </button>
                         ); })()}
                         {/* Hint — hidden once used */}
-                        {!hintUsed && <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                        {(carryActive ? (!carryHintUsed && !!carryUi.prompt) : finalAnswerPhase ? (!phase2HintUsed && !hideFinal) : !hintUsed) && <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
                         <button
                           onClick={() => setShowHintConfirm(true)}
                           style={{ padding:'4px 16px', fontSize:13, fontWeight:700, fontFamily:'"Press Start 2P", monospace', background:'#703737', border:'4px solid #703737', borderRadius:0, boxShadow:'none', position:'relative', color:'#e8d5b4', cursor:'pointer', backdropFilter:'blur(6px)' }}>
@@ -1727,6 +2028,34 @@ const DissimilarIslandGame = ({
                         </button>
                         </div>}
                       </div>
+                    )}
+
+                    {/* Idle guide for typing steps: pulses at the bottom right of an empty input */}
+                    <InputGuideCursor
+                      containerRef={circleContainerRef}
+                      enabled={circleDetected && interactableVisible && !showTutorial && !showSettings && !showHintConfirm && !feedback && !gameOver && !circleFailSequence}
+                    />
+
+                    {/* Improper → mixed conversion (gem/jar game), before simplifying */}
+                    {carryPhase && (
+                      <ImproperToMixedGame
+                        numerator={rawNum}
+                        denominator={rawDen}
+                        actionRef={carryActionRef}
+                        startPos={carryStart}
+                        finalPhase={carryFinal}
+                        dismiss={!!unsimplified}
+                        startBox={false}
+                        onFinalSettled={handleFinalSettled}
+                        onUiChange={setCarryUi}
+                        onWrong={(quotient) => {
+                          // A wrong quotient fails the round right away, like a wrong final answer.
+                          pendingBgShiftRef.current = 'left';
+                          setInteractableVisible(false);
+                          setTimeout(() => handleWrongAnswer(`${rawNum} ÷ ${rawDen} = ${rawWhole}`, String(quotient), 'INCORRECT_ANSWER', resetRound), 500);
+                        }}
+                        onComplete={revealFinalAnswer}
+                      />
                     )}
                   </>
                 )}
@@ -1914,6 +2243,41 @@ const DissimilarIslandGame = ({
         </>
       )}
 
+      {perfectPopup && (
+        <div style={{
+          position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+          zIndex: 5001, pointerEvents: 'none', textAlign: 'center',
+          padding: '14px 32px', border: '6px solid #fff', background: '#000',
+          color: '#4ade80', fontSize: '22px', fontWeight: 700, whiteSpace: 'nowrap',
+          animation: 'perfectFlash 2.2s ease-in-out forwards',
+        }}>
+          <style>{`
+            @keyframes perfectFlash {
+              0%   { opacity: 0;    box-shadow: 0 0 0 0 rgba(255,255,255,0);       text-shadow: 0 0 0 rgba(255,255,255,0); }
+              4.5% { opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+              9%   { opacity: 0.35; box-shadow: 0 0 8px 2px rgba(255,255,255,0.4); text-shadow: 0 0 4px #fff; }
+              13.5%{ opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+              18%  { opacity: 0.35; box-shadow: 0 0 8px 2px rgba(255,255,255,0.4); text-shadow: 0 0 4px #fff; }
+              22.5%{ opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+              27%  { opacity: 1;    box-shadow: 0 0 14px 4px rgba(255,255,255,0.6); text-shadow: 0 0 8px #fff; }
+              72%  { opacity: 1;    box-shadow: 0 0 14px 4px rgba(255,255,255,0.6); text-shadow: 0 0 8px #fff; }
+              78%  { opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+              100% { opacity: 0;    box-shadow: 0 0 0 0 rgba(255,255,255,0);       text-shadow: 0 0 0 rgba(255,255,255,0); }
+            }
+          `}</style>
+          <div style={{ position: 'absolute', inset: 7, border: '1px solid #fff', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: -8, left: -8, width: 14, height: 14, background: '#fff' }} />
+          <div style={{ position: 'absolute', top: -8, right: -8, width: 14, height: 14, background: '#fff' }} />
+          <div style={{ position: 'absolute', bottom: -8, left: -8, width: 14, height: 14, background: '#fff' }} />
+          <div style={{ position: 'absolute', bottom: -8, right: -8, width: 14, height: 14, background: '#fff' }} />
+          <div style={{ position: 'absolute', top: 4, left: 4, width: 7, height: 7, background: '#fff' }} />
+          <div style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, background: '#fff' }} />
+          <div style={{ position: 'absolute', bottom: 4, left: 4, width: 7, height: 7, background: '#fff' }} />
+          <div style={{ position: 'absolute', bottom: 4, right: 4, width: 7, height: 7, background: '#fff' }} />
+          <div style={{ paddingTop: '6px' }}>Perfect!</div>
+        </div>
+      )}
+
       {/* Hint confirmation */}
       {showHintConfirm && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.82)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:2000 }}>
@@ -1929,6 +2293,9 @@ const DissimilarIslandGame = ({
               <button onClick={() => {
                 setShowHintConfirm(false);
                 setHintUsed(true);
+                // Gem game: the header then shows the current prompt. Final answer: show the conversion result to simplify.
+                if (carryActive) { setCarryHintUsed(true); return; }
+                if (finalAnswerPhase) { setPhase2HintUsed(true); setCurrentHint(simplifyHintText); return; }
                 const sdStarted  = sdBlinking || sdCorrect;
                 const n1Started  = n1CrossPhase !== null;
                 const n2Started  = n2CrossPhase !== null;

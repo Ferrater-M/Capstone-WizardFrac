@@ -52,6 +52,23 @@ export const buildProblemDissimilar = (level = 1) => {
   return `${n1}/${d1} ${op} ${n2}/${d2} = ?`;
 };
 
+// Dissimilar Island difficulty is fixed per level (the game has 4: easy, medium, hard, boss)
+// instead of scaling continuously. Any level past 4 uses the boss tier.
+// The butterfly method's denominator is d1 * d2, and an improper result is turned into a
+// mixed number with the gem/jar game (one jar of that many shards per whole), so improper
+// sums only use pairs whose product is at most maxImproperDen. improperChance is the share of
+// additions that are steered to an improper sum (the rest stay proper). leftover says how many
+// shards are left outside the jar (the new numerator): weights for exactly 1, 2-3, or 4+.
+const DISSIMILAR_TIERS = {
+  1: { minDen: 2, maxDen: 4, subChance: 0.1,  improperChance: 0.4,  maxImproperDen: 12, leftover: { one: 0.4,  few: 0.45, many: 0.15 } },
+  2: { minDen: 2, maxDen: 5, subChance: 0.2,  improperChance: 0.5,  maxImproperDen: 15, leftover: { one: 0.3,  few: 0.4,  many: 0.3 } },
+  3: { minDen: 2, maxDen: 6, subChance: 0.3,  improperChance: 0.6,  maxImproperDen: 15, leftover: { one: 0.2,  few: 0.4,  many: 0.4 } },
+  4: { minDen: 2, maxDen: 8, subChance: 0.4,  improperChance: 0.75, maxImproperDen: 15, leftover: { one: 0.15, few: 0.35, many: 0.5 } },
+};
+
+export const getDissimilarTier = (level = 1) =>
+  DISSIMILAR_TIERS[Math.min(Math.max(Math.round(level) || 1, 1), 4)];
+
 export const getDifficultyParamsHybrid = (level = 1) => ({
   minDen:    Math.min(2 + Math.floor((level - 1) / 2), 4),
   maxDen:    Math.min(3 + level * 2, 12),

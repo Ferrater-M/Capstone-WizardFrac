@@ -24,6 +24,8 @@ const ZONE_TOP = 64;
 const ZONE_BOTTOM = 388;
 const IMG_ASPECT = 2 / 3;
 const JAR_STAGGER = 300;
+const GUIDE_IDLE_MS = 3000;  // no shard movement for this long -> guide a shard to a jar
+const GUIDE_LOOP_MS = 2600;  // length of one guide demonstration
 const SETTLE_STAGGER = 0.12;
 const SETTLE_MOVE = 0.6;
 
@@ -81,7 +83,7 @@ const SparkleSpin = ({ size, fade }) => (
 // jar while the numerator crystallises into a gem that shatters into `numerator`
 // shards (each worth 1/denominator). Every jar is filled with `denominator` shards;
 // the jars are the whole number and the shards left outside are the new numerator.
-const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUiChange, actionRef, finalPhase, onFinalSettled, startPos, dismiss }) => {
+const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUiChange, actionRef, finalPhase, onFinalSettled, startPos, dismiss, startBox = true }) => {
   const layout = useMemo(() => {
     const wholes = Math.floor(numerator / denominator);
     const shardH = clamp(Math.round(190 / Math.sqrt(numerator)), 32, 62);
@@ -161,7 +163,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
 
   const nShine = startPos?.n || N_SHINE;
   const dShine = startPos?.d || D_SHINE;
-  const [boxOn, setBoxOn] = useState(true);
+  const [boxOn, setBoxOn] = useState(startBox);
   const [phase, setPhase] = useState('shine');
   const [jarStage, setJarStage] = useState('hidden');
   const [dSplit, setDSplit] = useState(false);
@@ -192,6 +194,9 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
   const afterTimers = useRef([]);
   const prevInJar = useRef(0);
   const prevFull = useRef(0);
+  const [guide, setGuide] = useState(null); // { key, shard, jar } while a demonstration is playing
+  const shardsRef = useRef(shards);
+  shardsRef.current = shards;
 
   const idx = PHASES.indexOf(phase);
   const reached = (p) => idx >= PHASES.indexOf(p);
@@ -346,6 +351,27 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
     return () => clearInterval(id);
   }, [finalSettled, dismissed]);
 
+
+  // Idle guide for the play phase: after GUIDE_IDLE_MS without a shard being moved, a ghost shard (no sparkle)
+  // and the guide cursor show a random loose shard being dragged into an open jar; then wait GUIDE_IDLE_MS
+  // again before showing another. Any drag or placement restarts the wait.
+  useEffect(() => {
+    if (phase !== 'play' || done || finalPhase || dismissed || draggingId !== null) { setGuide(null); return undefined; }
+    let timer = null, lastShard = null, n = 0;
+    const cycle = () => {
+      const all = shardsRef.current;
+      const free = all.filter(sh => sh.jar < 0);
+      const open = Array.from({ length: wholes }, (_, j) => j).filter(j => all.filter(sh => sh.jar === j).length < denominator);
+      if (!free.length || !open.length) { timer = setTimeout(cycle, GUIDE_IDLE_MS); return; }
+      const pool = free.length > 1 ? free.filter(sh => sh.id !== lastShard) : free;
+      const shard = pool[Math.floor(Math.random() * pool.length)];
+      lastShard = shard.id;
+      setGuide({ key: ++n, shard, jar: open[Math.floor(Math.random() * open.length)] });
+      timer = setTimeout(() => { setGuide(null); timer = setTimeout(cycle, GUIDE_IDLE_MS); }, GUIDE_LOOP_MS);
+    };
+    timer = setTimeout(cycle, GUIDE_IDLE_MS);
+    return () => { clearTimeout(timer); setGuide(null); };
+  }, [phase, done, finalPhase, dismissed, draggingId, totalIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const uiStage = ['shine', 'pair', 'divide'].includes(phase) ? 'check' : 'confirm';
   const uiCanSubmit = uiStage === 'check' ? phase === 'divide' && !!qInput : done;
@@ -594,9 +620,10 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
         />
       </div>
 
+
       {burstKey > 0 && (
         <img
-          key={burstKey}
+          key={`burst-${burstKey}`}
           src="/OtherEffects/BlueSparkle.png"
           alt=""
           style={{
@@ -803,6 +830,28 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
           </div>
         );
       })}
+
+      {/* Idle guide: transparent shard (no sparkle behind it) dragged to a jar by the guide cursor */}
+      {guide && (() => {
+        const sh = guide.shard;
+        const gx = jarLefts[guide.jar] + jarW / 2 - (sh.x + shardW / 2);
+        const gy = midTop + jarH / 2 - (sh.y + shardH / 2);
+        const anim = `guideMove ${GUIDE_LOOP_MS}ms ease-in-out forwards`;
+        return (
+          <div key={`guide-${guide.key}`} style={{ position: 'absolute', left: 0, top: 0, width: 0, height: 0, pointerEvents: 'none', zIndex: 28, '--gx': gx + 'px', '--gy': gy + 'px' }}>
+            <div style={{ position: 'absolute', left: sh.x, top: sh.y, width: shardW, height: shardH, opacity: 0.55 }}>
+              <div style={{ width: '100%', height: '100%', animation: anim }}>
+                <img src="/InteractableUI/FractionGemShard.png" alt="" draggable={false}
+                  style={{ width: '100%', height: '100%', display: 'block', transform: `rotate(${sh.rot}deg)` }} />
+              </div>
+            </div>
+            <img src="/InteractableUI/GuideCursor.png" alt="" draggable={false} style={{
+              position: 'absolute', left: sh.x + shardW - 8, top: sh.y + shardH - 4, width: 48, height: 48,
+              imageRendering: 'pixelated', animation: anim,
+            }} />
+          </div>
+        );
+      })()}
 
     </div>
   );
