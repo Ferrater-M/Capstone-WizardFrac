@@ -10,7 +10,86 @@ const segmentsIntersect = (p1, p2, p3, p4) => {
          ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
 };
 
-const DrawingCanvas = ({ onCircleDetected, mode = 'circle' }) => {
+// ── Drawing guide ──────────────────────────────────────────────────────────────
+// After a short idle the guide cursor draws the shape the player is asked for (circle / triangle / infinity):
+// a faint dashed outline of the shape stays up while the cursor traces it and leaves a brighter stroke behind, then
+// it fades and starts over until the player begins drawing. The shapes are what the detectors below accept.
+const GUIDE_W = 380, GUIDE_H = 340;
+const GUIDE_DRAW_MS = 2800, GUIDE_HOLD_MS = 700, GUIDE_FADE_MS = 350, GUIDE_GAP_MS = 1500, GUIDE_FADEIN_MS = 400, GUIDE_IDLE_MS = 3000;
+
+const guideShapeD = (mode) => {
+  const cx = GUIDE_W / 2, cy = GUIDE_H / 2;
+  const poly = (pts) => 'M ' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L ');
+  if (mode === 'triangle') {
+    // Apex on the left at mid height, flat right edge — what checkForTriangle asks for.
+    return `M ${cx - 60} ${cy} L ${cx + 70} ${cy - 115} L ${cx + 70} ${cy + 115} Z`;
+  }
+  if (mode === 'infinity') {
+    // A lemniscate: wider than tall, crossing itself in the middle.
+    const pts = Array.from({ length: 121 }, (_, i) => {
+      const t = (i / 120) * Math.PI * 2;
+      const k = 1 + Math.sin(t) ** 2;
+      return [cx + (130 * Math.cos(t)) / k, cy + (130 * Math.sin(t) * Math.cos(t)) / k];
+    });
+    return poly(pts);
+  }
+  // circle, starting at the top and going clockwise
+  const r = 105;
+  const pts = Array.from({ length: 97 }, (_, i) => {
+    const a = (i / 96) * Math.PI * 2;
+    return [cx + r * Math.sin(a), cy - r * Math.cos(a)];
+  });
+  return poly(pts);
+};
+
+const DrawingGuide = ({ mode }) => {
+  const d = React.useMemo(() => guideShapeD(mode), [mode]);
+  const groupRef = useRef(null);
+  const drawnRef = useRef(null);
+  const handRef = useRef(null);
+  useEffect(() => {
+    const path = drawnRef.current;
+    if (!path) return undefined;
+    const len = path.getTotalLength();
+    path.style.strokeDasharray = `${len}`;
+    const cycle = GUIDE_DRAW_MS + GUIDE_HOLD_MS + GUIDE_FADE_MS + GUIDE_GAP_MS;
+    const t0 = performance.now();
+    let raf = 0;
+    const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2);
+    const frame = (now) => {
+      const t = (now - t0) % cycle;
+      let prog = 1, opacity = 1;
+      if (t < GUIDE_DRAW_MS) { prog = ease(t / GUIDE_DRAW_MS); opacity = Math.min(1, t / GUIDE_FADEIN_MS); }
+      else if (t < GUIDE_DRAW_MS + GUIDE_HOLD_MS) prog = 1;
+      else if (t < GUIDE_DRAW_MS + GUIDE_HOLD_MS + GUIDE_FADE_MS) opacity = 1 - (t - GUIDE_DRAW_MS - GUIDE_HOLD_MS) / GUIDE_FADE_MS;
+      else { prog = 0; opacity = 0; }
+      path.style.strokeDashoffset = `${len * (1 - prog)}`;
+      const pt = path.getPointAtLength(len * prog);
+      if (handRef.current) handRef.current.style.transform = `translate(${pt.x - 8}px, ${pt.y - 4}px)`;
+      if (groupRef.current) groupRef.current.style.opacity = `${opacity}`;
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [d]);
+  return (
+    <div ref={groupRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0 }}>
+      <svg width={GUIDE_W} height={GUIDE_H} style={{ position: 'absolute', left: 0, top: 0, filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.6))' }}>
+        <path d={d} fill="none" stroke="rgba(60,60,60,0.55)" strokeWidth="4" strokeDasharray="10 8" strokeLinejoin="round" />
+        <path ref={drawnRef} d={d} fill="none" stroke="#3a3a3a" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <img
+        ref={handRef}
+        src="/InteractableUI/GuideCursor.png"
+        alt=""
+        draggable={false}
+        style={{ position: 'absolute', left: 0, top: 0, width: 48, height: 48, imageRendering: 'pixelated', filter: 'drop-shadow(2px 3px 2px rgba(0,0,0,0.5))' }}
+      />
+    </div>
+  );
+};
+
+const DrawingCanvas = ({ onCircleDetected, mode = 'circle', guidePaused = false }) => {
   const canvasRef        = useRef(null);
   const particleCanvasRef = useRef(null);
   const particlesRef     = useRef([]);
@@ -19,6 +98,15 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle' }) => {
   const [points, setPoints]           = useState([]);
   const [magicCircle, setMagicCircle] = useState(null);
   const lastPointRef = useRef(null);
+
+  // Idle guide: shows 3 s after the canvas appears (or after a stroke that wasn't accepted), and goes away as
+  // soon as the player starts drawing, while the magic circle plays, or while the page asks for it to be paused.
+  const [guideOn, setGuideOn] = useState(false);
+  useEffect(() => {
+    if (isDrawing || magicCircle || guidePaused) { setGuideOn(false); return undefined; }
+    const t = setTimeout(() => setGuideOn(true), GUIDE_IDLE_MS);
+    return () => clearTimeout(t);
+  }, [isDrawing, magicCircle, guidePaused]);
 
   // ── stroke canvas setup ──
   useEffect(() => {
@@ -270,6 +358,8 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle' }) => {
           onContextMenu={handleContextMenu}
           style={{ background: 'transparent', display: 'block' }}
         />
+
+        {guideOn && <DrawingGuide mode={mode} />}
 
         {/* Particle canvas — sits on top, pointer-events off */}
         <canvas

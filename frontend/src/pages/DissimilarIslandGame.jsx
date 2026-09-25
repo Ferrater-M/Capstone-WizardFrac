@@ -1505,7 +1505,7 @@ const DissimilarIslandGame = ({
                     margin:0, color:'#ffffff', fontSize:'13px', fontWeight:900, whiteSpace:'nowrap',
                     textShadow:'0 0 8px rgba(0,0,0,1), 0 0 16px rgba(0,0,0,1), 3px 3px 0px rgba(0,0,0,1)',
                     zIndex:3, pointerEvents:'none',
-                  }}>Draw <span style={{ fontSize: '38px', verticalAlign: 'top', lineHeight: 0.6, position: 'relative', top: '-9px' }}>∞</span> to continue!</p>
+                  }}>Draw an infinity to continue!</p>
                 )}
 
                 {/* Drawing canvas or magic circle */}

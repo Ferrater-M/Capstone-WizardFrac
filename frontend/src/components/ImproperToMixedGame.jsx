@@ -38,6 +38,9 @@ const GUIDE_LOOP_MS = 2600;  // length of one guide demonstration
 // over the shards and every shard it touches flies into the first jar with room.
 export const MANUAL_MAX_SHARDS = 31;
 const SWEEP_R = 30;
+const BROOM_W = 88;                          // gemSweep.png is drawn this wide; its bristles' centre is at (49%, 78%) and it swings from the top of the handle (49%, 7%)
+const SWEEP_TEXT_DELAY = 500;                // "Sweep!" shows this long after the gem shatters
+const SWEEP_TEXT_SHOW = 3000;                // ...and stays this long (or until the player starts sweeping)
 const SETTLE_STAGGER = 0.12;
 const SETTLE_MOVE = 0.6;
 
@@ -221,6 +224,13 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
   const [locksGone, setLocksGone] = useState(false); // locks are removed once the jars move to their final spots
   const [sweepPos, setSweepPos] = useState(null);   // pointer position (stage units) while sweeping
   const sweepingRef = useRef(false);
+  const lastSweepRef = useRef({ x: null, dir: 1, tMove: 0 });   // previous pointer x, last movement direction + when it moved
+  const sweepPosRef = useRef(null);                              // latest pointer position while sweeping
+  const broomStartRef = useRef(0);                               // when the broom started rocking (to follow its swing)
+  const sweepPartId = useRef(0);
+  const [sweepParts, setSweepParts] = useState([]);    // particles the broom throws out the way it is moving
+  const [showSweepText, setShowSweepText] = useState(false);
+  const sweepStartedRef = useRef(false);
   const sweepGuideRef = useRef(null);
   const [guide, setGuide] = useState(null); // { key, shard, jar } while a demonstration is playing
   const shardsRef = useRef(shards);
@@ -284,6 +294,13 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
       shakeAudioRef.current?.pause();
       shakeAudioRef.current = null;
       playSfx('/SoundEffects/gemBreak.wav');
+      if (sweepMode) {
+        later(SWEEP_TEXT_DELAY, () => {
+          if (sweepStartedRef.current) return;
+          setShowSweepText(true);
+          later(SWEEP_TEXT_SHOW, () => setShowSweepText(false));
+        });
+      }
       setShards(prev => prev.map((s, i) => {
         const t = layoutRef.current.targets[i];
         return { ...s, x: t.x, y: t.y, rot: t.rot };
@@ -546,10 +563,42 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
       return prev.map(s => (s.id === id ? { ...s, jar, slot } : s));
     });
   };
+  // Particles keep coming for as long as the button is held, even without moving. While the pointer is moving they
+  // shoot out the way it moves (left -> left, right -> right); while it is still they follow the broom's own swing.
+  const sweeping = sweepPos !== null;
+  useEffect(() => {
+    if (!sweeping) return undefined;
+    const iv = setInterval(() => {
+      const p = sweepPosRef.current;
+      if (!p) return;
+      const now = performance.now();
+      const last = lastSweepRef.current;
+      // broomRock is 0.34 s: the first half swings the bristles to the left, the second half to the right.
+      const rockDir = (((now - broomStartRef.current) % 340) / 340) < 0.5 ? -1 : 1;
+      const dir = now - last.tMove < 150 ? last.dir : rockDir;
+      const fresh = Array.from({ length: 3 }, () => ({
+        id: ++sweepPartId.current, x: p.x, y: p.y + (Math.random() - 0.5) * 16,
+        px: dir * (30 + Math.random() * 50), py: (Math.random() - 0.5) * 34, size: 4 + Math.floor(Math.random() * 5),
+      }));
+      setSweepParts(prev => [...prev.slice(-45), ...fresh]);
+      const ids = fresh.map(f => f.id);
+      later(650, () => setSweepParts(prev => prev.filter(q => !ids.includes(q.id))));
+    }, 45);
+    return () => clearInterval(iv);
+  }, [sweeping]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Sweep mode: every loose shard under the pointer flies into the first jar with room.
   const sweepAt = (cx, cy) => {
     const p = toLocal(cx, cy);
     setSweepPos(p);
+    // Remember which way the pointer last moved; the particle emitter (below) uses it while the broom is moving.
+    const last = lastSweepRef.current;
+    if (last.x !== null && Math.abs(p.x - last.x) >= 3) {
+      last.dir = p.x > last.x ? 1 : -1;
+      last.tMove = performance.now();
+    }
+    sweepPosRef.current = p;
+    last.x = p.x;
     shardsRef.current
       .filter(sh => sh.jar < 0 && Math.hypot(sh.x + shardW / 2 - p.x, sh.y + shardH / 2 - p.y) <= SWEEP_R + shardH / 4)
       .forEach(sh => placeInJar(sh.id, -1));
@@ -669,6 +718,18 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
           0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--lr)) scale(0.4); }
           55% { opacity: 1; }
           100% { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+        }
+        @keyframes broomRock {
+          0%, 100% { transform: rotate(-24deg); }
+          50% { transform: rotate(24deg); }
+        }
+        @keyframes sweepPart {
+          0% { opacity: 1; transform: translate(0, 0) scale(1); }
+          100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0.3); }
+        }
+        @keyframes sweepFlash {
+          0%, 100% { color: #000; text-shadow: 2px 2px 0 #fff, 0 0 8px #fff; }
+          50% { color: #fff; text-shadow: 2px 2px 0 #000, 0 0 8px #000; }
         }
         @keyframes gemSlideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
@@ -969,20 +1030,50 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
         </div>
       )}
 
-      {/* Sweep mode: drag anywhere over the shards and each one touched flies into a jar. Leaves the bottom strip free
-          so the page's Check / Confirm / Hint buttons stay clickable. */}
+      {/* Sweep mode: drag anywhere over the shards and each one touched flies into a jar. While the button is held the
+          cursor turns into the broom (gemSweep.png), rocking right and left and throwing particles the way it moves.
+          Leaves the bottom strip free so the page's Check / Confirm / Hint buttons stay clickable. */}
       {sweepMode && phase === 'play' && !finalPhase && !done && (
         <div
-          onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); sweepingRef.current = true; sweepAt(e.clientX, e.clientY); }}
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            sweepingRef.current = true;
+            sweepStartedRef.current = true;
+            setShowSweepText(false);
+            lastSweepRef.current = { x: null, dir: 1, tMove: 0 };
+            broomStartRef.current = performance.now();
+            sweepAt(e.clientX, e.clientY);
+          }}
           onPointerMove={(e) => { if (sweepingRef.current) sweepAt(e.clientX, e.clientY); }}
-          onPointerUp={() => { sweepingRef.current = false; setSweepPos(null); }}
-          onPointerCancel={() => { sweepingRef.current = false; setSweepPos(null); }}
-          style={{ position: 'absolute', left: 0, top: 0, width: STAGE_W, height: STAGE_H - 56, zIndex: 29, pointerEvents: 'auto', touchAction: 'none', cursor: 'grab' }}
+          onPointerUp={() => { sweepingRef.current = false; lastSweepRef.current.x = null; sweepPosRef.current = null; setSweepPos(null); }}
+          onPointerCancel={() => { sweepingRef.current = false; lastSweepRef.current.x = null; sweepPosRef.current = null; setSweepPos(null); }}
+          style={{ position: 'absolute', left: 0, top: 0, width: STAGE_W, height: STAGE_H - 56, zIndex: 29, pointerEvents: 'auto', touchAction: 'none', cursor: sweepPos ? 'none' : 'grab' }}
         >
+          {sweepParts.map(q => (
+            <div key={q.id} style={{ position: 'absolute', left: q.x, top: q.y, width: q.size, height: q.size, background: '#4a4a4a', pointerEvents: 'none', '--px': q.px + 'px', '--py': q.py + 'px', animation: 'sweepPart 0.55s ease-out forwards' }} />
+          ))}
           {sweepPos && (
-            <div style={{ position: 'absolute', left: sweepPos.x - SWEEP_R, top: sweepPos.y - SWEEP_R, width: SWEEP_R * 2, height: SWEEP_R * 2, borderRadius: '50%', border: '3px dashed rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.18)', boxShadow: '0 0 10px rgba(255,255,255,0.8)', pointerEvents: 'none' }} />
+            <img
+              src="/InteractableUI/gemSweep.png"
+              alt=""
+              draggable={false}
+              style={{
+                position: 'absolute', left: sweepPos.x - BROOM_W * 0.49, top: sweepPos.y - BROOM_W * 0.78, width: BROOM_W, height: BROOM_W,
+                pointerEvents: 'none', transformOrigin: '49% 7%', animation: 'broomRock 0.34s ease-in-out infinite',
+                filter: 'drop-shadow(4px 6px 3px rgba(0,0,0,0.55))',
+              }}
+            />
           )}
         </div>
+      )}
+
+      {/* "Sweep!" — flashes black and white in the middle a few seconds after the gem shatters, until the player starts sweeping */}
+      {sweepMode && showSweepText && (phase === 'shatter' || phase === 'play') && !finalPhase && !done && (
+        <div style={{
+          position: 'absolute', left: STAGE_W / 2, top: STAGE_H / 2, transform: 'translate(-50%, -50%)', zIndex: 31,
+          pointerEvents: 'none', fontSize: 30, fontWeight: 900, whiteSpace: 'nowrap', fontFamily: FONT,
+          animation: 'sweepFlash 0.25s ease-in-out infinite',
+        }}>Sweep!</div>
       )}
 
       {/* Idle guide: transparent shard (no sparkle behind it) dragged to a jar by the guide cursor */}

@@ -1388,10 +1388,14 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
       return next;
     });
 
+  // Whether something has been typed into the current input yet (drives the side label, see oldNumberLabel).
+  const [typedOnce, setTypedOnce] = useState(false);
   useEffect(() => {
     setInputVal('');
     setInputError(false);
+    setTypedOnce(false);
   }, [frac.step, fracIndex]);
+  useEffect(() => { if (inputVal !== '') setTypedOnce(true); }, [inputVal]);
 
   // ── idle drag guide (same as Dissimilar Island / the Butterfly stage) ──
   // After 2 s without input, a transparent ghost of the pending drag plays with the guide cursor: D onto W first,
@@ -1751,27 +1755,21 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
   };
 
   // The number the token was dragged ONTO, shown to the RIGHT of the input with the operation ("× 3" for D onto W,
-  // "+ 6" for the product onto N) while the dragged number itself becomes the input's placeholder (in place of the
-  // "?"), so it reads as the sum being worked out. It slides out and, once the answer is right, fades slowly away
-  // while particles play — same idea as the old numerator beside a cross-product box in the Butterfly stage.
-  const oldNumberLabel = (val, solved) => (
+  // "+ 6" for the product onto N) while the dragged number itself is the input's placeholder (in place of the "?"),
+  // so it reads as the sum being worked out. It slides out when the input appears. As soon as something is typed it
+  // shines white and disappears fast; if the input is emptied again it flashes and comes back.
+  const oldNumberLabel = (val) => (
     <div style={{
       position: 'absolute', top: 0, height: TOKEN_SIZE, left: '100%', marginLeft: 10,
       display: 'flex', alignItems: 'center',
       fontSize: 16, fontWeight: 900, color: '#ffffff', fontFamily: '"Press Start 2P", monospace',
       whiteSpace: 'nowrap', pointerEvents: 'none',
       textShadow: '2px 2px 0 #000, 0 0 6px #000, 0 0 12px #000',
-      animation: solved ? 'oldNFadeAway 1.8s ease-out forwards' : 'oldNSlideRight 0.35s cubic-bezier(0.22, 1, 0.36, 1) both',
+      animation: !typedOnce ? 'oldNSlideRight 0.35s cubic-bezier(0.22, 1, 0.36, 1) both'
+        : inputVal !== '' ? 'oldNShineOut 0.4s ease-out forwards'
+        : 'oldNShineIn 0.45s ease-out both',
     }}>
       {val}
-      {solved && [
-        { dx: '-26px', dy: '-26px', s: 6, t: 0 }, { dx: '0px', dy: '-34px', s: 5, t: 0.1 }, { dx: '26px', dy: '-26px', s: 6, t: 0.2 },
-        { dx: '34px', dy: '0px', s: 5, t: 0.3 }, { dx: '26px', dy: '26px', s: 6, t: 0.4 }, { dx: '0px', dy: '34px', s: 5, t: 0.5 },
-        { dx: '-26px', dy: '26px', s: 6, t: 0.6 }, { dx: '-34px', dy: '0px', s: 5, t: 0.7 },
-        { dx: '-14px', dy: '-40px', s: 4, t: 0.8 }, { dx: '16px', dy: '-38px', s: 4, t: 0.9 }, { dx: '38px', dy: '14px', s: 4, t: 1.0 }, { dx: '-38px', dy: '16px', s: 4, t: 1.1 },
-      ].map((d2, i) => (
-        <div key={i} style={{ position: 'absolute', left: '50%', top: '50%', width: d2.s, height: d2.s, background: '#ffffff', opacity: 0, pointerEvents: 'none', '--dx': d2.dx, '--dy': d2.dy, animation: `squareBurst 0.8s ${d2.t}s ease-out forwards` }} />
-      ))}
     </div>
   );
 
@@ -1870,6 +1868,16 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
           50%       { transform: translateX(-50%) translateY(-7px); }
         }
         .forgeInput::placeholder { color: rgba(255,255,255,0.5); opacity: 1; }
+        @keyframes oldNShineOut {
+          0%   { opacity: 1; text-shadow: 2px 2px 0 #000, 0 0 6px #000, 0 0 12px #000; }
+          20%  { opacity: 1; text-shadow: 0 0 8px #fff, 0 0 18px #fff, 0 0 30px #fff; }
+          100% { opacity: 0; text-shadow: 0 0 8px #fff, 0 0 18px #fff; }
+        }
+        @keyframes oldNShineIn {
+          0%   { opacity: 0; text-shadow: 0 0 8px #fff, 0 0 18px #fff; }
+          35%  { opacity: 1; text-shadow: 0 0 8px #fff, 0 0 18px #fff, 0 0 30px #fff; }
+          100% { opacity: 1; text-shadow: 2px 2px 0 #000, 0 0 6px #000, 0 0 12px #000; }
+        }
         @keyframes forgePulseDen {
           0%,100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.6); }
           50%      { box-shadow: 0 0 0 8px rgba(255,255,255,0); }
@@ -1987,7 +1995,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
                     }}
                   />
                 ) : frac.step === 'ask_sum' ? frac.product : w}
-                {(frac.step === 'ask_product' || frac.step === 'ask_sum') && oldNumberLabel(`× ${w}`, frac.step === 'ask_sum')}
+                {frac.step === 'ask_product' && oldNumberLabel(`× ${w}`)}
               </div>
             )}
 
@@ -2006,7 +2014,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
                     }}
                   />
                 ) : frac.step === 'done' ? frac.improper_n : n}
-                {(frac.step === 'ask_sum_input' || frac.step === 'done') && oldNumberLabel(`+ ${n}`, frac.step === 'done')}
+                {frac.step === 'ask_sum_input' && oldNumberLabel(`+ ${n}`)}
               </div>
             )}
 
@@ -3198,7 +3206,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
           result; for an improper result the gem game has already converted it (jars = whole, leftover shards =
           numerator). Steady (no bobbing) so the jars and shards can settle beside the inputs. */}
       {finalAnswerPhase && (() => {
-        const inputBase = { fontWeight: 800, textAlign: 'center', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#555555', color: '#ffffff', outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace', WebkitAppearance: 'none' };
+        const inputBase = { fontWeight: 800, textAlign: 'center', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', color: '#ffffff', outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace', WebkitAppearance: 'none' };
         const fieldStyle = { ...inputBase, width: 60, height: 44, fontSize: 20 };
         const unsimpStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, animation: 'unsimpSlide 0.6s ease-out', color: '#000', fontWeight: 800, fontSize: 20, fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' };
         const unsimpFraction = unsimplified && (
@@ -3220,7 +3228,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
           <div style={{ position: 'absolute', top: '32px', left: 0, right: 0, height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, opacity: hideFinal ? 0 : 1, pointerEvents: hideFinal ? 'none' : 'auto', transition: 'opacity 0.3s ease' }}>
             <style>{`@keyframes unsimpSlide { from { transform: translateX(-90px); opacity: 0.2; } to { transform: translateX(0); opacity: 1; } }`}</style>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'numFadeIn 0.5s ease-out both' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#555555' }}>Final Answer:</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
               {fIsWhole ? (
                 <input ref={finalNumRef} data-final="whole" type="text" inputMode="numeric" value={finalNumInput} placeholder="?" onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
               ) : fIsImproper ? (
@@ -3231,14 +3239,14 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
                     style={{
                       ...fieldStyle,
                       border: unsimplified ? '3px solid transparent' : '3px dashed #e8d5b4',
-                      background: unsimplified ? 'transparent' : '#555555',
+                      background: unsimplified ? 'transparent' : '#333333',
                       color: unsimplified ? '#000000' : '#ffffff',
                       textShadow: unsimplified ? '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' : 'none',
                       transition: 'all 0.5s ease',
                     }} />
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                     {numField(null)}
-                    <div style={{ width: 70, height: 3, background: '#555555', borderRadius: 2 }} />
+                    <div style={{ width: 70, height: 3, background: '#333333', borderRadius: 2 }} />
                     {denField}
                   </div>
                   {unsimpFraction}
@@ -3246,7 +3254,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, position: 'relative' }}>
                   {numField(finalNumRef)}
-                  <div style={{ width: 80, height: 3, background: '#555555', borderRadius: 2 }} />
+                  <div style={{ width: 80, height: 3, background: '#333333', borderRadius: 2 }} />
                   {denField}
                   {unsimpFraction}
                 </div>
