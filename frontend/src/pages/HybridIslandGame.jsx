@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
+import InputGuideCursor from '../components/InputGuideCursor';
+import ImproperToMixedGame, { MANUAL_MAX_SHARDS } from '../components/ImproperToMixedGame';
 import HybridFractionTutorial from '../components/HybridFractionTutorial';
 import GameMenuModal from '../components/GameMenuModal';
 import SettingsPage from './SettingsPage';
@@ -17,6 +19,10 @@ import { API_BASE_URL } from '../config';
 // (e.g. 3 1/4 − 2 3/4 → whole 1, numerator −2) — useful for debugging/testing
 // against that case without a full borrowing mechanic built for it yet.
 const ALLOW_MIXED_BORROWING = false;
+
+// Most shards the gem game will be asked to show after the butterfly (the enlarged panel + sweep-to-collect handle
+// anything above MANUAL_MAX_SHARDS up to this many).
+const HYBRID_MAX_SHARDS = 60;
 
 // Pixel-corner bracket decoration — identical to Similar/Dissimilar Island's `corners()`.
 // Module-level (not nested in HybridIslandGame) so every stage component below can use
@@ -55,7 +61,7 @@ const buttonCorners = (color) => (
 // ever appears when that button is actually clicked, never automatically.
 // ─────────────────────────────────────────────────────────────────────────────
 const SolveButtonRow = ({ label, onConfirm, confirmEnabled, onHint }) => (
-  <div style={{ position: 'absolute', bottom: 12, left: '50%', display: 'flex', gap: 10, zIndex: 4, animation: 'nAreaFadeIn 0.5s ease-out forwards' }}>
+  <div style={{ position: 'absolute', bottom: 12, left: '50%', display: 'flex', gap: 10, zIndex: 4, pointerEvents: 'auto', animation: 'nAreaFadeIn 0.5s ease-out forwards' }}>
     <button
       onClick={onConfirm}
       disabled={!confirmEnabled}
@@ -1317,7 +1323,7 @@ const NODE_POS = {
 //   problem         – full problem object
 //   onForgeComplete – ({ imp1: {n,d}, imp2: {n,d} }) called when both fractions are done
 // ─────────────────────────────────────────────────────────────────────────────
-const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHint, onGestureStart }) => {
+const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHint, onGestureStart, guidesPaused = false }) => {
   const [showHint, setShowHint] = useState(true);
   const [gestureDone, setGestureDone] = useState(false);
   const [fracIndex, setFracIndex] = useState(0);
@@ -1386,6 +1392,57 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
     setInputVal('');
     setInputError(false);
   }, [frac.step, fracIndex]);
+
+  // ── idle drag guide (same as Dissimilar Island / the Butterfly stage) ──
+  // After 2 s without input, a transparent ghost of the pending drag plays with the guide cursor: D onto W first,
+  // then the product (W) onto N. Only clicking the token that has to be dragged dismisses it.
+  const GUIDE_LOOP_MS = 2600;
+  const forgeRootRef = useRef(null);
+  const [guideActive, setGuideActive] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
+  const guideTimerRef = useRef(null);
+  const guideActiveRef = useRef(false);
+  const guideStepKey = frac.step === 'drag_den' ? 'den' : frac.step === 'ask_sum' ? 'product' : null;
+  const guideEligible = gestureDone && allLanded && !!guideStepKey && !dragKey && !guidesPaused
+    && !forgeFailSequence && !shattering && !forgeCompleting;
+
+  useEffect(() => {
+    if (!guideEligible) {
+      clearTimeout(guideTimerRef.current);
+      guideActiveRef.current = false;
+      setGuideActive(false);
+      return undefined;
+    }
+    const cont = forgeRootRef.current;
+    const show = () => { guideActiveRef.current = true; setGuideStep(0); setGuideActive(true); };
+    const arm = (e) => {
+      if (guideActiveRef.current) {
+        const t = e?.target;
+        const pending = guideStepKey === 'den' ? denRef.current : wholeRef.current;
+        const onToken = e?.type === 'pointerdown' && pending && pending.contains(t);
+        if (!onToken) return;
+        guideActiveRef.current = false;
+        setGuideActive(false);
+      }
+      clearTimeout(guideTimerRef.current);
+      guideTimerRef.current = setTimeout(show, 2000);
+    };
+    arm();
+    const evs = ['pointerdown', 'pointermove', 'keydown'];
+    evs.forEach(ev => cont?.addEventListener(ev, arm, true));
+    window.addEventListener('keydown', arm);
+    return () => {
+      clearTimeout(guideTimerRef.current);
+      evs.forEach(ev => cont?.removeEventListener(ev, arm, true));
+      window.removeEventListener('keydown', arm);
+    };
+  }, [guideEligible, guideStepKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!guideActive) return undefined;
+    const iv = setInterval(() => setGuideStep(n => n + 1), GUIDE_LOOP_MS);
+    return () => clearInterval(iv);
+  }, [guideActive]);
 
   // Fly the numbers in whenever a fraction becomes current — mirrors handleCircleDetected
   // on Similar Island: each bubble launches from the exact spot its digit is shown in
@@ -1693,6 +1750,31 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
     onGestureStart?.();
   };
 
+  // The number the token was dragged ONTO, shown to the RIGHT of the input with the operation ("× 3" for D onto W,
+  // "+ 6" for the product onto N) while the dragged number itself becomes the input's placeholder (in place of the
+  // "?"), so it reads as the sum being worked out. It slides out and, once the answer is right, fades slowly away
+  // while particles play — same idea as the old numerator beside a cross-product box in the Butterfly stage.
+  const oldNumberLabel = (val, solved) => (
+    <div style={{
+      position: 'absolute', top: 0, height: TOKEN_SIZE, left: '100%', marginLeft: 10,
+      display: 'flex', alignItems: 'center',
+      fontSize: 16, fontWeight: 900, color: '#ffffff', fontFamily: '"Press Start 2P", monospace',
+      whiteSpace: 'nowrap', pointerEvents: 'none',
+      textShadow: '2px 2px 0 #000, 0 0 6px #000, 0 0 12px #000',
+      animation: solved ? 'oldNFadeAway 1.8s ease-out forwards' : 'oldNSlideRight 0.35s cubic-bezier(0.22, 1, 0.36, 1) both',
+    }}>
+      {val}
+      {solved && [
+        { dx: '-26px', dy: '-26px', s: 6, t: 0 }, { dx: '0px', dy: '-34px', s: 5, t: 0.1 }, { dx: '26px', dy: '-26px', s: 6, t: 0.2 },
+        { dx: '34px', dy: '0px', s: 5, t: 0.3 }, { dx: '26px', dy: '26px', s: 6, t: 0.4 }, { dx: '0px', dy: '34px', s: 5, t: 0.5 },
+        { dx: '-26px', dy: '26px', s: 6, t: 0.6 }, { dx: '-34px', dy: '0px', s: 5, t: 0.7 },
+        { dx: '-14px', dy: '-40px', s: 4, t: 0.8 }, { dx: '16px', dy: '-38px', s: 4, t: 0.9 }, { dx: '38px', dy: '14px', s: 4, t: 1.0 }, { dx: '-38px', dy: '16px', s: 4, t: 1.1 },
+      ].map((d2, i) => (
+        <div key={i} style={{ position: 'absolute', left: '50%', top: '50%', width: d2.s, height: d2.s, background: '#ffffff', opacity: 0, pointerEvents: 'none', '--dx': d2.dx, '--dy': d2.dy, animation: `squareBurst 0.8s ${d2.t}s ease-out forwards` }} />
+      ))}
+    </div>
+  );
+
   // ── token styles — grey background, broken (dashed) white border, white numbers ──
   const token = (extra = {}) => ({
     position: 'absolute', width: TOKEN_SIZE, height: TOKEN_SIZE, borderRadius: 0,
@@ -1779,7 +1861,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={forgeRootRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       {riseParticles()}
       {/* Book — always visible underneath, identical to the pre-draw state */}
       <style>{`
@@ -1787,6 +1869,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
           0%, 100% { transform: translateX(-50%) translateY(0); }
           50%       { transform: translateX(-50%) translateY(-7px); }
         }
+        .forgeInput::placeholder { color: rgba(255,255,255,0.5); opacity: 1; }
         @keyframes forgePulseDen {
           0%,100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.6); }
           50%      { box-shadow: 0 0 0 8px rgba(255,255,255,0); }
@@ -1894,15 +1977,17 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
               >
                 {frac.step === 'ask_product' ? (
                   <input
-                    autoFocus type="text" inputMode="numeric" value={inputVal} placeholder="?"
+                    className="forgeInput"
+                    autoFocus type="text" inputMode="numeric" value={inputVal} placeholder={String(d)}
                     onChange={e => setInputVal(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown}
                     style={{
                       width: '100%', height: '100%', textAlign: 'center', fontSize: 20, fontWeight: 800,
                       fontFamily: '"Press Start 2P", monospace', background: 'transparent',
-                      border: 'none', outline: 'none', color: inputError ? '#ff8a8a' : 'inherit', padding: 0,
+                      border: 'none', outline: 'none', color: 'inherit', padding: 0,
                     }}
                   />
                 ) : frac.step === 'ask_sum' ? frac.product : w}
+                {(frac.step === 'ask_product' || frac.step === 'ask_sum') && oldNumberLabel(`× ${w}`, frac.step === 'ask_sum')}
               </div>
             )}
 
@@ -1911,15 +1996,17 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
               <div ref={numRef} style={numStyle()}>
                 {frac.step === 'ask_sum_input' ? (
                   <input
-                    autoFocus type="text" inputMode="numeric" value={inputVal} placeholder="?"
+                    className="forgeInput"
+                    autoFocus type="text" inputMode="numeric" value={inputVal} placeholder={String(frac.product)}
                     onChange={e => setInputVal(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown}
                     style={{
                       width: '100%', height: '100%', textAlign: 'center', fontSize: 20, fontWeight: 800,
                       fontFamily: '"Press Start 2P", monospace', background: 'transparent',
-                      border: 'none', outline: 'none', color: inputError ? '#ff8a8a' : 'inherit', padding: 0,
+                      border: 'none', outline: 'none', color: 'inherit', padding: 0,
                     }}
                   />
                 ) : frac.step === 'done' ? frac.improper_n : n}
+                {(frac.step === 'ask_sum_input' || frac.step === 'done') && oldNumberLabel(`+ ${n}`, frac.step === 'done')}
               </div>
             )}
 
@@ -1934,6 +2021,31 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
                 {d}
               </div>
             )}
+
+            {/* Idle guide: transparent ghost of the pending drag (D onto W, then the product onto N) + guide cursor */}
+            {guideActive && guideEligible && (() => {
+              const from = guideStepKey === 'den' ? 'd' : 'w';
+              const to = guideStepKey === 'den' ? 'w' : 'n';
+              const f = landedPos(from), t = landedPos(to);
+              const gx = t.left - f.left, gy = t.top - f.top;
+              const val = guideStepKey === 'den' ? d : frac.product;
+              const anim = `guideMove ${GUIDE_LOOP_MS}ms ease-in-out forwards`;
+              return (
+                <div key={guideStep} style={{ position: 'absolute', left: 0, top: 0, width: 0, height: 0, pointerEvents: 'none', zIndex: 9, '--gx': gx + 'px', '--gy': gy + 'px' }}>
+                  <div style={{ position: 'absolute', left: f.left, top: f.top, width: TOKEN_SIZE, height: TOKEN_SIZE, opacity: 0.5 }}>
+                    <div style={{
+                      width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 20, fontWeight: 800, color: '#ffffff', border: '3px dashed #e8d5b4', borderRadius: 0,
+                      background: '#333333', fontFamily: '"Press Start 2P", monospace', animation: anim,
+                    }}>{val}</div>
+                  </div>
+                  <img src="/InteractableUI/GuideCursor.png" alt="" draggable={false} style={{
+                    position: 'absolute', left: f.left + TOKEN_SIZE - 8, top: f.top + TOKEN_SIZE - 4, width: 48, height: 48,
+                    imageRendering: 'pixelated', animation: anim,
+                  }} />
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -2074,7 +2186,7 @@ const BUTTERFLY_LABEL_POS = {
 //   onAnswerSubmit – ({numerator, denominator}) called once the final answer is confirmed correct
 //   onWrongAnswer  – (hint, submittedValue, errorType, onResolved) called on a hard fail / wrong final answer
 // ─────────────────────────────────────────────────────────────────────────────
-const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestHint, onGestureStart }) => {
+const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestHint, onGestureStart, guidesPaused = false, onSdSolvedChange, onEnlargeChange, panelScale = 1 }) => {
   const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
 
   const [showHint, setShowHint] = useState(true);
@@ -2127,6 +2239,19 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
   const [finalNumInput, setFinalNumInput] = useState('');
   const [finalDenInput, setFinalDenInput] = useState('');
   const finalNumRef = useRef(null);
+  const [finalWholeInput, setFinalWholeInput] = useState('');
+  // Improper -> mixed (gem/jar game) runs first, then the answer is simplified — same flow as Similar/Dissimilar Island.
+  const [carryPhase, setCarryPhase] = useState(false);
+  const [carryFinal, setCarryFinal] = useState(false);
+  const [finalInputsShown, setFinalInputsShown] = useState(false);
+  const [carryUi, setCarryUi] = useState({ stage: 'none', canSubmit: false, prompt: '' });
+  const [carryStart, setCarryStart] = useState(null);
+  const carryActionRef = useRef(null);
+  const [unsimplified, setUnsimplified] = useState(null);
+  const [perfectPopup, setPerfectPopup] = useState(false);
+  // Big results only: the jars' fraction counts fade out as soon as the enlarged panel starts to shrink.
+  const [countsHidden, setCountsHidden] = useState(false);
+  const perfectTimeoutRef = useRef(null);
 
   const [circleFailCount, setCircleFailCount] = useState(0);
   const [circleMistakes, setCircleMistakes] = useState([]);
@@ -2148,6 +2273,68 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
 
   const d1 = problem.denominator1, d2 = problem.denominator2;
   const n1 = problem.numerator1,   n2 = problem.numerator2;
+
+  // Tell the parent when the new denominator (SD) is solved, so it can glow under the problem.
+  useEffect(() => { onSdSolvedChange?.(sdCorrect); }, [sdCorrect]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => onSdSolvedChange?.(false), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── idle drag guide (same as Dissimilar Island) ──
+  // After 2 s without input, a transparent ghost of the next drag (D onto its opposite N, or D1 <-> D2)
+  // plays with the guide cursor, only for drags the player hasn't done yet. Only clicking a D dismisses it.
+  const GUIDE_LOOP_MS = 2600;
+  const stageRootRef = useRef(null);
+  const [guideActive, setGuideActive] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
+  const guideTimerRef = useRef(null);
+  const guideActiveRef = useRef(false);
+  const guideActions = [];
+  if (!n2CrossPhase) guideActions.push({ from: 'd1', to: 'n2' });
+  if (!n1CrossPhase) guideActions.push({ from: 'd2', to: 'n1' });
+  // Combining the denominators works in either direction.
+  if (!denominatorPhase && !sdBlinking && !sdCorrect) guideActions.push({ from: 'd1', to: 'd2' }, { from: 'd2', to: 'd1' });
+  const crossInputPending = (n1CrossPhase === 'blinking' && !n1CrossConfirmed) || (n2CrossPhase === 'blinking' && !n2CrossConfirmed);
+  const guideEligible = circleDetected && interactableVisible && n1Visible && d1Visible && n2Visible && d2Visible
+    && !guidesPaused && !circleFailSequence && !finalAnswerPhase && !carryPhase && !centerPhase && !crossExplosion && !dragScreenPos
+    && (!denominatorPhase || confirmPressed) && !crossInputPending && guideActions.length > 0;
+  const guideKey = guideActions.map(a => `${a.from}${a.to}`).join('|');
+
+  useEffect(() => {
+    if (!guideEligible) {
+      clearTimeout(guideTimerRef.current);
+      guideActiveRef.current = false;
+      setGuideActive(false);
+      return undefined;
+    }
+    const cont = stageRootRef.current;
+    const show = () => { guideActiveRef.current = true; setGuideStep(0); setGuideActive(true); };
+    // While the guide is up only a click on a D dismisses it; before that, any activity restarts the 2 s wait.
+    const arm = (e) => {
+      if (guideActiveRef.current) {
+        const t = e?.target;
+        const onD = e?.type === 'pointerdown' && (d1OverlayRef.current?.contains(t) || d2OverlayRef.current?.contains(t));
+        if (!onD) return;
+        guideActiveRef.current = false;
+        setGuideActive(false);
+      }
+      clearTimeout(guideTimerRef.current);
+      guideTimerRef.current = setTimeout(show, 2000);
+    };
+    arm();
+    const evs = ['pointerdown', 'pointermove', 'keydown'];
+    evs.forEach(ev => cont?.addEventListener(ev, arm, true));
+    window.addEventListener('keydown', arm);
+    return () => {
+      clearTimeout(guideTimerRef.current);
+      evs.forEach(ev => cont?.removeEventListener(ev, arm, true));
+      window.removeEventListener('keydown', arm);
+    };
+  }, [guideEligible, guideKey]);
+
+  useEffect(() => {
+    if (!guideActive) return undefined;
+    const iv = setInterval(() => setGuideStep(n => n + 1), GUIDE_LOOP_MS);
+    return () => clearInterval(iv);
+  }, [guideActive]);
 
   // ── fly-in ──
   const triggerNumberFlyIn = () => {
@@ -2442,14 +2629,53 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
 
   // ── final answer ──
   useEffect(() => {
-    if (centerCorrect && !finalAnswerPhase) {
+    if (centerCorrect && !finalAnswerPhase && !carryPhase) {
       setTimeout(() => {
+        if (needsCarry) {
+          // Improper result: convert to a mixed number first (gem/jar game), starting from the centre node
+          // (numerator) and the SD node (denominator). Big results get an enlarged panel and sweep-to-collect.
+          const cont = stageRootRef.current;
+          const nEl = cont?.querySelector('[data-carry="n"]');
+          const dEl = cont?.querySelector('[data-carry="d"]');
+          if (cont && nEl && dEl) {
+            const cr = cont.getBoundingClientRect();
+            const sc = cr.width / cont.offsetWidth || 1;
+            const center = (el) => {
+              const r = el.getBoundingClientRect();
+              return { x: (r.left + r.width / 2 - cr.left) / sc, y: (r.top + r.height / 2 - cr.top) / sc };
+            };
+            setCarryStart({ n: center(nEl), d: center(dEl) });
+          }
+          setCarryPhase(true);
+          return;
+        }
         setFinalAnswerPhase(true);
-        setFinalNumInput(''); setFinalDenInput('');
+        setFinalWholeInput(''); setFinalNumInput(''); setFinalDenInput('');
         setTimeout(() => finalNumRef.current?.focus(), 100);
       }, 1200);
     }
   }, [centerCorrect]);
+
+  // Gem game finished: shrink the panel back first (when it was enlarged), then show the final inputs.
+  const revealFinalAnswer = () => {
+    const wasBig = rawNum > MANUAL_MAX_SHARDS;
+    if (wasBig) { setCountsHidden(true); onEnlargeChange?.(false); }
+    setTimeout(() => {
+      setCarryFinal(true);
+      setFinalAnswerPhase(true);
+      setFinalWholeInput(''); setFinalNumInput(''); setFinalDenInput('');
+    }, wasBig ? 650 : 0);
+  };
+  // The panel only grows once the quotient has been answered correctly (the gem game moves on to the jars).
+  useEffect(() => {
+    if (carryPhase && !carryFinal && carryUi.stage === 'confirm' && rawNum > MANUAL_MAX_SHARDS) onEnlargeChange?.(true);
+  }, [carryPhase, carryFinal, carryUi.stage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleFinalSettled = () => {
+    playSfx('/SoundEffects/circleAppear.wav');
+    setFinalInputsShown(true);
+    setTimeout(() => finalNumRef.current?.focus(), 100);
+  };
 
   const crossSum = () => {
     const n1s = d2 * n1, n2s = d1 * n2;
@@ -2460,6 +2686,17 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
   const fG = gcd(Math.abs(rawNum), rawDen) || 1;
   const fSNum = rawNum / fG, fSDen = rawDen / fG;
   const fIsWhole = fSDen === 1;
+  const fIsImproper = !fIsWhole && fSNum > fSDen;
+  const needsCarry = rawNum >= rawDen;
+  const rawWhole = Math.floor(rawNum / rawDen);
+  const rawLeft = rawNum - rawWhole * rawDen;
+  const targetWhole = fIsImproper ? Math.floor(fSNum / fSDen) : 0;
+  const targetNum = fIsImproper ? fSNum % fSDen : fSNum;
+  const simplifyHintText = rawWhole > 0
+    ? `Simplify: ${rawWhole}${rawLeft ? ` ${rawLeft}/${rawDen}` : ''}`
+    : `Simplify: ${rawNum}/${rawDen}`;
+  const carryActive = carryPhase && !carryFinal;
+  const hideFinal = carryPhase && carryFinal && !finalInputsShown;
 
   // ── fail system ──
   const resetCircleState = () => {
@@ -2480,7 +2717,12 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
     if (n2CrossParticleIvRef.current) { clearInterval(n2CrossParticleIvRef.current); n2CrossParticleIvRef.current = null; }
     setCenterPhase(null); setCenterVal(''); setCenterCorrect(false); setCenterConfirmed(false);
     setCenterParticles([]); if (centerParticleIvRef.current) { clearInterval(centerParticleIvRef.current); centerParticleIvRef.current = null; }
-    setFinalAnswerPhase(false);
+    setFinalAnswerPhase(false); setFinalWholeInput('');
+    setCarryPhase(false); setCarryFinal(false); setFinalInputsShown(false); setCarryStart(null);
+    setCarryUi({ stage: 'none', canSubmit: false, prompt: '' });
+    setUnsimplified(null);
+    setCountsHidden(false);
+    onEnlargeChange?.(false);
     setCircleFailCount(0); setCircleMistakes([]); setCircleShaking(false);
     setFlyBubbles(null);
     setInMagnetZone({ n1: false, n2: false, d1: false, d2: false });
@@ -2533,10 +2775,14 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
   const n1Active      = n1CrossPhase === 'blinking' && !n1CrossConfirmed && !!n1CrossVal && !circleFailSequence;
   const n2Active      = n2CrossPhase === 'blinking' && !n2CrossConfirmed && !!n2CrossVal && !circleFailSequence;
   const centerActive  = centerPhase === 'blinking' && !centerConfirmed && !!centerVal && !circleFailSequence;
-  const finalActive   = finalAnswerPhase && (fIsWhole ? !!finalNumInput : !!finalNumInput && !!finalDenInput);
-  const confirmEnabled = sdActive || n1Active || n2Active || centerActive || finalActive;
+  const finalFilled   = fIsWhole ? !!finalNumInput
+    : fIsImproper ? !!(finalWholeInput && finalNumInput && finalDenInput)
+    : !!(finalNumInput && finalDenInput);
+  const finalActive   = finalAnswerPhase && !hideFinal && finalFilled;
+  const confirmEnabled = carryActive ? carryUi.canSubmit : (sdActive || n1Active || n2Active || centerActive || finalActive);
 
   const handleConfirm = () => {
+    if (carryActive) { carryActionRef.current?.(); return; }
     if (sdActive) {
       const sdAns = d1 * d2;
       if (parseInt(sdInputVal) === sdAns) {
@@ -2600,27 +2846,49 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
     } else if (finalActive) {
       if (actionLocked.current) return;
       actionLocked.current = true;
+      const wv = fIsImproper ? parseInt(finalWholeInput) : 0;
+      const nv = parseInt(finalNumInput), dv = parseInt(finalDenInput);
+      // Right whole number (if any) and an equivalent but unreduced fraction: don't fail yet, ask for the simplified form.
+      const equivalent = !fIsWhole && nv > 0 && dv > 0 && wv === targetWhole && nv * fSDen === targetNum * dv;
+      if (equivalent && !unsimplified && !(nv === targetNum && dv === fSDen)) {
+        setUnsimplified({ n: nv, d: dv });
+        setFinalNumInput(''); setFinalDenInput('');
+        actionLocked.current = false;
+        playSfx('/SoundEffects/starAppear.wav');
+        onRequestHint?.('Can be simplified!');
+        setTimeout(() => document.querySelector('[data-final="num"]')?.focus(), 60);
+        return;
+      }
       const correct = fIsWhole
-        ? parseInt(finalNumInput) === fSNum
-        : parseInt(finalNumInput) === fSNum && parseInt(finalDenInput) === fSDen;
+        ? nv === fSNum
+        : wv === targetWhole && nv === targetNum && dv === fSDen;
+      if (correct && !fIsWhole && !unsimplified && (fIsImproper ? rawLeft > 0 && gcd(rawLeft, rawDen) > 1 : gcd(rawNum, rawDen) > 1)) {
+        // Went straight to the simplified answer without the unsimplified step first.
+        setPerfectPopup(true);
+        playSfx('/SoundEffects/perfectEffect.wav');
+        if (perfectTimeoutRef.current) clearTimeout(perfectTimeoutRef.current);
+        perfectTimeoutRef.current = setTimeout(() => setPerfectPopup(false), 2250);
+      }
       setFinalAnswerPhase(false);
       setInteractableVisible(false);
       if (correct) {
         setTimeout(() => {
           actionLocked.current = false;
-          onAnswerSubmit({ numerator: fSNum, denominator: fSDen });
+          onAnswerSubmit(
+            fIsWhole ? { whole: fSNum, numerator: 0, denominator: 1 }
+            : fIsImproper ? { whole: targetWhole, numerator: targetNum, denominator: fSDen }
+            : { numerator: fSNum, denominator: fSDen }
+          );
         }, 500);
       } else {
-        const enteredRawMatch = fIsWhole
-          ? parseInt(finalNumInput) === rawNum && rawDen === 1
-          : parseInt(finalNumInput) === rawNum && parseInt(finalDenInput) === rawDen;
-        const finalMisconceptionType = (fG > 1 && enteredRawMatch) ? 'FAILED_TO_SIMPLIFY' : 'INCORRECT_ANSWER';
+        const finalMisconceptionType = equivalent ? 'FAILED_TO_SIMPLIFY' : 'INCORRECT_ANSWER';
+        const correctText = fIsWhole ? `${fSNum}` : fIsImproper ? `${targetWhole} ${targetNum}/${fSDen}` : `${fSNum}/${fSDen}`;
+        const enteredText = fIsWhole ? finalNumInput : `${fIsImproper ? finalWholeInput + ' ' : ''}${finalNumInput}/${finalDenInput}`;
         setTimeout(() => {
           actionLocked.current = false;
-          // Reset runs as onWrongAnswer's onResolved callback so it fires exactly
-          // when the popup closes (or is skipped) instead of a fixed delay that
-          // can fall out of sync with the popup's dynamic duration.
-          onWrongAnswer?.(`${fSNum}${fIsWhole ? '' : '/' + fSDen}`, `${finalNumInput}${finalDenInput ? '/' + finalDenInput : ''}`, finalMisconceptionType, resetCircleState);
+          // Reset runs as onWrongAnswer's onResolved callback so it fires exactly when the popup closes
+          // (or is skipped) instead of a fixed delay that can fall out of sync with the popup's duration.
+          onWrongAnswer?.(`The final answer is ${correctText}`, enteredText, finalMisconceptionType, resetCircleState);
         }, 500);
       }
     }
@@ -2662,6 +2930,29 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
                   style={{ width: '100%', height: '100%', textAlign: 'center', fontSize: numFontSize(crossVal || 0, base.size), fontWeight: 900, color: '#ffffff', background: 'transparent', border: 'none', outline: 'none', fontFamily: '"Press Start 2P", monospace', padding: 0 }}
                 />
             }
+            {/* The original numerator slides out beside the cross-product box (right for N2, left for N1) and,
+                once the cross product is solved, fades slowly away while particles play. */}
+            <div style={{
+              position: 'absolute', top: 0, height: base.size,
+              ...(key === 'n2' ? { left: '100%', marginLeft: 10 } : { right: '100%', marginRight: 10 }),
+              display: 'flex', alignItems: 'center',
+              fontSize: numFontSize(value, base.size), fontWeight: 900, color: '#ffffff',
+              fontFamily: '"Press Start 2P", monospace', whiteSpace: 'nowrap', pointerEvents: 'none',
+              textShadow: '2px 2px 0 #000, 0 0 6px #000, 0 0 12px #000',
+              animation: crossCorrect
+                ? 'oldNFadeAway 1.8s ease-out forwards'
+                : `${key === 'n2' ? 'oldNSlideRight' : 'oldNSlideLeft'} 0.35s cubic-bezier(0.22, 1, 0.36, 1) both`,
+            }}>
+              {value}
+              {crossCorrect && [
+                { dx: '-26px', dy: '-26px', s: 6, t: 0 }, { dx: '0px', dy: '-34px', s: 5, t: 0.1 }, { dx: '26px', dy: '-26px', s: 6, t: 0.2 },
+                { dx: '34px', dy: '0px', s: 5, t: 0.3 }, { dx: '26px', dy: '26px', s: 6, t: 0.4 }, { dx: '0px', dy: '34px', s: 5, t: 0.5 },
+                { dx: '-26px', dy: '26px', s: 6, t: 0.6 }, { dx: '-34px', dy: '0px', s: 5, t: 0.7 },
+                { dx: '-14px', dy: '-40px', s: 4, t: 0.8 }, { dx: '16px', dy: '-38px', s: 4, t: 0.9 }, { dx: '38px', dy: '14px', s: 4, t: 1.0 }, { dx: '-38px', dy: '16px', s: 4, t: 1.1 },
+              ].map((d, i) => (
+                <div key={i} style={{ position: 'absolute', left: '50%', top: '50%', width: d.s, height: d.s, background: '#ffffff', opacity: 0, pointerEvents: 'none', '--dx': d.dx, '--dy': d.dy, animation: `squareBurst 0.8s ${d.t}s ease-out forwards` }} />
+              ))}
+            </div>
           </div>
         );
       }
@@ -2701,7 +2992,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={stageRootRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       <style>{`
         /* Landing-sparkle burst, local to this stage — the shared global
            sparkBurst keeps opacity and scale on the same ease-out curve, so
@@ -2718,12 +3009,13 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
         }
       `}</style>
       {riseParticles()}
+      {/* Fixed width (140% of the normal card) so the book keeps its size when the panel gets more room. */}
       <img
         src="/InteractableUI/BookUI.png"
         alt="book"
         style={{
           position: 'absolute', bottom: 14, left: '50%',
-          width: '140%', objectFit: 'contain',
+          width: 549, objectFit: 'contain',
           pointerEvents: 'none', zIndex: 1,
           animation: 'bookFloat 6s ease-in-out infinite',
         }}
@@ -2759,8 +3051,8 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
             style={{
               position: 'absolute', top: 32, left: 0, right: 0, height: '300px',
               animation: 'magicFloat 4s ease-in-out infinite',
-              opacity: circleFailSequence === 'fading' || finalAnswerPhase ? 0 : 1,
-              transition: (circleFailSequence === 'fading' || finalAnswerPhase) ? 'opacity 0.6s ease-out' : undefined,
+              opacity: circleFailSequence === 'fading' || finalAnswerPhase || carryPhase ? 0 : 1,
+              transition: (circleFailSequence === 'fading' || finalAnswerPhase || carryPhase) ? 'opacity 0.6s ease-out' : undefined,
             }}
           >
             <img
@@ -2777,6 +3069,33 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
             />
 
             {['n1', 'n2', 'd1', 'd2'].map(renderNode)}
+
+            {/* Idle guide: transparent ghost of the next drag + guide cursor (bottom right of the ghost) */}
+            {guideActive && guideEligible && (() => {
+              const act = guideActions[guideStep % guideActions.length];
+              if (!act) return null;
+              const f = BUTTERFLY_BASE_POS[act.from], t = BUTTERFLY_BASE_POS[act.to];
+              const fx = f.left + f.size / 2, fy = f.top + f.size / 2;
+              const gx = t.left + t.size / 2 - fx, gy = t.top + t.size / 2 - fy;
+              const val = act.from === 'd1' ? d1 : d2;
+              const anim = `guideMove ${GUIDE_LOOP_MS}ms ease-in-out forwards`;
+              return (
+                <div key={guideStep} style={{ position: 'absolute', left: 0, top: 0, width: 0, height: 0, pointerEvents: 'none', zIndex: 9, '--gx': gx + 'px', '--gy': gy + 'px' }}>
+                  <div style={{ position: 'absolute', left: f.left, top: f.top, width: f.size, height: f.size, opacity: 0.5 }}>
+                    <div style={{
+                      width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: numFontSize(val, f.size), fontWeight: 900, color: '#ffffff',
+                      border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333',
+                      fontFamily: '"Press Start 2P", monospace', animation: anim,
+                    }}>{val}</div>
+                  </div>
+                  <img src="/InteractableUI/GuideCursor.png" alt="" draggable={false} style={{
+                    position: 'absolute', left: fx + f.size / 2 - 8, top: fy + f.size / 2 - 4, width: 48, height: 48,
+                    imageRendering: 'pixelated', animation: anim,
+                  }} />
+                </div>
+              );
+            })()}
 
             {/* Landing sparkle at each label the instant its fly-in arrives —
                 hybridLandBurst's own keyframe already bakes in
@@ -2818,7 +3137,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
             {/* SD slot */}
             {n1Visible && d1Visible && n2Visible && d2Visible && (
               denominatorPhase === 'sd-input' || sdBlinking ? (
-                <div style={{
+                <div data-carry="d" style={{
                   position: 'absolute', left: 177, top: 210, width: 40, height: 40,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   border: '3px dashed #ffffff', borderRadius: 0, background: 'transparent',
@@ -2856,7 +3175,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
             {/* CENTER slot */}
             {n1Visible && d1Visible && n2Visible && d2Visible && (
               centerPhase ? (
-                <div style={{ position: 'absolute', left: 177, top: 128, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px dashed #ffffff', borderRadius: 0, background: 'transparent', pointerEvents: 'auto', zIndex: 5, overflow: 'visible' }}>
+                <div data-carry="n" style={{ position: 'absolute', left: 177, top: 128, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px dashed #ffffff', borderRadius: 0, background: 'transparent', pointerEvents: 'auto', zIndex: 5, overflow: 'visible' }}>
                   <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', width: 80, height: 80, left: -20, top: -20, animation: 'sparkleSpinPulse 2.4s ease-in-out infinite', pointerEvents: 'none' }} />
                   {centerCorrect
                     ? <span style={{ position: 'relative', zIndex: 1, fontSize: numFontSize(crossSum(), 40), fontWeight: 900, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '0 0 6px rgba(0,0,0,0.9)' }}>{crossSum()}</span>
@@ -2875,20 +3194,61 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
         </div>
       )}
 
-      {/* Final answer — floats over the fading circle, its own magicFloat copy */}
+      {/* Final answer — over the fading circle. Whole number, fraction or mixed number depending on the simplified
+          result; for an improper result the gem game has already converted it (jars = whole, leftover shards =
+          numerator). Steady (no bobbing) so the jars and shards can settle beside the inputs. */}
       {finalAnswerPhase && (() => {
-        const fieldStyle = { width: 60, height: 44, fontSize: 20, fontWeight: 800, textAlign: 'center', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#555555', color: '#ffffff', outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace', WebkitAppearance: 'none' };
+        const inputBase = { fontWeight: 800, textAlign: 'center', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#555555', color: '#ffffff', outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace', WebkitAppearance: 'none' };
+        const fieldStyle = { ...inputBase, width: 60, height: 44, fontSize: 20 };
+        const unsimpStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, animation: 'unsimpSlide 0.6s ease-out', color: '#000', fontWeight: 800, fontSize: 20, fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' };
+        const unsimpFraction = unsimplified && (
+          <div style={{ position: 'absolute', left: '100%', top: '50%', marginLeft: 14, transform: 'translateY(-50%)' }}>
+            <div style={unsimpStyle}>
+              <span>{unsimplified.n}</span>
+              <div style={{ width: 40, height: 3, background: '#000', borderRadius: 2 }} />
+              <span>{unsimplified.d}</span>
+            </div>
+          </div>
+        );
+        const numField = (ref) => (
+          <input ref={ref} data-final="num" type="text" inputMode="numeric" value={finalNumInput} placeholder="?" onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
+        );
+        const denField = (
+          <input type="text" inputMode="numeric" value={finalDenInput} placeholder="?" onChange={e => setFinalDenInput(e.target.value.replace(/[^0-9]/g, ''))} style={fieldStyle} />
+        );
         return (
-          <div style={{ position: 'absolute', top: '32px', left: 0, right: 0, height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'magicFloat 4s ease-in-out infinite', zIndex: 10 }}>
+          <div style={{ position: 'absolute', top: '32px', left: 0, right: 0, height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, opacity: hideFinal ? 0 : 1, pointerEvents: hideFinal ? 'none' : 'auto', transition: 'opacity 0.3s ease' }}>
+            <style>{`@keyframes unsimpSlide { from { transform: translateX(-90px); opacity: 0.2; } to { transform: translateX(0); opacity: 1; } }`}</style>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'numFadeIn 0.5s ease-out both' }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#555555' }}>Final Answer:</span>
               {fIsWhole ? (
-                <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput} placeholder="?" onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
+                <input ref={finalNumRef} data-final="whole" type="text" inputMode="numeric" value={finalNumInput} placeholder="?" onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
+              ) : fIsImproper ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
+                  <input ref={finalNumRef} data-final="whole" type="text" inputMode="numeric" value={finalWholeInput} placeholder="?"
+                    onChange={e => setFinalWholeInput(e.target.value.replace(/[^0-9-]/g, ''))}
+                    readOnly={!!unsimplified} tabIndex={unsimplified ? -1 : 0}
+                    style={{
+                      ...fieldStyle,
+                      border: unsimplified ? '3px solid transparent' : '3px dashed #e8d5b4',
+                      background: unsimplified ? 'transparent' : '#555555',
+                      color: unsimplified ? '#000000' : '#ffffff',
+                      textShadow: unsimplified ? '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' : 'none',
+                      transition: 'all 0.5s ease',
+                    }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    {numField(null)}
+                    <div style={{ width: 70, height: 3, background: '#555555', borderRadius: 2 }} />
+                    {denField}
+                  </div>
+                  {unsimpFraction}
+                </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <input ref={finalNumRef} type="text" inputMode="numeric" value={finalNumInput} placeholder="?" onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, position: 'relative' }}>
+                  {numField(finalNumRef)}
                   <div style={{ width: 80, height: 3, background: '#555555', borderRadius: 2 }} />
-                  <input type="text" inputMode="numeric" value={finalDenInput} placeholder="?" onChange={e => setFinalDenInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
+                  {denField}
+                  {unsimpFraction}
                 </div>
               )}
             </div>
@@ -2934,9 +3294,69 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
               </div>
             ) : null;
           })}
+          {perfectPopup && (
+            <div style={{
+              position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+              zIndex: 5001, pointerEvents: 'none', textAlign: 'center',
+              padding: '14px 32px', border: '6px solid #fff', background: '#000',
+              color: '#4ade80', fontSize: '22px', fontWeight: 700, whiteSpace: 'nowrap',
+              animation: 'perfectFlash 2.2s ease-in-out forwards',
+            }}>
+              <style>{`
+                @keyframes perfectFlash {
+                  0%   { opacity: 0;    box-shadow: 0 0 0 0 rgba(255,255,255,0);       text-shadow: 0 0 0 rgba(255,255,255,0); }
+                  4.5% { opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+                  9%   { opacity: 0.35; box-shadow: 0 0 8px 2px rgba(255,255,255,0.4); text-shadow: 0 0 4px #fff; }
+                  13.5%{ opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+                  18%  { opacity: 0.35; box-shadow: 0 0 8px 2px rgba(255,255,255,0.4); text-shadow: 0 0 4px #fff; }
+                  22.5%{ opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+                  27%  { opacity: 1;    box-shadow: 0 0 14px 4px rgba(255,255,255,0.6); text-shadow: 0 0 8px #fff; }
+                  72%  { opacity: 1;    box-shadow: 0 0 14px 4px rgba(255,255,255,0.6); text-shadow: 0 0 8px #fff; }
+                  78%  { opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+                  100% { opacity: 0;    box-shadow: 0 0 0 0 rgba(255,255,255,0);       text-shadow: 0 0 0 rgba(255,255,255,0); }
+                }
+              `}</style>
+              <div style={{ position: 'absolute', inset: 7, border: '1px solid #fff', pointerEvents: 'none' }} />
+              {[[-8, -8], [-8, null], [null, -8], [null, null]].map(([t, l], i) => (
+                <div key={i} style={{ position: 'absolute', width: 14, height: 14, background: '#fff', ...(t !== null ? { top: t } : { bottom: -8 }), ...(l !== null ? { left: l } : { right: -8 }) }} />
+              ))}
+              <div style={{ paddingTop: '6px' }}>Perfect!</div>
+            </div>
+          )}
         </>,
         document.body
       )}
+
+      {/* Improper -> mixed conversion (gem/jar game), before simplifying. Big results use sweep-to-collect
+          and an enlarged panel (see onEnlargeChange). */}
+      {carryPhase && (
+        <ImproperToMixedGame
+          numerator={rawNum}
+          denominator={rawDen}
+          actionRef={carryActionRef}
+          startPos={carryStart}
+          finalPhase={carryFinal}
+          dismiss={!!unsimplified}
+          startBox={false}
+          stageW={Math.round(400 * panelScale) - 8}
+          stageH={Math.round(440 * panelScale) - 8}
+          hideCounts={countsHidden}
+          onFinalSettled={handleFinalSettled}
+          onUiChange={setCarryUi}
+          onWrong={(quotient) => {
+            // A wrong quotient fails the round right away, like a wrong final answer.
+            setInteractableVisible(false);
+            setTimeout(() => onWrongAnswer?.(`${rawNum} ÷ ${rawDen} = ${rawWhole}`, String(quotient), 'INCORRECT_ANSWER', resetCircleState), 500);
+          }}
+          onComplete={revealFinalAnswer}
+        />
+      )}
+
+      {/* Idle guide for typing steps: a pulsing cursor at the bottom right of an empty input */}
+      <InputGuideCursor
+        containerRef={stageRootRef}
+        enabled={circleDetected && interactableVisible && !guidesPaused && !circleFailSequence}
+      />
 
       {/* Confirm button — shows as soon as all 4 numbers have landed (matches
           Dissimilar Island's own gate), disabled via confirmEnabled until
@@ -2944,11 +3364,13 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
           once the current step is already answerable. */}
       {circleDetected && n1Visible && d1Visible && n2Visible && d2Visible && (
         <SolveButtonRow
-          label={finalActive ? 'Cast Spell' : 'Confirm'}
+          label={carryActive ? (carryUi.stage === 'confirm' ? 'Confirm' : 'Check') : finalActive ? 'Cast Spell' : 'Confirm'}
           onConfirm={handleConfirm}
           confirmEnabled={confirmEnabled}
-          onHint={onRequestHint ? () => onRequestHint(
-            sdActive     ? `${d1} × ${d2} = ?`
+          onHint={onRequestHint && !(carryActive && !carryUi.prompt) ? () => onRequestHint(
+            carryActive    ? carryUi.prompt
+          : finalAnswerPhase ? simplifyHintText
+          : sdActive     ? `${d1} × ${d2} = ?`
           : n1Active     ? `${d2} × ${n1} = ?`
           : n2Active     ? `${d1} × ${n2} = ?`
           : centerActive ? `${d2 * n1} ${problem.operator} ${d1 * n2} = ?`
@@ -2957,6 +3379,64 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
         />
       )}
     </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SdGuide — the new common denominator (SD), glowing white BELOW the converted-fractions row (centred between the
+// two fractions), with particles streaming to it from both converted fractions' denominators. Rendered inside the
+// row's operator spacer (used only as the horizontal anchor), so it floats with the problem display.
+// Same idea as Dissimilar Island's glowing denominator under the problem.
+// ─────────────────────────────────────────────────────────────────────────────
+const SdGuide = ({ sd }) => {
+  const rootRef = useRef(null);
+  const [particles, setParticles] = useState([]);
+  const [tgtY, setTgtY] = useState(null);   // where the label sits, in the anchor's own coordinates
+  useEffect(() => {
+    const spawn = () => {
+      const anchor = rootRef.current?.parentElement;   // the operator spacer
+      const row = anchor?.parentElement;
+      if (!anchor || !row) return;
+      const ar = anchor.getBoundingClientRect();
+      const sc = ar.width / anchor.offsetWidth || 1;
+      const center = (el) => {
+        const r = el.getBoundingClientRect();
+        return { x: (r.left + r.width / 2 - ar.left) / sc, y: (r.top + r.height / 2 - ar.top) / sc };
+      };
+      // Just below the converted fractions, inside the room the row reserves under them (its bottom padding).
+      const rr = row.getBoundingClientRect();
+      const target = { x: anchor.offsetWidth / 2, y: (rr.bottom - ar.top) / sc - 18 };
+      setTgtY(target.y);
+      const pid = Date.now(), ps = [];
+      ['conv0-d', 'conv1-d'].forEach((tag, si) => {
+        const el = row.querySelector(`[data-fly="${tag}"]`);
+        if (!el) return;
+        const src = center(el);
+        for (let i = 0; i < 5; i++) {
+          const j = () => (Math.random() - 0.5) * 14;
+          ps.push({ id: pid + si * 10 + i, sl: src.x + j(), st: src.y + j(), tx: target.x - src.x + j(), ty: target.y - src.y + j(), delay: Math.random() * 0.25, size: Math.floor(Math.random() * 5 + 4) });
+        }
+      });
+      setParticles(ps);
+    };
+    spawn();
+    const iv = setInterval(spawn, 700);
+    return () => clearInterval(iv);
+  }, []);
+  const digits = String(sd).length;
+  return (
+    <span ref={rootRef} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 8 }}>
+      {particles.map(p => (
+        <span key={p.id} style={{ position: 'absolute', left: p.sl, top: p.st, width: p.size, height: p.size, background: '#ffffff', pointerEvents: 'none', '--tx': p.tx + 'px', '--ty': p.ty + 'px', animation: `sdToTarget 0.75s ${p.delay}s ease-out forwards` }} />
+      ))}
+      {tgtY !== null && (
+        <span style={{
+          position: 'absolute', left: '50%', top: tgtY, transform: 'translate(-50%, -50%)', whiteSpace: 'nowrap',
+          fontSize: digits >= 3 ? 20 : 26, fontWeight: 900, color: '#ffffff', fontFamily: '"Press Start 2P", monospace',
+          animation: 'numFadeIn 0.5s ease-out both, sdLabelGlow 1.6s ease-in-out infinite',
+        }}>{sd}</span>
+      )}
+    </span>
   );
 };
 
@@ -3003,6 +3483,30 @@ const HybridIslandGame = ({
   // Each stage gates its own draw gesture internally (circle/triangle/infinity).
   const [stage,            setStage]            = useState(() => problem.denominator1 === problem.denominator2 ? 'mixedSimilar' : 'forge');
   const [butterflyProblem, setButterflyProblem] = useState(problem);
+  // true once the Butterfly stage has the new common denominator (SD) right — it glows under the problem.
+  const [sdSolved,         setSdSolved]         = useState(false);
+  // panelBig: the Butterfly stage asked for an enlarged interactable card (big improper results in the gem game).
+  // It grows over the player/enemy areas behind it and shrinks back for the final answer.
+  const [panelBig,         setPanelBig]         = useState(false);
+  const [bigScale,         setBigScale]         = useState(1);
+  // bigLayout: the clipping containers stay open (overflow visible, raised z-index) while the card is big AND for the
+  // length of its shrink transition, so the edges aren't cut off before the card has finished shrinking.
+  const [bigLayout,        setBigLayout]        = useState(false);
+  const bigLayoutTimerRef = useRef(null);
+  const cardRef = useRef(null);
+  const handleEnlargeChange = (on) => {
+    if (on && cardRef.current) {
+      // Grow from the card's bottom edge, as much as fits below the top of the screen (max 1.5x).
+      const r = cardRef.current.getBoundingClientRect();
+      const current = panelBig ? bigScale : 1;
+      const baseH = r.height / current;
+      setBigScale(Math.max(1, Math.min(1.5, (r.bottom - 90) / baseH)));
+    }
+    clearTimeout(bigLayoutTimerRef.current);
+    if (on) setBigLayout(true);
+    else bigLayoutTimerRef.current = setTimeout(() => setBigLayout(false), 700);   // just after the 0.55s shrink
+    setPanelBig(on);
+  };
   // uiVisible: hides the interactable card (and pulls player/enemy in close) the instant
   // any answer is submitted — mirrors Similar/Dissimilar Island's interactableVisible.
   const [uiVisible,        setUiVisible]        = useState(true);
@@ -3224,7 +3728,21 @@ const HybridIslandGame = ({
   }, []);
 
   // ── helpers ──
+  // Different-denominator problems whose improper result needs more shards than the gem game can show are re-rolled
+  // (see HYBRID_MAX_SHARDS). Same-denominator problems use the mixed-native carry and are unaffected.
   function generateProblem() {
+    let p, tries = 0;
+    do { p = generateProblemOnce(); tries += 1; } while (!withinShardLimit(p) && tries < 300);
+    return p;
+  }
+  function withinShardLimit(p) {
+    if (p.denominator1 === p.denominator2) return true;
+    const imp1 = p.whole1 * p.denominator1 + p.numerator1;
+    const imp2 = p.whole2 * p.denominator2 + p.numerator2;
+    const rawNum = p.operator === '+' ? imp1 * p.denominator2 + imp2 * p.denominator1 : imp1 * p.denominator2 - imp2 * p.denominator1;
+    return rawNum < p.denominator1 * p.denominator2 || rawNum <= HYBRID_MAX_SHARDS;
+  }
+  function generateProblemOnce() {
     const isMixed  = true;
     const operator = Math.random() > 0.5 ? '+' : '-';
     // Same level-scaling curve as Similar/Dissimilar Island (see getDifficultyParamsHybrid
@@ -3298,7 +3816,10 @@ const HybridIslandGame = ({
     const commonDenom = p.denominator1 * p.denominator2;
     const sumDiff = p.operator === '+' ? cross1 + cross2 : cross1 - cross2;
     const divisor = gcd(Math.abs(sumDiff), commonDenom);
-    return `${sumDiff / divisor}/${commonDenom / divisor}`;
+    const sn = sumDiff / divisor, sd = commonDenom / divisor;
+    // Dissimilar route: the answer is entered as a mixed number (improper result -> whole + fraction).
+    if (sd === 1) return `${sn}`;
+    return sn > sd ? `${Math.floor(sn / sd)} ${sn % sd}/${sd}` : `${sn}/${sd}`;
   };
 
   const getProblemStatement = (p = problem) =>
@@ -3553,6 +4074,17 @@ const HybridIslandGame = ({
           setTimeout(() => setBgShift(null), 100);
         }
         onResolved?.();
+        // A wrong answer moves on to a brand-new problem (never the one just failed), like a correct answer does.
+        const keyOf = (q) => `${q.whole1}-${q.numerator1}-${q.denominator1}-${q.operator}-${q.whole2}-${q.numerator2}-${q.denominator2}`;
+        const failedKey = keyOf(problem);
+        let next = generateProblem();
+        for (let i = 0; i < 40 && keyOf(next) === failedKey; i += 1) next = generateProblem();
+        setProblem(next);
+        setButterflyProblem(next);
+        setStage(next.denominator1 === next.denominator2 ? 'mixedSimilar' : 'forge');
+        setRoundKey(k => k + 1);
+        setGestureActive(false);
+        handleEnlargeChange(false);
       };
       feedbackResolveRef.current = resolveFeedback;
       feedbackTimeoutRef.current = setTimeout(resolveFeedback, getFeedbackDuration(feedbackMessage));
@@ -3743,7 +4275,7 @@ const HybridIslandGame = ({
           </div>
 
           {/* Center — problem display + interactive solving panel */}
-          <div className="wireframe-problem" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', paddingTop: '32px', minHeight: 0, overflow: 'hidden', zIndex: 1 }}>
+          <div className="wireframe-problem" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', paddingTop: '32px', minHeight: 0, overflow: bigLayout ? 'visible' : 'hidden', zIndex: bigLayout ? 6 : 1 }}>
             <div style={{
               opacity: uiVisible ? 1 : 0, transition: 'opacity 0.4s ease',
               animation: 'magicFloat 3s ease-in-out infinite', position: 'relative',
@@ -3776,7 +4308,7 @@ const HybridIslandGame = ({
                   this — MixedSimilarCircleStage flies in straight off the original
                   mixed digits (data-fly="frac{0|1}-d"), since it skips forging. */}
               {stage === 'butterfly' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '6px 28px 0', border: '4px solid transparent', boxSizing: 'border-box', animation: 'problemFadeIn 0.4s ease-out' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '6px 28px 32px', border: '4px solid transparent', boxSizing: 'border-box', animation: 'problemFadeIn 0.4s ease-out' }}>
                   {/* Each original fraction's num/den column sits shifted right by its
                       own whole-number span + gap (FractionBox always shows one, since
                       isMixed is always true) — mirror that exact spacer here so the
@@ -3789,7 +4321,10 @@ const HybridIslandGame = ({
                     <span style={{ fontSize: 28, fontWeight: 800, opacity: 0, pointerEvents: 'none' }}>{problem.whole1}</span>
                     {convertedFrac(0, butterflyProblem.numerator1, butterflyProblem.denominator1)}
                   </div>
-                  <span style={{ fontSize: 32, fontWeight: 800, opacity: 0, pointerEvents: 'none' }}>{problem.operator}</span>
+                  <span style={{ position: 'relative', fontSize: 32, fontWeight: 800 }}>
+                    <span style={{ opacity: 0, pointerEvents: 'none' }}>{problem.operator}</span>
+                    {sdSolved && <SdGuide sd={butterflyProblem.denominator1 * butterflyProblem.denominator2} />}
+                  </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 28, fontWeight: 800, opacity: 0, pointerEvents: 'none' }}>{problem.whole2}</span>
                     {convertedFrac(1, butterflyProblem.numerator2, butterflyProblem.denominator2)}
@@ -3802,7 +4337,7 @@ const HybridIslandGame = ({
             {/* Bottom-anchored, scale-to-fit wrapper — matches Similar/Dissimilar Island */}
             <div
               ref={rectWrapperRef}
-              style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%' }}
+              style={{ flex: 1, minHeight: 0, overflow: bigLayout ? 'visible' : 'hidden', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%' }}
             >
               <div style={{
                 width: PANEL_W,
@@ -3812,10 +4347,11 @@ const HybridIslandGame = ({
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px',
                 marginBottom: '50px',
               }}>
-                <div data-tutorial="interactable" style={{
+                <div ref={cardRef} data-tutorial="interactable" style={{
                   position: 'relative',
-                  width: CARD_W,
-                  height: CARD_H,
+                  zIndex: bigLayout ? 20 : 'auto',
+                  width: panelBig ? Math.round(CARD_W * bigScale) : CARD_W,
+                  height: panelBig ? Math.round(CARD_H * bigScale) : CARD_H,
                   background: '#e8d5b4',
                   border: `${CARD_BORDER}px solid #703737`,
                   borderRadius: 0,
@@ -3823,11 +4359,11 @@ const HybridIslandGame = ({
                   overflow: 'hidden',
                   opacity: uiVisible ? 1 : 0,
                   pointerEvents: uiVisible ? 'auto' : 'none',
-                  transition: 'opacity 0.4s ease',
+                  transition: 'opacity 0.4s ease, width 0.55s cubic-bezier(.2,.8,.3,1), height 0.55s cubic-bezier(.2,.8,.3,1)',
                 }}>
                   {corners('#703737')}
                   {stage === 'forge' ? (
-                    <ForgeCircleStage key={`forge-${roundKey}`} problem={problem} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} />
+                    <ForgeCircleStage key={`forge-${roundKey}`} problem={problem} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} guidesPaused={showTutorial || showSettings || !!feedback || gameOver} />
                   ) : stage === 'butterfly' ? (
                     <ButterflyCircleStage
                       key={`butterfly-${roundKey}`}
@@ -3837,6 +4373,10 @@ const HybridIslandGame = ({
                       onWrongAnswer={handleWrongAnswer}
                       onRequestHint={setCurrentHint}
                       onGestureStart={() => setGestureActive(true)}
+                      guidesPaused={showTutorial || showSettings || !!feedback || gameOver}
+                      onSdSolvedChange={setSdSolved}
+                      onEnlargeChange={handleEnlargeChange}
+                      panelScale={panelBig ? bigScale : 1}
                     />
                   ) : (
                     <MixedSimilarCircleStage key={`mixed-${roundKey}`} problem={problem} onAnswerSubmit={handleAnswerSubmit} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} />

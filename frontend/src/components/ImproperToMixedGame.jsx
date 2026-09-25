@@ -5,27 +5,39 @@ const FONT = '"Press Start 2P", monospace';
 const BROWN = '#703737';
 const CREAM = '#e8d5b4';
 
-// Interactable UI inner size (400x440 box minus its 4px border).
-const STAGE_W = 392;
-const STAGE_H = 432;
-const ROW_Y = 172;
-const N_SHINE = { x: 196, y: 172 };
-const D_SHINE = { x: 196, y: 285 };
-const N_PAIR = { x: 154, y: ROW_Y };
-const D_PAIR = { x: 238, y: ROW_Y };
-const N_ROW = { x: 92, y: ROW_Y };
-const DIV_POS = { x: 138, y: ROW_Y };
-const D_ROW = { x: 184, y: ROW_Y };
-const EQ_POS = { x: 230, y: ROW_Y };
-const INPUT_POS = { x: 290, y: ROW_Y };
-const GEM_CENTER = { x: 196, y: 172 };
-const JAR_MID_Y = 226;
-const ZONE_TOP = 64;
-const ZONE_BOTTOM = 388;
+// Interactable UI inner size (400x440 box minus its 4px border). The stage can be given MORE ROOM (stageW / stageH)
+// without anything growing: the division, the jars and the shards keep their sizes and just get more area.
+// Everything that sits in the middle is centred in the bigger stage; the jar row and the shard zone use the full room.
+const BASE_W = 392;
+const BASE_H = 432;
+const makeGeo = (W, H) => {
+  const ox = (W - BASE_W) / 2, oy = (H - BASE_H) / 2;
+  const ROW_Y = 172 + oy;
+  return {
+    STAGE_W: W, STAGE_H: H, ROW_Y,
+    N_SHINE: { x: 196 + ox, y: 172 + oy },
+    D_SHINE: { x: 196 + ox, y: 285 + oy },
+    N_PAIR: { x: 154 + ox, y: ROW_Y },
+    D_PAIR: { x: 238 + ox, y: ROW_Y },
+    N_ROW: { x: 92 + ox, y: ROW_Y },
+    DIV_POS: { x: 138 + ox, y: ROW_Y },
+    D_ROW: { x: 184 + ox, y: ROW_Y },
+    EQ_POS: { x: 230 + ox, y: ROW_Y },
+    INPUT_POS: { x: 290 + ox, y: ROW_Y },
+    GEM_CENTER: { x: 196 + ox, y: 172 + oy },
+    JAR_MID_Y: 226 + oy,
+    ZONE_TOP: 64,
+    ZONE_BOTTOM: H - 44,
+  };
+};
 const IMG_ASPECT = 2 / 3;
 const JAR_STAGGER = 300;
 const GUIDE_IDLE_MS = 3000;  // no shard movement for this long -> guide a shard to a jar
 const GUIDE_LOOP_MS = 2600;  // length of one guide demonstration
+// Up to this many shards the player drags them into the jars one by one. Above it, the player sweeps the pointer
+// over the shards and every shard it touches flies into the first jar with room.
+export const MANUAL_MAX_SHARDS = 31;
+const SWEEP_R = 30;
 const SETTLE_STAGGER = 0.12;
 const SETTLE_MOVE = 0.6;
 
@@ -83,14 +95,19 @@ const SparkleSpin = ({ size, fade }) => (
 // jar while the numerator crystallises into a gem that shatters into `numerator`
 // shards (each worth 1/denominator). Every jar is filled with `denominator` shards;
 // the jars are the whole number and the shards left outside are the new numerator.
-const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUiChange, actionRef, finalPhase, onFinalSettled, startPos, dismiss, startBox = true }) => {
+const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUiChange, actionRef, finalPhase, onFinalSettled, startPos, dismiss, startBox = true, stageW = BASE_W, stageH = BASE_H, hideCounts = false }) => {
+  const {
+    STAGE_W, STAGE_H, ROW_Y, N_SHINE, D_SHINE, N_PAIR, D_PAIR, N_ROW, DIV_POS, D_ROW, EQ_POS, INPUT_POS,
+    GEM_CENTER, JAR_MID_Y, ZONE_TOP, ZONE_BOTTOM,
+  } = makeGeo(stageW, stageH);
   const layout = useMemo(() => {
     const wholes = Math.floor(numerator / denominator);
     const shardH = clamp(Math.round(190 / Math.sqrt(numerator)), 32, 62);
     const shardW = Math.round(shardH * IMG_ASPECT);
     const GAP = 14;
     const jarHByN = clamp(Math.round(190 - numerator * 1.5), 120, 165);
-    const maxJarW = (STAGE_W - 24 - GAP * (wholes - 1)) / wholes;
+    // Jar size is worked out for the normal-size stage, so a bigger stage gives the jars room without making them bigger.
+    const maxJarW = (BASE_W - 24 - GAP * (wholes - 1)) / wholes;
     const jarH = Math.min(jarHByN, Math.floor(maxJarW / IMG_ASPECT));
     const jarW = Math.round(jarH * IMG_ASPECT);
     const totalW = wholes * jarW + (wholes - 1) * GAP;
@@ -156,10 +173,15 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
       wholes, shardW, shardH, gemW: jarW, gemH: jarH, jarW, jarH, jarLefts, midTop, bottomTop,
       slotW, slotH, slots, targets,
     };
-  }, [numerator, denominator]);
+  }, [numerator, denominator, stageW, stageH]);
 
   const { wholes, shardW, shardH, gemW, gemH, jarW, jarH, jarLefts, midTop, bottomTop, slotW, slotH, slots, targets } = layout;
+  // The timers started when the quotient is answered run long after that render; they must read the CURRENT layout
+  // (the stage may have been given more room in between), not the one they were created with.
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
   const left = numerator - wholes * denominator;
+  const sweepMode = numerator > MANUAL_MAX_SHARDS;
 
   const nShine = startPos?.n || N_SHINE;
   const dShine = startPos?.d || D_SHINE;
@@ -197,6 +219,9 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
   const [locks, setLocks] = useState({}); // jar index -> { from: starting angle in degrees } once its lock has popped up
   const lockScheduled = useRef(new Set());
   const [locksGone, setLocksGone] = useState(false); // locks are removed once the jars move to their final spots
+  const [sweepPos, setSweepPos] = useState(null);   // pointer position (stage units) while sweeping
+  const sweepingRef = useRef(false);
+  const sweepGuideRef = useRef(null);
   const [guide, setGuide] = useState(null); // { key, shard, jar } while a demonstration is playing
   const shardsRef = useRef(shards);
   shardsRef.current = shards;
@@ -259,7 +284,10 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
       shakeAudioRef.current?.pause();
       shakeAudioRef.current = null;
       playSfx('/SoundEffects/gemBreak.wav');
-      setShards(prev => prev.map((s, i) => ({ ...s, x: targets[i].x, y: targets[i].y, rot: targets[i].rot })));
+      setShards(prev => prev.map((s, i) => {
+        const t = layoutRef.current.targets[i];
+        return { ...s, x: t.x, y: t.y, rot: t.rot };
+      }));
     });
     later(5500 + base, () => { setJarStage('mid'); playSfx('/SoundEffects/numberMove.wav'); });
     later(6500 + base, () => setPhase('play'));
@@ -355,6 +383,21 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
   }, [finalSettled, dismissed]);
 
 
+  // Sweep demonstration: the hand + ring travel through the guide's points once per loop.
+  useEffect(() => {
+    const el = sweepGuideRef.current;
+    if (!guide?.sweep || !el || !el.animate) return undefined;
+    const pts = guide.sweep;
+    const frames = pts.map((pt, i) => ({
+      transform: `translate(${pt.x}px, ${pt.y}px)`,
+      opacity: i === 0 ? 0 : i === 1 || i === pts.length - 1 ? 1 : 1,
+      offset: pts.length === 1 ? 0 : i / (pts.length - 1),
+    }));
+    if (frames.length > 1) frames[frames.length - 1].opacity = 0;
+    const anim = el.animate(frames, { duration: GUIDE_LOOP_MS, easing: 'ease-in-out', fill: 'forwards' });
+    return () => anim.cancel();
+  }, [guide]);
+
   // Idle guide for the play phase: after GUIDE_IDLE_MS without a shard being moved, a ghost shard (no sparkle)
   // and the guide cursor show a random loose shard being dragged into an open jar; then wait GUIDE_IDLE_MS
   // again before showing another. Any drag or placement restarts the wait.
@@ -369,7 +412,21 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
       const pool = free.length > 1 ? free.filter(sh => sh.id !== lastShard) : free;
       const shard = pool[Math.floor(Math.random() * pool.length)];
       lastShard = shard.id;
-      setGuide({ key: ++n, shard, jar: open[Math.floor(Math.random() * open.length)] });
+      if (sweepMode) {
+        // A sweep: from a loose shard through its nearest neighbours, like the pointer being dragged over them.
+        const center = (sh) => ({ x: sh.x + shardW / 2, y: sh.y + shardH / 2 });
+        const path = [center(shard)];
+        let rest = free.filter(sh => sh.id !== shard.id);
+        while (path.length < 5 && rest.length) {
+          const last = path[path.length - 1];
+          rest.sort((a, b) => Math.hypot(center(a).x - last.x, center(a).y - last.y) - Math.hypot(center(b).x - last.x, center(b).y - last.y));
+          path.push(center(rest[0]));
+          rest = rest.slice(1);
+        }
+        setGuide({ key: ++n, sweep: path });
+      } else {
+        setGuide({ key: ++n, shard, jar: open[Math.floor(Math.random() * open.length)] });
+      }
       timer = setTimeout(() => { setGuide(null); timer = setTimeout(cycle, GUIDE_IDLE_MS); }, GUIDE_LOOP_MS);
     };
     timer = setTimeout(cycle, GUIDE_IDLE_MS);
@@ -383,6 +440,12 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
     return () => clearTimeout(t);
   }, [finalMoved]);
 
+  // Shards that haven't been scattered yet sit at the gem's centre; keep them there if the stage changes size.
+  useEffect(() => {
+    if (reached('shatter')) return;
+    setShards(prev => prev.map(s => (s.jar < 0 ? { ...s, x: GEM_CENTER.x - shardW / 2, y: GEM_CENTER.y - shardH / 2 } : s)));
+  }, [stageW, stageH]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const uiStage = ['shine', 'pair', 'divide'].includes(phase) ? 'check' : 'confirm';
   const uiCanSubmit = uiStage === 'check' ? phase === 'divide' && !!qInput : done;
   actionRef.current = () => {
@@ -392,7 +455,9 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
   const prompt = phase === 'divide'
     ? `${numerator} divided by ${denominator} has a remainder`
     : phase === 'play' && !done
-      ? `Fill ${wholes > 1 ? 'every jar' : 'the jar'} with ${denominator} shards!`
+      ? (sweepMode
+        ? `Drag over the shards to fill ${wholes > 1 ? 'every jar' : 'the jar'} with ${denominator}!`
+        : `Fill ${wholes > 1 ? 'every jar' : 'the jar'} with ${denominator} shards!`)
       : '';
   useEffect(() => {
     onUiChange?.({ stage: uiStage, canSubmit: uiCanSubmit, prompt });
@@ -456,28 +521,41 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
     return () => clearInterval(id);
   }, [fullKey, slots, slotW, slotH, finalMoved]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Client coordinates -> the stage's own (unscaled) coordinates.
+  const toLocal = (cx, cy) => {
+    const el = stageRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const r = el.getBoundingClientRect();
+    const sc = r.width / el.offsetWidth;
+    return { x: (cx - r.left) / sc, y: (cy - r.top) / sc };
+  };
+  // Puts a loose shard into a jar (the given one, or the first with room). A shard already in a jar stays put.
+  const placeInJar = (id, wantedJar) => {
+    setShards(prev => {
+      const cur = prev.find(s => s.id === id);
+      if (!cur || cur.jar >= 0) return prev;
+      const inCount = (j) => prev.filter(s => s.jar === j).length;
+      let jar = wantedJar;
+      if (jar < 0 || inCount(jar) >= denominator) {
+        jar = Array.from({ length: wholes }, (_, j) => j).find(j => inCount(j) < denominator);
+        if (jar === undefined || wantedJar >= 0) return prev;
+      }
+      const used = new Set(prev.filter(s => s.jar === jar).map(s => s.slot));
+      let slot = 0;
+      while (used.has(slot)) slot++;
+      return prev.map(s => (s.id === id ? { ...s, jar, slot } : s));
+    });
+  };
+  // Sweep mode: every loose shard under the pointer flies into the first jar with room.
+  const sweepAt = (cx, cy) => {
+    const p = toLocal(cx, cy);
+    setSweepPos(p);
+    shardsRef.current
+      .filter(sh => sh.jar < 0 && Math.hypot(sh.x + shardW / 2 - p.x, sh.y + shardH / 2 - p.y) <= SWEEP_R + shardH / 4)
+      .forEach(sh => placeInJar(sh.id, -1));
+  };
+
   useEffect(() => {
-    const toLocal = (cx, cy) => {
-      const el = stageRef.current;
-      if (!el) return { x: 0, y: 0 };
-      const r = el.getBoundingClientRect();
-      const sc = r.width / el.offsetWidth;
-      return { x: (cx - r.left) / sc, y: (cy - r.top) / sc };
-    };
-    const placeInJar = (id, wantedJar) => {
-      setShards(prev => {
-        const inCount = (j) => prev.filter(s => s.jar === j).length;
-        let jar = wantedJar;
-        if (jar < 0 || inCount(jar) >= denominator) {
-          jar = Array.from({ length: wholes }, (_, j) => j).find(j => inCount(j) < denominator);
-          if (jar === undefined || wantedJar >= 0) return prev;
-        }
-        const used = new Set(prev.filter(s => s.jar === jar).map(s => s.slot));
-        let slot = 0;
-        while (used.has(slot)) slot++;
-        return prev.map(s => (s.id === id ? { ...s, jar, slot } : s));
-      });
-    };
     const onMove = (e) => {
       const dr = dragRef.current;
       if (!dr) return;
@@ -508,7 +586,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
     };
-  }, [denominator, wholes, shardW, shardH, jarLefts, jarW, jarH, midTop]);
+  }, [denominator, wholes, shardW, shardH, jarLefts, jarW, jarH, midTop, stageW, stageH]);
 
   const startDrag = (e, s) => {
     if (phase !== 'play' || s.jar >= 0 || finalPhase) return;
@@ -851,7 +929,8 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
               transform: tag ? 'translate(-100%, -100%)' : 'translate(-50%, -50%)',
               transition: tag ? 'opacity 0.5s ease' : 'left 0.9s cubic-bezier(.2,.8,.3,1), top 0.9s cubic-bezier(.2,.8,.3,1), font-size 0.9s ease, transform 0.9s cubic-bezier(.2,.8,.3,1)',
               fontSize: size, fontWeight: tag ? 700 : 900, color: '#fff', zIndex: 30, pointerEvents: 'none',
-              opacity: (j === 0 || dSplit) && !finalMoved ? 1 : 0,
+              // hideCounts: the caller asks for the fraction counts to fade out early (Hybrid, while the enlarged panel shrinks).
+              opacity: (j === 0 || dSplit) && !finalMoved && !hideCounts ? 1 : 0,
               ...(tag
                 ? { border: `${Math.max(2, Math.round(4 * tagScale))}px solid #fff`, background: '#000', padding: `${Math.round(4 * tagScale)}px ${Math.round(12 * tagScale)}px` }
                 : { textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000' }),
@@ -882,8 +961,32 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
         );
       })}
 
+      {/* Sweep guide (sweep mode): the ring and hand travel over a few loose shards */}
+      {guide?.sweep && (
+        <div key={`sweep-${guide.key}`} ref={sweepGuideRef} style={{ position: 'absolute', left: 0, top: 0, width: 0, height: 0, opacity: 0, pointerEvents: 'none', zIndex: 28 }}>
+          <div style={{ position: 'absolute', left: -SWEEP_R, top: -SWEEP_R, width: SWEEP_R * 2, height: SWEEP_R * 2, borderRadius: '50%', border: '3px dashed rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.18)', boxShadow: '0 0 10px rgba(255,255,255,0.8)' }} />
+          <img src="/InteractableUI/GuideCursor.png" alt="" draggable={false} style={{ position: 'absolute', left: -8, top: -4, width: 48, height: 48, imageRendering: 'pixelated' }} />
+        </div>
+      )}
+
+      {/* Sweep mode: drag anywhere over the shards and each one touched flies into a jar. Leaves the bottom strip free
+          so the page's Check / Confirm / Hint buttons stay clickable. */}
+      {sweepMode && phase === 'play' && !finalPhase && !done && (
+        <div
+          onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); sweepingRef.current = true; sweepAt(e.clientX, e.clientY); }}
+          onPointerMove={(e) => { if (sweepingRef.current) sweepAt(e.clientX, e.clientY); }}
+          onPointerUp={() => { sweepingRef.current = false; setSweepPos(null); }}
+          onPointerCancel={() => { sweepingRef.current = false; setSweepPos(null); }}
+          style={{ position: 'absolute', left: 0, top: 0, width: STAGE_W, height: STAGE_H - 56, zIndex: 29, pointerEvents: 'auto', touchAction: 'none', cursor: 'grab' }}
+        >
+          {sweepPos && (
+            <div style={{ position: 'absolute', left: sweepPos.x - SWEEP_R, top: sweepPos.y - SWEEP_R, width: SWEEP_R * 2, height: SWEEP_R * 2, borderRadius: '50%', border: '3px dashed rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.18)', boxShadow: '0 0 10px rgba(255,255,255,0.8)', pointerEvents: 'none' }} />
+          )}
+        </div>
+      )}
+
       {/* Idle guide: transparent shard (no sparkle behind it) dragged to a jar by the guide cursor */}
-      {guide && (() => {
+      {guide && !guide.sweep && (() => {
         const sh = guide.shard;
         const gx = jarLefts[guide.jar] + jarW / 2 - (sh.x + shardW / 2);
         const gy = midTop + jarH / 2 - (sh.y + shardH / 2);
