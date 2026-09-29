@@ -8,8 +8,11 @@ const CREAM = '#e8d5b4';
 // Interactable UI inner size (400x440 box minus its 4px border). The stage can be given MORE ROOM (stageW / stageH)
 // without anything growing: the division, the jars and the shards keep their sizes and just get more area.
 // Everything that sits in the middle is centred in the bigger stage; the jar row and the shard zone use the full room.
-const BASE_W = 392;
-const BASE_H = 432;
+// Exported so a caller that wants to line something else up with the settled jars'
+// exact size/position (e.g. Hybrid Island's own W-jars, see MixedSimilarCircleStage)
+// can redo the same measureTargets() math instead of guessing at it.
+export const BASE_W = 392;
+export const BASE_H = 432;
 const makeGeo = (W, H) => {
   const ox = (W - BASE_W) / 2, oy = (H - BASE_H) / 2;
   const ROW_Y = 172 + oy;
@@ -30,7 +33,7 @@ const makeGeo = (W, H) => {
     ZONE_BOTTOM: H - 44,
   };
 };
-const IMG_ASPECT = 2 / 3;
+export const IMG_ASPECT = 2 / 3;
 const JAR_STAGGER = 300;
 const GUIDE_IDLE_MS = 3000;  // no shard movement for this long -> guide a shard to a jar
 const GUIDE_LOOP_MS = 2600;  // length of one guide demonstration
@@ -41,14 +44,18 @@ const SWEEP_R = 30;
 const BROOM_W = 88;                          // gemSweep.png is drawn this wide; its bristles' centre is at (49%, 78%) and it swings from the top of the handle (49%, 7%)
 const SWEEP_TEXT_DELAY = 500;                // "Sweep!" shows this long after the gem shatters
 const SWEEP_TEXT_SHOW = 3000;                // ...and stays this long (or until the player starts sweeping)
-const SETTLE_STAGGER = 0.12;
-const SETTLE_MOVE = 0.6;
+export const SETTLE_STAGGER = 0.12;
+export const SETTLE_MOVE = 0.6;
+// How long finalPhase sits on its glow beat before the jars/shards actually start
+// moving (see the finalPhase effect below) — a caller animating something else to
+// land at the same time (W's own jars) starts on this same delay.
+export const SETTLE_GLOW_MS = 1300;
 
 // shine -> pair -> divide (player types the quotient) -> throw (jars thrown, D splits and
 // lands on them) -> charge (N powers up) -> gem -> shake -> shatter -> play
 const PHASES = ['shine', 'pair', 'divide', 'throw', 'charge', 'gem', 'shake', 'shatter', 'play'];
 
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 const rectCorners = (cx, cy, w, h, deg) => {
   const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
@@ -366,7 +373,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
       const jarTime = (wholes - 1) * SETTLE_STAGGER + SETTLE_MOVE;
       ts.push(setTimeout(() => setGemsGone(true), 700));
       ts.push(setTimeout(() => { setFinalSettled(true); onFinalSettled?.(); }, Math.max(gemTime, jarTime) * 1000 + 300));
-    }, 1300));
+    }, SETTLE_GLOW_MS));
     return () => ts.forEach(clearTimeout);
   }, [finalPhase]); // eslint-disable-line react-hooks/exhaustive-deps
 

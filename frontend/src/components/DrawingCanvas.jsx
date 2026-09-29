@@ -22,7 +22,7 @@ const guideShapeD = (mode) => {
   const poly = (pts) => 'M ' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L ');
   if (mode === 'triangle') {
     // Apex on the left at mid height, flat right edge — what checkForTriangle asks for.
-    return `M ${cx - 60} ${cy} L ${cx + 70} ${cy - 115} L ${cx + 70} ${cy + 115} Z`;
+    return `M ${cx + 70} ${cy - 115} L ${cx - 60} ${cy} L ${cx + 70} ${cy + 115} Z`;
   }
   if (mode === 'infinity') {
     // A lemniscate: wider than tall, crossing itself in the middle.
@@ -33,11 +33,11 @@ const guideShapeD = (mode) => {
     });
     return poly(pts);
   }
-  // circle, starting at the top and going clockwise
+  // circle, starting at the top and going counter-clockwise
   const r = 105;
   const pts = Array.from({ length: 97 }, (_, i) => {
     const a = (i / 96) * Math.PI * 2;
-    return [cx + r * Math.sin(a), cy - r * Math.cos(a)];
+    return [cx - r * Math.sin(a), cy - r * Math.cos(a)];
   });
   return poly(pts);
 };

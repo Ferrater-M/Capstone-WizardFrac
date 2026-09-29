@@ -3,7 +3,10 @@ import { createPortal } from 'react-dom';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
 import InputGuideCursor from '../components/InputGuideCursor';
-import ImproperToMixedGame, { MANUAL_MAX_SHARDS } from '../components/ImproperToMixedGame';
+import ImproperToMixedGame, {
+  MANUAL_MAX_SHARDS, IMG_ASPECT, clamp as clampNum, BASE_W as GEM_BASE_W,
+  SETTLE_STAGGER, SETTLE_MOVE, SETTLE_GLOW_MS,
+} from '../components/ImproperToMixedGame';
 import HybridFractionTutorial from '../components/HybridFractionTutorial';
 import GameMenuModal from '../components/GameMenuModal';
 import SettingsPage from './SettingsPage';
@@ -472,7 +475,7 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
                     />
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animation: 'problemFadeIn 0.4s ease-out' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.5, maxWidth: 330, padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
                       {isWhole ? (
                         <input autoFocus type="text" inputMode="numeric" value={simplifiedInput} onChange={e => setSimplifiedInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleKeyDown} style={wholeFieldStyle} />
                       ) : (
@@ -551,6 +554,12 @@ const MIXED_N_TOP = 135;   // 0.483 * 300
 const MIXED_D_TOP = 251;   // 0.831 * 300
 const MIXED_W_LEFT = 88;   // 50 + 0.148 * 300
 const MIXED_D_DEST_FY = (32 + MIXED_D_TOP) / 440;
+// Same conversion for W's and N's own combine-box rows, used only as the
+// SOURCE point of the post-combine travel below (see checkCombine) — not for
+// laying anything out, since the boxes themselves are still positioned by
+// MIXED_W_TOP/MIXED_W_LEFT/MIXED_N_TOP directly.
+const MIXED_W_DEST_FY = (32 + MIXED_W_TOP) / 440;
+const MIXED_N_DEST_FY = (32 + MIXED_N_TOP) / 440;
 // The final-answer panel's own vertical spot — deliberately separate from
 // MIXED_N_TOP so moving one doesn't drag the other along with it (the N
 // combine box and the final-answer panel are two different points in the
@@ -603,46 +612,57 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
   const [dBubble, setDBubble] = useState(null);
   const [dArrival, setDArrival] = useState(null);
   const [showCombineSparkle, setShowCombineSparkle] = useState(false);
+  // The whole number spirals off to the top-left (it isn't needed again until the
+  // carry produces a new one), while N travels alongside D into the same
+  // enlarged "N ÷ D" spot the gem game's own division prompt then continues from.
+  const [wBubble, setWBubble] = useState(null);
+  const [nBubble, setNBubble] = useState(null);
+  const [showWSparkle, setShowWSparkle] = useState(false);
+  const [wArrival, setWArrival] = useState(null);
+  const [showWholeLabel, setShowWholeLabel] = useState(false);
+  const wBubbleRef = useRef(null);
+  const nBubbleRef = useRef(null);
 
   const [wInput, setWInput] = useState('');
   const [nInput, setNInput] = useState('');
 
   // ── simplification (runs between combine success and the final-answer step) ──
-  // simplifyStage: null | 'carry-drag' | 'carry-quotient' | 'carry-remainder' | 'reduce'
-  // 'carry' = numerator ≥ denominator: drag the numerator onto W, then type the
-  // quotient (wholes) and remainder (leftover numerator) as two separate steps —
-  // deliberately NOT auto-computed, so the player practices the actual division
-  // and subtraction rather than just watching it happen.
-  // 'reduce' = the post-carry numerator/denominator share a common factor: type
-  // the reduced fraction, same pattern as the original SimilarCircleStage's
-  // own simplify step.
-  const [simplifyStage, setSimplifyStage] = useState(null);
-  // Live whole/numerator shown during the carry-drag/quotient/remainder steps —
-  // starts at the raw combine result, updates to the post-carry values once the
-  // carry actually completes (so the token's own displayed digit stays in sync
-  // with what the player is working on).
-  const [carryWhole, setCarryWhole] = useState(0);
-  const [carryNum, setCarryNum] = useState(0);
-  const [quotientInput, setQuotientInput] = useState('');
-  const [remainderInput, setRemainderInput] = useState('');
-  const [reduceNumInput, setReduceNumInput] = useState('');
-  const [reduceDenInput, setReduceDenInput] = useState('');
-  const [carryDragOffset, setCarryDragOffset] = useState({ dx: 0, dy: 0 });
-  const [carryDragging, setCarryDragging] = useState(false);
-  const [carryMagnetDist, setCarryMagnetDist] = useState(Infinity);
+  // Numerator ≥ denominator gets handed straight to the gem/jar shard game
+  // (ImproperToMixedGame) — same mechanic the butterfly/dissimilar route uses
+  // after cross-multiplying — instead of a typed drag/quotient/remainder
+  // sequence. Whatever's left over (whether or not it went through the gem
+  // game) may still share a common factor with D; that's not a separate typed
+  // step either, it's folded into the final-answer check below exactly like
+  // Dissimilar Island's "Can be simplified!" / "Perfect!" flow.
+  const [carryPhase, setCarryPhase] = useState(false);
+  const [carryFinal, setCarryFinal] = useState(false);
+  const [finalInputsShown, setFinalInputsShown] = useState(false);
+  const [carryUi, setCarryUi] = useState({ stage: 'none', canSubmit: false, prompt: '' });
+  const [carryStart, setCarryStart] = useState(null);
+  const carryActionRef = useRef(null);
+  const [unsimplified, setUnsimplified] = useState(null);
+  const [perfectPopup, setPerfectPopup] = useState(false);
+  const perfectTimeoutRef = useRef(null);
 
   const [finalAnswerVisible, setFinalAnswerVisible] = useState(false);
   const [finalWholeInput, setFinalWholeInput] = useState('');
   const [finalNumInput, setFinalNumInput] = useState('');
   const [finalDenInput, setFinalDenInput] = useState('');
+  const finalNumRef = useRef(null);
+  // W's own jars (see the carryFinal effect below): shoot out from its reserved
+  // spot and settle in a fanned stack of their own, left of the carry's real
+  // jars, a "+" apart — wJarAnchor is the real final-answer whole-box's position
+  // (queried once it exists), wJarsMove flips on the same delay the gem game's
+  // own jars use so both settle at the same time.
+  const [wJarAnchor, setWJarAnchor] = useState(null);
+  const [wJarsMove, setWJarsMove] = useState(false);
+  const [wJarsSettled, setWJarsSettled] = useState(false);
+  const [wJarTick, setWJarTick] = useState(0);
 
   const circleRef = useRef(null);
   const bubble1Ref = useRef(null);
   const bubble2Ref = useRef(null);
   const dBubbleRef = useRef(null);
-  const carryDragRef = useRef(null);
-  const carryWTargetRef = useRef(null);
-  const carryMagnetSoundRef = useRef(null);
   const actionLocked = useRef(false);
 
   // ── simplification targets — pure, derived fresh each render from the raw
@@ -666,6 +686,79 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
   // check in this stage (and it's a small comprehension check in its own
   // right: recognizing the answer collapsed to 0).
   const isZeroCase = !showFinalWhole && !showFinalFrac;
+
+  // ── W's own jars — redoes ImproperToMixedGame's own measureTargets() jar math
+  // (same GAP/IMG_ASPECT, same clamp curve, same 0.4×-width fan step) so they
+  // land at the exact size/spacing the carry's real jar(s) use. They sit
+  // stacked directly ABOVE the real jar (the real jar itself is untouched — it
+  // keeps rendering exactly where ImproperToMixedGame already puts it, beside
+  // the input), sharing its own horizontal centre — NOT the whole input's own
+  // centre, which sits under the "Final Answer:" label and would put the stack
+  // right on top of that text. A "+" sits in the gap between the two. If the
+  // fan wouldn't fit in the room above (little headroom, or a wide fan),
+  // everything shrinks by the same extra factor to stay inside the card. ──
+  const wJarsActive = needsCarry && wResult > 0;
+  const JAR_GAP = 14;
+  const rawJarHByN = wJarsActive ? clampNum(Math.round(190 - nResult * 1.5), 120, 165) : 0;
+  const rawJarMaxW = wJarsActive ? (GEM_BASE_W - 24 - JAR_GAP * (carryQuotient - 1)) / carryQuotient : 0;
+  const rawJarH = wJarsActive ? Math.min(rawJarHByN, Math.floor(rawJarMaxW / IMG_ASPECT)) : 0;
+  const rawJarW = Math.round(rawJarH * IMG_ASPECT);
+  // (44 = wholeFieldStyle's own fixed height, in place of measuring it live —
+  // it no longer varies now that the final-answer fields are a fixed size.)
+  const jarScale = wJarsActive ? clampNum((44 * 1.2) / rawJarH, 0.25, 0.6) : 0;
+  const baseJw = rawJarW * jarScale;
+  const baseJh = rawJarH * jarScale;
+  const baseStep = baseJw * 0.4;
+  const ROW_GAP = 10;
+  const PLUS_SIZE = 20;
+  const CARD_TOP_MARGIN = 8, CARD_SIDE_MARGIN = 8;
+  // The real jar fan's own centre, worked out the same way ImproperToMixedGame
+  // itself lays the fan out (each jar's own centre is `step` apart, ending at
+  // whole.l - 14 - jw/2) — the average of its first and last jar's centres.
+  const jarAnchorCx = wJarAnchor ? wJarAnchor.l - 14 - baseJw / 2 - ((carryQuotient - 1) / 2) * baseStep : null;
+  // The real jar's own vertical centre — level with the whole input's own height.
+  const realRowCy = wJarAnchor ? wJarAnchor.t + 22 : null;
+  // How much room actually exists above the real jar (down to a small margin
+  // from the card's own top) vs. how much the un-shrunk stack would need, and
+  // on either side of the fan's centre vs. how wide it would be — the smallest
+  // of those ratios shrinks everything so both the height and the width stay inside.
+  const neededH = baseJh + 2 * ROW_GAP + PLUS_SIZE;
+  const availableH = realRowCy !== null ? (realRowCy - baseJh / 2) - CARD_TOP_MARGIN : neededH;
+  const neededHalfW = ((wResult - 1) * baseStep) / 2 + baseJw / 2;
+  const availableHalfW = jarAnchorCx !== null ? Math.min(jarAnchorCx, GEM_BASE_W - jarAnchorCx) - CARD_SIDE_MARGIN : neededHalfW;
+  const fitScale = wJarsActive
+    ? Math.min(1, neededH > 0 ? availableH / neededH : 1, neededHalfW > 0 ? availableHalfW / neededHalfW : 1)
+    : 1;
+  const jh = baseJh * fitScale, jStep = baseStep * fitScale;
+  const plusCy = realRowCy !== null ? realRowCy - baseJh / 2 - ROW_GAP - PLUS_SIZE / 2 : null;
+  const wJarRowCy = plusCy !== null ? plusCy - PLUS_SIZE / 2 - ROW_GAP - jh / 2 : null;
+  const wJarCenters = jarAnchorCx !== null
+    ? Array.from({ length: wResult }, (_, i) => ({
+        cx: jarAnchorCx + (i - (wResult - 1) / 2) * jStep,
+        cy: wJarRowCy,
+      }))
+    : [];
+
+  // Measure the real final-answer whole box once it exists — right when
+  // carryFinal mounts it, same moment the gem game's own finalPhase glow
+  // starts — then start moving on the SAME delay it uses (SETTLE_GLOW_MS) so
+  // both settle together.
+  useEffect(() => {
+    if (!carryFinal || !wJarsActive) return undefined;
+    const ts = [];
+    ts.push(setTimeout(() => {
+      const stage = circleRef.current;
+      const wholeEl = document.querySelector('[data-final="whole"]');
+      if (stage && wholeEl) {
+        const sr = stage.getBoundingClientRect();
+        const sc = sr.width / stage.offsetWidth;
+        const wr = wholeEl.getBoundingClientRect();
+        setWJarAnchor({ l: (wr.left - sr.left) / sc, t: (wr.top - sr.top) / sc });
+      }
+    }, 60));
+    ts.push(setTimeout(() => setWJarsMove(true), SETTLE_GLOW_MS));
+    return () => ts.forEach(clearTimeout);
+  }, [carryFinal, wJarsActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCircleDetected = () => {
     playSfx('/SoundEffects/circleAppear.wav');
@@ -745,79 +838,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
     return () => clearTimeout(t);
   }, [circleDetected]);
 
-  // ── carry-drag — single magnet-zone drag (numerator onto W), same technique
-  // as ForgeCircleStage's own drag mechanic (vibration, pitch-bending magnet.wav,
-  // sparkle burst on a successful drop), just scoped to one drag instead of two. ──
-  const CARRY_MAGNET_THRESHOLD = 60;
-
-  const startCarryDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const cx = e.clientX ?? e.touches?.[0]?.clientX;
-    const cy = e.clientY ?? e.touches?.[0]?.clientY;
-    carryDragRef.current = { startX: cx, startY: cy, near: false };
-    setCarryDragging(true);
-    setCarryDragOffset({ dx: 0, dy: 0 });
-    const audio = new Audio('/SoundEffects/magnet.wav');
-    audio.loop = true;
-    audio.playbackRate = 0.5;
-    audio.volume = getSfxVolume();
-    audio.play().catch(() => {});
-    carryMagnetSoundRef.current = audio;
-  };
-
-  const onCarryMove = (e) => {
-    const dr = carryDragRef.current;
-    if (!dr) return;
-    const cx = e.clientX ?? e.touches?.[0]?.clientX;
-    const cy = e.clientY ?? e.touches?.[0]?.clientY;
-    const newDx = cx - dr.startX, newDy = cy - dr.startY;
-    setCarryDragOffset({ dx: newDx, dy: newDy });
-    let dist = Infinity;
-    if (carryWTargetRef.current) {
-      const r = carryWTargetRef.current.getBoundingClientRect();
-      dist = Math.hypot(cx - (r.left + r.width / 2), cy - (r.top + r.height / 2));
-    }
-    dr.near = dist < CARRY_MAGNET_THRESHOLD;
-    setCarryMagnetDist(dist);
-    if (carryMagnetSoundRef.current) {
-      carryMagnetSoundRef.current.playbackRate = 0.1 + Math.max(0, 1 - dist / 200) * 0.6;
-    }
-  };
-
-  const onCarryUp = () => {
-    const dr = carryDragRef.current;
-    if (!dr) return;
-    const near = dr.near;
-    carryDragRef.current = null;
-    setCarryDragging(false);
-    setCarryMagnetDist(Infinity);
-    setCarryDragOffset({ dx: 0, dy: 0 });
-    if (carryMagnetSoundRef.current) { carryMagnetSoundRef.current.pause(); carryMagnetSoundRef.current = null; }
-    if (near && simplifyStage === 'carry-drag') {
-      playSfx('/SoundEffects/sparkleExplode.wav');
-      setSimplifyStage('carry-quotient');
-      setQuotientInput('');
-    }
-  };
-
-  useEffect(() => {
-    window.addEventListener('mousemove', onCarryMove);
-    window.addEventListener('mouseup', onCarryUp);
-    window.addEventListener('touchmove', onCarryMove, { passive: false });
-    window.addEventListener('touchend', onCarryUp);
-    return () => {
-      window.removeEventListener('mousemove', onCarryMove);
-      window.removeEventListener('mouseup', onCarryUp);
-      window.removeEventListener('touchmove', onCarryMove);
-      window.removeEventListener('touchend', onCarryUp);
-    };
-  });
-
   const handleCombineKeyDown = (e) => { if (e.key === 'Enter') checkCombine(); };
-  const handleQuotientKeyDown = (e) => { if (e.key === 'Enter') checkQuotient(); };
-  const handleRemainderKeyDown = (e) => { if (e.key === 'Enter') checkRemainder(); };
-  const handleReduceKeyDown = (e) => { if (e.key === 'Enter') checkReduce(); };
   const handleFinalKeyDown = (e) => { if (e.key === 'Enter') checkFinal(); };
 
   // Reports exactly which part(s) were wrong (and what they should've been) —
@@ -839,55 +860,130 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
       setCombineDone(true);
       if (circleRef.current) {
         const cRect = circleRef.current.getBoundingClientRect();
-        const SZ = 44;
-        const sx = cRect.left + cRect.width * 0.5 - SZ / 2;
-        const sy = cRect.top + MIXED_D_DEST_FY * cRect.height - SZ / 2;
-        const ex = sx;
-        const ey = cRect.top + MIXED_FINAL_DEST_FY * cRect.height - SZ / 2;
-        // Shine first (fade in + sparkle sound), then a short pause before it
-        // actually starts traveling — same technique as the denominator fly-in
-        // above and SimilarCircleStage's own dBubble travel.
-        setDBubble({ x: sx, y: sy, opacity: 0 });
+        // Where W, N and D currently sit (the same analytic spots the boxes
+        // themselves are placed at — see MIXED_W_LEFT/MIXED_N_TOP/MIXED_D_TOP),
+        // as CENTER points (every bubble below is centered on its own x/y).
+        const wSrc = { x: cRect.left + MIXED_W_LEFT + 26, y: cRect.top + MIXED_W_DEST_FY * cRect.height };
+        const nSrc = { x: cRect.left + cRect.width * 0.5 + 45, y: cRect.top + MIXED_N_DEST_FY * cRect.height };
+        const dSrc = { x: cRect.left + cRect.width * 0.5, y: cRect.top + MIXED_D_DEST_FY * cRect.height };
+        // The whole number isn't needed again until after the carry, so it
+        // spirals off to the top-left corner and keeps shining there in
+        // reserve, instead of following N and D.
+        const wDest = { x: cRect.left + 34, y: cRect.top + 34 };
+        // Only reached when there's no carry step to hand off to (see below) —
+        // N and D land side by side, enlarged, right at the final-answer spot.
+        const destY = cRect.top + MIXED_FINAL_DEST_FY * cRect.height;
+        const nDest = { x: cRect.left + cRect.width * 0.5 - 34, y: destY };
+        const dDest = { x: cRect.left + cRect.width * 0.5 + 34, y: destY };
+
+        // Shine first (fade in + sparkle sound), then a short pause before
+        // anything actually starts moving — same technique as the denominator
+        // fly-in above and SimilarCircleStage's own dBubble travel.
+        setWBubble({ x: wSrc.x, y: wSrc.y, opacity: 0 });
+        if (!needsCarry) {
+          setNBubble({ x: nSrc.x, y: nSrc.y, opacity: 0 });
+          setDBubble({ x: dSrc.x, y: dSrc.y, opacity: 0 });
+        }
         setTimeout(() => {
-          setDBubble(prev => prev && ({ ...prev, opacity: 1 }));
+          setWBubble(prev => prev && ({ ...prev, opacity: 1 }));
+          if (!needsCarry) {
+            setNBubble(prev => prev && ({ ...prev, opacity: 1 }));
+            setDBubble(prev => prev && ({ ...prev, opacity: 1 }));
+          }
           playSfx('/SoundEffects/sparkleSound.wav');
         }, 50);
 
         setTimeout(() => {
           playSfx('/SoundEffects/numberMove.wav');
-          const dur = 800, t0 = performance.now();
+          // Improper result: hand off to the gem/jar game right away, starting
+          // exactly where N and D already are — its own shine -> pair -> divide
+          // intro IS "the division equation forming", so nothing has to jump or
+          // re-enlarge partway through. It plays at the SAME TIME as W spiraling
+          // away below, instead of one animation waiting for the other to finish.
+          if (needsCarry) {
+            const cont = circleRef.current;
+            if (cont) {
+              const cr = cont.getBoundingClientRect();
+              setCarryStart({
+                n: { x: nSrc.x - cr.left, y: nSrc.y - cr.top },
+                d: { x: dSrc.x - cr.left, y: dSrc.y - cr.top },
+              });
+            }
+            setCarryPhase(true);
+            actionLocked.current = false;
+          }
+
+          const dur = 850, t0 = performance.now();
           const ease = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+          const bez = (a, c, b, t) => (1 - t) ** 2 * a + 2 * (1 - t) * t * c + t ** 2 * b;
+          // W actually spirals in toward wDest — its radius (distance from wDest)
+          // shrinks from the starting distance to 0, front-loaded (** 2.2, so it
+          // pulls in quickly instead of orbiting wide for most of the trip), while
+          // it sweeps under one full turn around that point; decreasing angle =
+          // counter-clockwise on screen (y grows downward, so an increasing angle
+          // would read as clockwise). N/D (only when there's no carry step to
+          // hand off to) still take a gentler arc.
+          const wR0 = Math.hypot(wSrc.x - wDest.x, wSrc.y - wDest.y);
+          const wA0 = Math.atan2(wSrc.y - wDest.y, wSrc.x - wDest.x);
+          const W_TURNS = 0.85;
+          const nCtrl = { x: (nSrc.x + nDest.x) / 2, y: Math.min(nSrc.y, nDest.y) - 40 };
+          const dCtrl = { x: (dSrc.x + dDest.x) / 2, y: Math.min(dSrc.y, dDest.y) - 40 };
           const anim = (now) => {
             const raw = Math.min((now - t0) / dur, 1);
             const t = ease(raw);
-            if (dBubbleRef.current) { dBubbleRef.current.style.left = ex + 'px'; dBubbleRef.current.style.top = (sy + (ey - sy) * t) + 'px'; }
+            if (wBubbleRef.current) {
+              const wAngle = wA0 - W_TURNS * 2 * Math.PI * t;
+              const wRadius = wR0 * Math.pow(1 - t, 2.2);
+              wBubbleRef.current.style.left = (wDest.x + wRadius * Math.cos(wAngle)) + 'px';
+              wBubbleRef.current.style.top = (wDest.y + wRadius * Math.sin(wAngle)) + 'px';
+              wBubbleRef.current.style.transform = `translate(-50%, -50%) rotate(${-360 * t}deg) scale(${1 - 0.2 * t})`;
+            }
+            if (!needsCarry) {
+              if (nBubbleRef.current) {
+                nBubbleRef.current.style.left = bez(nSrc.x, nCtrl.x, nDest.x, t) + 'px';
+                nBubbleRef.current.style.top = bez(nSrc.y, nCtrl.y, nDest.y, t) + 'px';
+                nBubbleRef.current.style.transform = `translate(-50%, -50%) scale(${1 + 0.4 * t})`;
+              }
+              if (dBubbleRef.current) {
+                dBubbleRef.current.style.left = bez(dSrc.x, dCtrl.x, dDest.x, t) + 'px';
+                dBubbleRef.current.style.top = bez(dSrc.y, dCtrl.y, dDest.y, t) + 'px';
+                dBubbleRef.current.style.transform = `translate(-50%, -50%) scale(${1 + 0.4 * t})`;
+              }
+            }
             if (raw < 1) {
               requestAnimationFrame(anim);
             } else {
-              setDArrival({ x: ex + SZ / 2, y: ey + SZ / 2 });
-              setShowCombineSparkle(true);
-              setTimeout(() => setShowCombineSparkle(false), 800);
-              const explode = new Audio('/SoundEffects/sparkleExplode.wav');
-              explode.volume = getSfxVolume();
-              explode.play().catch(() => {});
-              explode.addEventListener('ended', () => {
-                setDBubble(null);
-                playSfx('/SoundEffects/circleAppear.wav');
-                // Route into simplification if the raw result actually needs it —
-                // carry (numerator ≥ denominator) takes priority since reduce has
-                // to run on the POST-carry numerator, not the raw one.
-                if (needsCarry) {
-                  setCarryWhole(wResult);
-                  setCarryNum(nResult);
-                  setSimplifyStage('carry-drag');
-                } else if (needsReduce) {
-                  setSimplifyStage('reduce');
-                  setReduceNumInput(''); setReduceDenInput('');
-                } else {
+              // W has arrived — it explodes, then settles into a persistent
+              // shine (wIdleShine, see the <style> block) until the final
+              // answer reveals and it's folded into the real total.
+              setWArrival({ x: wDest.x, y: wDest.y });
+              setShowWSparkle(true);
+              setTimeout(() => setShowWSparkle(false), 800);
+              setShowWholeLabel(true);
+              setTimeout(() => setShowWholeLabel(false), 1150);
+              playSfx('/SoundEffects/sparkleExplode.wav');
+              // React only re-applies a style property when the VALUE it's handed
+              // differs from what it last rendered — since the settled JSX below
+              // hands it the same constant 'translate(-50%, -50%)' string every
+              // time, it wouldn't otherwise notice (or clear) the rotate/scale the
+              // rAF loop above just wrote directly to the DOM. Clear it here too.
+              if (wBubbleRef.current) wBubbleRef.current.style.transform = 'translate(-50%, -50%)';
+              setWBubble({ x: wDest.x, y: wDest.y, opacity: 1, settled: true });
+
+              if (!needsCarry) {
+                setDArrival({ x: dDest.x, y: dDest.y });
+                setShowCombineSparkle(true);
+                setTimeout(() => setShowCombineSparkle(false), 800);
+                const explode = new Audio('/SoundEffects/sparkleExplode.wav');
+                explode.volume = getSfxVolume();
+                explode.play().catch(() => {});
+                explode.addEventListener('ended', () => {
+                  setDBubble(null); setNBubble(null);
+                  playSfx('/SoundEffects/circleAppear.wav');
                   enterFinalAnswer();
-                }
-                actionLocked.current = false;
-              });
+                  actionLocked.current = false;
+                });
+              }
             }
           };
           requestAnimationFrame(anim);
@@ -906,61 +1002,43 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
     }
   };
 
+  // The whole number's reserved, shining marker (top-left) is folded into the
+  // real total once the final answer is about to show — fades out rather than
+  // popping away.
+  const dismissWBubble = () => {
+    setWBubble(prev => prev && ({ ...prev, opacity: 0 }));
+    setTimeout(() => setWBubble(null), 300);
+  };
+
   const enterFinalAnswer = () => {
-    setSimplifyStage(null);
+    dismissWBubble();
     setFinalAnswerVisible(true);
     setFinalWholeInput(''); setFinalNumInput(''); setFinalDenInput('');
   };
 
-  // ── carry: two typed sub-steps (wholes, then leftover) — deliberately not
-  // auto-computed, so the player practices the division and the subtraction
-  // themselves instead of just watching the result appear. ──
-  const checkQuotient = () => {
-    if (actionLocked.current || !quotientInput) return;
-    actionLocked.current = true;
-    if (parseInt(quotientInput) === carryQuotient) {
-      playSfx('/SoundEffects/circleAppear.wav');
-      setSimplifyStage('carry-remainder');
-      setRemainderInput('');
-    } else {
-      setQuotientInput('');
-      onWrongAnswer?.(`${nResult} ÷ ${d} = ${carryQuotient}`, quotientInput, 'WRONG_QUOTIENT');
-    }
-    actionLocked.current = false;
+  // Gem game finished converting the improper numerator to wholes + leftover shards.
+  // Reveal the final-answer inputs once its own settle animation completes (onFinalSettled),
+  // same handshake as ButterflyCircleStage's own revealFinalAnswer/handleFinalSettled.
+  const revealFinalAnswer = () => {
+    setCarryFinal(true);
+    setFinalAnswerVisible(true);
+    setFinalWholeInput(''); setFinalNumInput(''); setFinalDenInput('');
   };
-
-  const checkRemainder = () => {
-    if (actionLocked.current || !remainderInput) return;
-    actionLocked.current = true;
-    if (parseInt(remainderInput) === carryRemainder) {
-      playSfx('/SoundEffects/circleAppear.wav');
-      setCarryWhole(wResult + carryQuotient);
-      setCarryNum(carryRemainder);
-      if (needsReduce) {
-        setSimplifyStage('reduce');
-        setReduceNumInput(''); setReduceDenInput('');
-      } else {
-        enterFinalAnswer();
-      }
-    } else {
-      setRemainderInput('');
-      onWrongAnswer?.(`${nResult} - (${carryQuotient} × ${d}) = ${carryRemainder}`, remainderInput, 'WRONG_REMAINDER');
-    }
-    actionLocked.current = false;
+  const handleFinalSettled = () => {
+    dismissWBubble();
+    setWJarsSettled(true);
+    playSfx('/SoundEffects/circleAppear.wav');
+    setFinalInputsShown(true);
+    setTimeout(() => finalNumRef.current?.focus(), 100);
   };
-
-  const checkReduce = () => {
-    if (actionLocked.current || !(reduceNumInput && reduceDenInput)) return;
-    actionLocked.current = true;
-    if (parseInt(reduceNumInput) === finalNum && parseInt(reduceDenInput) === finalDen) {
-      playSfx('/SoundEffects/circleAppear.wav');
-      enterFinalAnswer();
-    } else {
-      setReduceNumInput(''); setReduceDenInput('');
-      onWrongAnswer?.(`${postCarryNum}/${d} simplifies to ${finalNum}/${finalDen}`, `${reduceNumInput}/${reduceDenInput}`, 'WRONG_REDUCE');
-    }
-    actionLocked.current = false;
-  };
+  // W's own jars pulse one at a time too, same cadence as the real ones (see tick in ImproperToMixedGame).
+  useEffect(() => {
+    if (!wJarsSettled) return undefined;
+    const id = setInterval(() => setWJarTick(t => t + 1), 320);
+    return () => clearInterval(id);
+  }, [wJarsSettled]);
+  const carryActive = carryPhase && !carryFinal;
+  const hideFinal = carryPhase && carryFinal && !finalInputsShown;
 
   const checkFinal = () => {
     if (actionLocked.current) return;
@@ -970,10 +1048,33 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
     const fracOk  = isZeroCase ? true : (!showFinalFrac || (finalNumInput && finalDenInput));
     if (!wholeOk || !fracOk) return;
     actionLocked.current = true;
-    const wCorrect = isZeroCase ? parseInt(finalWholeInput) === 0 : (!showFinalWhole || parseInt(finalWholeInput) === finalWhole);
-    const nCorrect = isZeroCase ? true : (!showFinalFrac || parseInt(finalNumInput) === finalNum);
-    const dCorrect = isZeroCase ? true : (!showFinalFrac || parseInt(finalDenInput) === finalDen);
+    const wv = isZeroCase ? parseInt(finalWholeInput) : (showFinalWhole ? parseInt(finalWholeInput) : finalWhole);
+    const nv = showFinalFrac ? parseInt(finalNumInput) : 0;
+    const dv = showFinalFrac ? parseInt(finalDenInput) : 1;
+    // Right whole number and an equivalent but unreduced fraction (e.g. 4/6 instead
+    // of 2/3): don't fail yet, ask for the simplified form — same "Can be simplified!"
+    // flow as Dissimilar Island / ButterflyCircleStage.
+    const equivalent = showFinalFrac && !isZeroCase && nv > 0 && dv > 0 && wv === finalWhole && nv * d === postCarryNum * dv;
+    if (equivalent && !unsimplified && !(nv === finalNum && dv === finalDen)) {
+      setUnsimplified({ n: nv, d: dv });
+      setFinalNumInput(''); setFinalDenInput('');
+      actionLocked.current = false;
+      playSfx('/SoundEffects/starAppear.wav');
+      onRequestHint?.('Can be simplified!');
+      setTimeout(() => document.querySelector('[data-final="num"]')?.focus(), 60);
+      return;
+    }
+    const wCorrect = isZeroCase ? wv === 0 : (!showFinalWhole || wv === finalWhole);
+    const nCorrect = isZeroCase ? true : (!showFinalFrac || nv === finalNum);
+    const dCorrect = isZeroCase ? true : (!showFinalFrac || dv === finalDen);
     const correct = wCorrect && nCorrect && dCorrect;
+    if (correct && showFinalFrac && !unsimplified && needsReduce) {
+      // Went straight to the simplified answer without the unsimplified step first.
+      setPerfectPopup(true);
+      playSfx('/SoundEffects/perfectEffect.wav');
+      if (perfectTimeoutRef.current) clearTimeout(perfectTimeoutRef.current);
+      perfectTimeoutRef.current = setTimeout(() => setPerfectPopup(false), 2250);
+    }
     const submitted = isZeroCase ? (finalWholeInput || '0') : ([showFinalWhole && finalWholeInput, showFinalFrac && `${finalNumInput}/${finalDenInput}`].filter(Boolean).join(' ') || '0');
     const target    = [showFinalWhole && String(finalWhole), showFinalFrac && `${finalNum}/${finalDen}`].filter(Boolean).join(' ') || '0';
     setFinalWholeInput(''); setFinalNumInput(''); setFinalDenInput('');
@@ -995,15 +1096,26 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
     outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace',
     WebkitAppearance: 'none', MozAppearance: 'none',
   };
-  const wCombineFieldStyle = { ...magicNFieldStyle, width: 64 };
-  const wholeFieldStyle = {
-    width: 64, height: 64, fontSize: 28, fontWeight: 800, textAlign: 'center',
-    border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', color: '#ffffff',
-    outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace',
-    WebkitAppearance: 'none', MozAppearance: 'none',
+  const wCombineFieldStyle = { ...magicNFieldStyle, width: 52, height: 52, fontSize: 26 };
+  // Final-answer fields — sized exactly like Similar/Dissimilar Island's own
+  // improper-to-mixed final answer (not ButterflyCircleStage's smaller one),
+  // so all three islands' mixed-fraction final answers read as the same thing.
+  // Three cases, same as those islands: a lone whole number (also used for the
+  // isZeroCase "0"), a mixed number (smaller, two fields side by side), or a
+  // lone fraction (bigger, nothing else on the row).
+  const finalFieldBase = {
+    fontWeight: 800, textAlign: 'center', border: '3px dashed #e8d5b4', borderRadius: 0,
+    background: '#333333', color: '#ffffff', outline: 'none', appearance: 'none',
+    fontFamily: '"Press Start 2P", monospace', WebkitAppearance: 'none', MozAppearance: 'none',
     boxShadow: '0 4px 16px rgba(0,0,0,0.7)', textShadow: '0 0 8px rgba(0,0,0,0.9)',
   };
-  const fracFieldStyle = { ...wholeFieldStyle, width: 90, height: 54 };
+  const wholeOnlyFieldStyle = { ...finalFieldBase, width: 90, height: 64, fontSize: 28 };
+  const mixedWholeFieldStyle = { ...finalFieldBase, width: 70, height: 54, fontSize: 26 };
+  const mixedFracFieldStyle  = { ...finalFieldBase, width: 70, height: 54, fontSize: 20 };
+  const fracOnlyFieldStyle   = { ...finalFieldBase, width: 90, height: 54, fontSize: 28 };
+  const wholeFieldStyle = showFinalFrac ? mixedWholeFieldStyle : wholeOnlyFieldStyle;
+  const fracFieldStyle  = showFinalWhole ? mixedFracFieldStyle : fracOnlyFieldStyle;
+  const fracDividerWidth = showFinalWhole ? 86 : 110;
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -1023,6 +1135,22 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
         @keyframes finalAnswerFadeIn {
           from { opacity: 0; transform: translate(-50%, -50%) translateY(-10px); }
           to   { opacity: 1; transform: translate(-50%, -50%) translateY(0); }
+        }
+        /* The whole number's reserved marker at the top-left, once it lands — a slow,
+           steady pulse so it still reads as "waiting", not forgotten. */
+        @keyframes wIdleShine {
+          0%, 100% { filter: drop-shadow(0 0 4px rgba(200,220,255,0.8)) brightness(1); }
+          50%      { filter: drop-shadow(0 0 12px rgba(220,235,255,1)) brightness(1.35); }
+        }
+        /* "Whole!" pops out from W's right edge once it lands, drifts a little
+           further right, then fades — same jump-then-fade shape as the old
+           numerator's own slide/fade (see oldNSlideRight/oldNFadeAway). */
+        @keyframes wholeLabelPop {
+          0%   { transform: translate(0, -50%) scale(0.4); opacity: 0; }
+          15%  { transform: translate(10px, -50%) scale(1.15); opacity: 1; }
+          30%  { transform: translate(18px, -50%) scale(1); opacity: 1; }
+          75%  { transform: translate(46px, -50%) scale(1); opacity: 1; }
+          100% { transform: translate(60px, -50%) scale(0.9); opacity: 0; }
         }
       `}</style>
       <img
@@ -1056,6 +1184,10 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
           <div style={{
             position: 'absolute', top: 32, left: 0, right: 0, height: '300px',
             animation: 'magicFloat 4s ease-in-out infinite', zIndex: 2,
+            // Once combine succeeds nothing left in here is shown (the circle art,
+            // denominator and W/N boxes all fade themselves already) — hiding the
+            // wrapper too keeps its bob from mattering to anything, present or future.
+            opacity: combineDone ? 0 : 1,
           }}>
             <img
               src="/InteractableUI/SimilarMagicCircleMixed.png"
@@ -1095,104 +1227,132 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
               </>
             )}
 
-            {/* ── Simplification — carry (drag, then two typed sub-steps) ── */}
-            {simplifyStage === 'carry-drag' && (
-              <>
-                <div
-                  ref={carryWTargetRef}
-                  style={{
-                    position: 'absolute', left: 140, top: 190, transform: 'translate(-50%, -50%)',
-                    width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 24, fontWeight: 900, color: '#ffffff', background: '#333333',
-                    border: '3px dashed #e8d5b4', borderRadius: 0, fontFamily: '"Press Start 2P", monospace',
-                    zIndex: 2,
-                    animation: carryMagnetDist < CARRY_MAGNET_THRESHOLD
-                      ? 'magnetVibrate 0.15s ease-in-out infinite'
-                      : 'mixedSimilarFadeIn 0.5s ease-out forwards',
-                  }}
-                >
-                  {carryWhole}
-                </div>
-                {/* Draggable numerator — its denominator is shown alongside (static, for
-                    context) since it's the numerator alone that's being carried, not
-                    the whole fraction. */}
-                <div
-                  onMouseDown={startCarryDrag}
-                  onTouchStart={startCarryDrag}
-                  style={{
-                    position: 'absolute', left: 260, top: 190,
-                    transform: `translate(calc(-50% + ${carryDragOffset.dx}px), calc(-50% + ${carryDragOffset.dy}px))`,
-                    zIndex: carryDragging ? 6 : 2, display: 'flex', alignItems: 'center', gap: 4,
-                    animation: !carryDragging ? 'mixedSimilarFadeIn 0.5s ease-out forwards' : 'none',
-                    touchAction: 'none', cursor: carryDragging ? 'grabbing' : 'grab',
-                  }}
-                >
-                  <div style={{
-                    width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 24, fontWeight: 900, color: '#ffffff', background: '#333333',
-                    border: '3px dashed #e8d5b4', borderRadius: 0, fontFamily: '"Press Start 2P", monospace',
-                    userSelect: 'none',
-                  }}>
-                    {carryNum}
-                  </div>
-                  <span style={{ fontSize: 20, fontWeight: 900, color: '#ffffff', fontFamily: '"Press Start 2P", monospace', opacity: 0.6, userSelect: 'none' }}>/{d}</span>
-                </div>
-                <p style={{
-                  position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', margin: 0,
-                  color: '#ffffff', fontSize: '12px', fontWeight: 900, whiteSpace: 'nowrap',
-                  textShadow: '0 0 8px rgba(0,0,0,1), 0 0 16px rgba(0,0,0,1)', zIndex: 3, pointerEvents: 'none',
-                }}>Numerator ≥ denominator — drag it onto the whole number!</p>
-              </>
-            )}
+          </div>
 
-            {(simplifyStage === 'carry-quotient' || simplifyStage === 'carry-remainder') && (
-              <div style={{ position: 'absolute', left: '50%', top: MIXED_FINAL_TOP, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'finalAnswerFadeIn 0.4s ease-out forwards' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>
-                  {simplifyStage === 'carry-quotient' ? `How many wholes in ${nResult}/${d}?` : `${nResult} − (wholes × ${d}) = ?`}
-                </span>
-                {simplifyStage === 'carry-quotient' ? (
-                  <input autoFocus type="text" inputMode="numeric" value={quotientInput} placeholder="?" onChange={e => setQuotientInput(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleQuotientKeyDown} style={wholeFieldStyle} />
-                ) : (
-                  <input autoFocus type="text" inputMode="numeric" value={remainderInput} placeholder="?" onChange={e => setRemainderInput(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleRemainderKeyDown} style={wholeFieldStyle} />
-                )}
-              </div>
-            )}
-
-            {/* ── Simplification — reduce (typed, same pattern as the original
-                SimilarCircleStage's own simplify step) ── */}
-            {simplifyStage === 'reduce' && (
-              <div style={{ position: 'absolute', left: '50%', top: MIXED_FINAL_TOP, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'finalAnswerFadeIn 0.4s ease-out forwards' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Simplify {postCarryNum}/{d}:</span>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                  <input autoFocus type="text" inputMode="numeric" value={reduceNumInput} placeholder="?" onChange={e => setReduceNumInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleReduceKeyDown} style={fracFieldStyle} />
-                  <div style={{ width: 70, height: 3, background: '#333333', borderRadius: 2 }} />
-                  <input type="text" inputMode="numeric" value={reduceDenInput} placeholder="?" onChange={e => setReduceDenInput(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleReduceKeyDown} style={fracFieldStyle} />
+          {/* Final answer — rendered OUTSIDE the floating wrapper above (unlike the
+              combine-step boxes) so it sits steady, same as Similar/Dissimilar
+              Island's and ButterflyCircleStage's own final answer never bobbing. */}
+          {finalAnswerVisible && (() => {
+            const unsimpStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, animation: 'unsimpSlide 0.6s ease-out', color: '#000', fontWeight: 800, fontSize: 20, fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' };
+            const unsimpFraction = unsimplified && (
+              <div style={{ position: 'absolute', left: '100%', top: '50%', marginLeft: 14, transform: 'translateY(-50%)' }}>
+                <div style={unsimpStyle}>
+                  <span>{unsimplified.n}</span>
+                  <div style={{ width: 40, height: 3, background: '#000', borderRadius: 2 }} />
+                  <span>{unsimplified.d}</span>
                 </div>
               </div>
-            )}
-
-            {finalAnswerVisible && (
-              <div style={{ position: 'absolute', left: '50%', top: MIXED_FINAL_TOP, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'finalAnswerFadeIn 0.4s ease-out forwards' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
+            );
+            // Greyed-out/read-only once "Can be simplified!" is showing — same
+            // treatment Similar Island's own whole field gets.
+            const wholeInputStyle = unsimplified ? {
+              ...wholeFieldStyle,
+              border: '3px solid transparent', background: 'transparent', color: '#000000',
+              boxShadow: 'none', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)',
+              transition: 'all 0.5s ease',
+            } : wholeFieldStyle;
+            return (
+              <div style={{ position: 'absolute', left: '50%', top: 32 + MIXED_FINAL_TOP, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'finalAnswerFadeIn 0.4s ease-out forwards', opacity: hideFinal ? 0 : 1, pointerEvents: hideFinal ? 'none' : 'auto', transition: 'opacity 0.3s ease' }}>
+                <style>{`@keyframes unsimpSlide { from { transform: translateX(-90px); opacity: 0.2; } to { transform: translateX(0); opacity: 1; } }`}</style>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.5, maxWidth: 330, padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
                 {isZeroCase ? (
-                  <input autoFocus type="text" inputMode="numeric" value={finalWholeInput} placeholder="?" onChange={e => setFinalWholeInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleFinalKeyDown} style={wholeFieldStyle} />
+                  <input ref={finalNumRef} data-final="whole" autoFocus type="text" inputMode="numeric" value={finalWholeInput} placeholder="?" onChange={e => setFinalWholeInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleFinalKeyDown} style={wholeFieldStyle} />
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
                     {showFinalWhole && (
-                      <input autoFocus type="text" inputMode="numeric" value={finalWholeInput} placeholder="?" onChange={e => setFinalWholeInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleFinalKeyDown} style={wholeFieldStyle} />
+                      <input ref={!showFinalFrac ? finalNumRef : null} data-final="whole" autoFocus type="text" inputMode="numeric" value={finalWholeInput} placeholder="?"
+                        onChange={e => setFinalWholeInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleFinalKeyDown}
+                        readOnly={!!unsimplified} tabIndex={unsimplified ? -1 : 0} style={wholeInputStyle} />
                     )}
                     {showFinalFrac && (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                        <input autoFocus={!showFinalWhole} type="text" inputMode="numeric" value={finalNumInput} placeholder="?" onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleFinalKeyDown} style={fracFieldStyle} />
-                        <div style={{ width: 70, height: 3, background: '#333333', borderRadius: 2 }} />
+                        <input ref={finalNumRef} data-final="num" autoFocus={!showFinalWhole} type="text" inputMode="numeric" value={finalNumInput} placeholder="?" onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleFinalKeyDown} style={fracFieldStyle} />
+                        <div style={{ width: fracDividerWidth, height: 3, background: '#333333', borderRadius: 2 }} />
                         <input type="text" inputMode="numeric" value={finalDenInput} placeholder="?" onChange={e => setFinalDenInput(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleFinalKeyDown} style={fracFieldStyle} />
                       </div>
                     )}
+                    {showFinalFrac && unsimpFraction}
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            );
+          })()}
+
+          {/* Improper -> mixed conversion (gem/jar game), before simplifying — same
+              mechanic as the butterfly/dissimilar route, instead of the old typed
+              drag/quotient/remainder steps. */}
+          {carryPhase && (
+            <ImproperToMixedGame
+              numerator={nResult}
+              denominator={d}
+              actionRef={carryActionRef}
+              startPos={carryStart}
+              finalPhase={carryFinal}
+              dismiss={!!unsimplified}
+              startBox={false}
+              onFinalSettled={handleFinalSettled}
+              onUiChange={setCarryUi}
+              onWrong={(quotient) => {
+                setTimeout(() => onWrongAnswer?.(`${nResult} ÷ ${d} = ${carryQuotient}`, String(quotient), 'INCORRECT_ANSWER'), 300);
+              }}
+              onComplete={revealFinalAnswer}
+            />
+          )}
+
+          {/* W's own jars — shoot out from its reserved spot at the same moment the
+              carry's real jars start settling, landing fanned out just left of them
+              (same size/stacking, see the geometry above), a "+" apart. */}
+          {wJarsActive && wArrival && wJarCenters.map((c, i) => {
+            const target = wJarsMove;
+            const cx = target ? c.cx : wArrival.x;
+            const cy = target ? c.cy : wArrival.y;
+            // Same box-stays-full-size-and-gets-scaled-down technique the real jars
+            // use, so the shrink is a smooth transform, not a layout resize —
+            // jarScale is the real jars' own shrink, fitScale the extra squeeze
+            // applied only here when the stack wouldn't otherwise fit. The scale
+            // transform and the float/bob animation are kept on two SEPARATE
+            // elements (outer div / inner img), exactly like the real jars —
+            // a CSS animation fully replaces `transform` for its own element, so
+            // putting both on the same element would silently drop the scale the
+            // moment the float animation kicked in.
+            const scale = target ? jarScale * fitScale : 0.15;
+            const ease = 'cubic-bezier(.2,.8,.3,1)';
+            const pulsing = wJarsSettled && wJarTick % wResult === i;
+            return (
+              <div
+                key={i}
+                style={{
+                  position: 'absolute', left: cx - rawJarW / 2, top: cy - rawJarH / 2,
+                  width: rawJarW, height: rawJarH, zIndex: 24, pointerEvents: 'none',
+                  opacity: target ? 1 : 0,
+                  transform: `scale(${scale})`,
+                  transition: `left ${SETTLE_MOVE}s ${ease}, top ${SETTLE_MOVE}s ${ease}, opacity 0.4s ease, transform ${SETTLE_MOVE}s ${ease}`,
+                  transitionDelay: target ? `${i * SETTLE_STAGGER}s` : '0s',
+                }}
+              >
+                <img
+                  src="/InteractableUI/GemJar.png"
+                  alt=""
+                  draggable={false}
+                  style={{
+                    width: '100%', height: '100%', display: 'block',
+                    filter: pulsing ? 'drop-shadow(0 0 6px #fff) drop-shadow(0 0 18px #fff) brightness(1.9)' : 'drop-shadow(0 0 12px rgba(255,255,255,0.95))',
+                    transition: 'filter 0.2s ease',
+                    animation: wJarsSettled ? `gemFloatJar ${(1.6 + ((i * 53) % 7) * 0.17).toFixed(2)}s ease-in-out ${(-i * 0.61).toFixed(2)}s infinite` : 'none',
+                  }}
+                />
+              </div>
+            );
+          })}
+          {wJarsActive && wJarsMove && jarAnchorCx !== null && (
+            <span style={{
+              position: 'absolute', left: jarAnchorCx, top: plusCy, transform: 'translate(-50%, -50%)',
+              fontSize: 22, fontWeight: 900, color: '#fff', zIndex: 24, pointerEvents: 'none',
+              fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000',
+              opacity: 0, animation: 'finalAnswerFadeIn 0.4s ease-out forwards',
+              animationDelay: `${(wResult - 1) * SETTLE_STAGGER + SETTLE_MOVE * 0.6}s`,
+            }}>+</span>
+          )}
         </div>
       )}
 
@@ -1212,10 +1372,39 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
               </div>
             );
           })}
-          {dBubble && (
-            <div ref={dBubbleRef} style={{ position: 'fixed', left: dBubble.x, top: dBubble.y, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, pointerEvents: 'none', opacity: dBubble.opacity, transition: 'opacity 0.3s ease' }}>
+          {wBubble && (
+            <div ref={wBubbleRef} style={{
+              position: 'fixed', left: wBubble.x, top: wBubble.y, width: 44, height: 44,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+              pointerEvents: 'none', opacity: wBubble.opacity, transform: 'translate(-50%, -50%)',
+              transition: 'opacity 0.3s ease',
+              animation: wBubble.settled ? 'wIdleShine 1.6s ease-in-out infinite' : 'none',
+            }}>
               <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite' }} />
-              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '0 0 6px rgba(0,0,0,0.9)', fontFamily: '"Press Start 2P", monospace' }}>{d}</span>
+              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000', fontFamily: '"Press Start 2P", monospace' }}>{wResult}</span>
+            </div>
+          )}
+          {showWSparkle && wArrival && (
+            <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'fixed', left: wArrival.x, top: wArrival.y, width: 72, height: 72, pointerEvents: 'none', zIndex: 9999, animation: 'sparkBurst 0.8s ease-out forwards' }} />
+          )}
+          {showWholeLabel && wArrival && (
+            <div style={{
+              position: 'fixed', left: wArrival.x + 22, top: wArrival.y, zIndex: 10000, pointerEvents: 'none',
+              animation: 'wholeLabelPop 1.1s ease-out forwards',
+            }}>
+              <span style={{ fontSize: 14, fontWeight: 900, color: '#fff', whiteSpace: 'nowrap', fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000' }}>Whole!</span>
+            </div>
+          )}
+          {nBubble && (
+            <div ref={nBubbleRef} style={{ position: 'fixed', left: nBubble.x, top: nBubble.y, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, pointerEvents: 'none', opacity: nBubble.opacity, transform: 'translate(-50%, -50%)', transition: 'opacity 0.3s ease' }}>
+              <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite' }} />
+              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000', fontFamily: '"Press Start 2P", monospace' }}>{nResult}</span>
+            </div>
+          )}
+          {dBubble && (
+            <div ref={dBubbleRef} style={{ position: 'fixed', left: dBubble.x, top: dBubble.y, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, pointerEvents: 'none', opacity: dBubble.opacity, transform: 'translate(-50%, -50%)', transition: 'opacity 0.3s ease' }}>
+              <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite' }} />
+              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000', fontFamily: '"Press Start 2P", monospace' }}>{d}</span>
             </div>
           )}
           {showCombineSparkle && dArrival && (
@@ -1228,40 +1417,52 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
         document.body
       )}
 
-      {circleDetected && (
-        wnVisible ||
-        simplifyStage === 'carry-quotient' || simplifyStage === 'carry-remainder' || simplifyStage === 'reduce' ||
-        finalAnswerVisible
-      ) && (
+      {circleDetected && (wnVisible || carryActive || (finalAnswerVisible && !hideFinal)) && (
         <SolveButtonRow
-          label={
-            simplifyStage === 'carry-quotient' || simplifyStage === 'carry-remainder' ? 'Confirm'
-            : simplifyStage === 'reduce' ? 'Simplify'
-            : finalAnswerVisible ? 'Check'
-            : 'Cast Spell'
-          }
-          onConfirm={
-            simplifyStage === 'carry-quotient' ? checkQuotient
-            : simplifyStage === 'carry-remainder' ? checkRemainder
-            : simplifyStage === 'reduce' ? checkReduce
-            : finalAnswerVisible ? checkFinal
-            : checkCombine
-          }
+          label={carryActive ? (carryUi.stage === 'confirm' ? 'Confirm' : 'Check') : finalAnswerVisible ? 'Check' : 'Cast Spell'}
+          onConfirm={carryActive ? (() => carryActionRef.current?.()) : finalAnswerVisible ? checkFinal : checkCombine}
           confirmEnabled={
-            simplifyStage === 'carry-quotient' ? !!quotientInput
-            : simplifyStage === 'carry-remainder' ? !!remainderInput
-            : simplifyStage === 'reduce' ? !!(reduceNumInput && reduceDenInput)
+            carryActive ? carryUi.canSubmit
             : finalAnswerVisible ? (isZeroCase ? !!finalWholeInput : (showFinalWhole ? !!finalWholeInput : true) && (showFinalFrac ? !!(finalNumInput && finalDenInput) : true))
             : !!(wInput && nInput)
           }
-          onHint={onRequestHint ? () => onRequestHint(
-            simplifyStage === 'carry-quotient' ? `How many times does ${d} go into ${nResult}?`
-            : simplifyStage === 'carry-remainder' ? `${nResult} − (${carryQuotient} × ${d})`
-            : simplifyStage === 'reduce' ? `${postCarryNum} and ${d} share a common factor — divide both by it`
+          onHint={onRequestHint && !(carryActive && !carryUi.prompt) ? () => onRequestHint(
+            carryActive ? carryUi.prompt
             : finalAnswerVisible ? `Final answer: ${(showFinalWhole && finalWhole) || ''} ${showFinalFrac ? `${finalNum}/${finalDen}` : ''}`.trim() || '0'
             : `${w1} ${operator} ${w2} = ? (whole), ${n1} ${operator} ${n2} = ? (numerator)`
           ) : undefined}
         />
+      )}
+
+      {perfectPopup && createPortal(
+        <div style={{
+          position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+          zIndex: 5001, pointerEvents: 'none', textAlign: 'center',
+          padding: '14px 32px', border: '6px solid #fff', background: '#000',
+          color: '#4ade80', fontSize: '22px', fontWeight: 700, whiteSpace: 'nowrap',
+          animation: 'perfectFlash 2.2s ease-in-out forwards',
+        }}>
+          <style>{`
+            @keyframes perfectFlash {
+              0%   { opacity: 0;    box-shadow: 0 0 0 0 rgba(255,255,255,0);       text-shadow: 0 0 0 rgba(255,255,255,0); }
+              4.5% { opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+              9%   { opacity: 0.35; box-shadow: 0 0 8px 2px rgba(255,255,255,0.4); text-shadow: 0 0 4px #fff; }
+              13.5%{ opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+              18%  { opacity: 0.35; box-shadow: 0 0 8px 2px rgba(255,255,255,0.4); text-shadow: 0 0 4px #fff; }
+              22.5%{ opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+              27%  { opacity: 1;    box-shadow: 0 0 14px 4px rgba(255,255,255,0.6); text-shadow: 0 0 8px #fff; }
+              72%  { opacity: 1;    box-shadow: 0 0 14px 4px rgba(255,255,255,0.6); text-shadow: 0 0 8px #fff; }
+              78%  { opacity: 1;    box-shadow: 0 0 30px 10px rgba(255,255,255,1); text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+              100% { opacity: 0;    box-shadow: 0 0 0 0 rgba(255,255,255,0);       text-shadow: 0 0 0 rgba(255,255,255,0); }
+            }
+          `}</style>
+          <div style={{ position: 'absolute', inset: 7, border: '1px solid #fff', pointerEvents: 'none' }} />
+          {[[-8, -8], [-8, null], [null, -8], [null, null]].map(([t, l], i) => (
+            <div key={i} style={{ position: 'absolute', width: 14, height: 14, background: '#fff', ...(t !== null ? { top: t } : { bottom: -8 }), ...(l !== null ? { left: l } : { right: -8 }) }} />
+          ))}
+          <div style={{ paddingTop: '6px' }}>Perfect!</div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -3228,7 +3429,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
           <div style={{ position: 'absolute', top: '32px', left: 0, right: 0, height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, opacity: hideFinal ? 0 : 1, pointerEvents: hideFinal ? 'none' : 'auto', transition: 'opacity 0.3s ease' }}>
             <style>{`@keyframes unsimpSlide { from { transform: translateX(-90px); opacity: 0.2; } to { transform: translateX(0); opacity: 1; } }`}</style>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'numFadeIn 0.5s ease-out both' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'nowrap', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.5, maxWidth: 330, padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
               {fIsWhole ? (
                 <input ref={finalNumRef} data-final="whole" type="text" inputMode="numeric" value={finalNumInput} placeholder="?" onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
               ) : fIsImproper ? (
