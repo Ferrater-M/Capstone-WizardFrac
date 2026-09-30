@@ -13,6 +13,33 @@ import ImproperToMixedGame from '../components/ImproperToMixedGame';
 import InputGuideCursor from '../components/InputGuideCursor';
 import { API_BASE_URL } from '../config';
 
+// Falling square particles along the bottom of a box — same set/timing as the
+// problem-statement banner's own particles, just grey instead of brown so they
+// read as belonging to a dark-grey input field.
+const FINAL_ANSWER_PARTICLES = [
+  { left: '5%',  size: 8,  dur: '2.2s', delay: '0s'    },
+  { left: '12%', size: 5,  dur: '1.6s', delay: '-0.4s' },
+  { left: '20%', size: 10, dur: '2.6s', delay: '-1.2s' },
+  { left: '28%', size: 6,  dur: '1.8s', delay: '-0.7s' },
+  { left: '36%', size: 9,  dur: '2.4s', delay: '-1.8s' },
+  { left: '44%', size: 4,  dur: '1.5s', delay: '-0.3s' },
+  { left: '52%', size: 11, dur: '2.8s', delay: '-2.1s' },
+  { left: '60%', size: 5,  dur: '1.7s', delay: '-0.9s' },
+  { left: '68%', size: 8,  dur: '2.3s', delay: '-1.5s' },
+  { left: '76%', size: 6,  dur: '1.9s', delay: '-0.6s' },
+  { left: '84%', size: 10, dur: '2.5s', delay: '-2.4s' },
+  { left: '92%', size: 4,  dur: '1.6s', delay: '-0.2s' },
+];
+const finalAnswerParticles = () => FINAL_ANSWER_PARTICLES.map((p, i) => (
+  <div key={i} style={{
+    position: 'absolute', bottom: -4, left: p.left,
+    width: p.size, height: p.size,
+    background: '#333333',
+    pointerEvents: 'none',
+    animation: `particleFall ${p.dur} ease-out ${p.delay} infinite`,
+  }} />
+));
+
 const detectFrameCount = (width, height) => {
   if (width % height === 0) return width / height;
   for (const n of [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16]) {
@@ -36,16 +63,18 @@ const DissimilarIslandGame = ({
   // through the same convert-then-simplify flow. Sums of 2-3 wholes use improper addends.
   const generateProblem = () => {
     const {
-      minDen, maxDen, subChance, improperChance, maxImproperDen, bigChance, threeWholeChance, leftover, maxShards, bigMaxDen,
+      minDen, maxDen, subChance, improperChance, maxImproperDen, bigChance, threeWholeChance, maxShards, bigMaxDen,
     } = getDissimilarTier(gameSession.level ?? 1);
     const dens = Array.from({ length: maxDen - minDen + 1 }, (_, i) => minDen + i);
     const mk = (d1, n1, operator, d2, n2) => ({ whole1: 0, numerator1: n1, denominator1: d1, whole2: 0, numerator2: n2, denominator2: d2, operator, isMixed: false });
     const isRepeat = (c) => lastFailedProblemKey.current && problemKey(c) === lastFailedProblemKey.current;
 
-    // Every addition whose sum is exactly `wholes` wholes and a bit, grouped by how many shards are
-    // left outside the jar (1, 2-3, 4+). One whole uses proper fractions; more use improper ones.
+    // Every addition whose sum is exactly `wholes` wholes and a bit, one whole uses proper
+    // fractions, more use improper ones. Which leftover numerator (shards outside the jar) it
+    // ends up with is whatever falls out of the random d1/d2/n1/n2 pick below, not weighted —
+    // the cap (maxShards / maxImproperDen / bigMaxDen) is the only thing narrowing the pool.
     const buildPool = (wholes) => {
-      const pool = { one: [], few: [], many: [] };
+      const pool = [];
       const denLimit = wholes === 1 ? maxImproperDen : bigMaxDen[wholes];
       for (const d1 of dens) for (const d2 of dens) {
         const rawDen = d1 * d2;
@@ -56,21 +85,14 @@ const DissimilarIslandGame = ({
           const rawNum = n1 * d2 + n2 * d1;
           if (rawNum > maxShards || Math.floor(rawNum / rawDen) !== wholes || rawNum % rawDen === 0) continue;
           if (wholes > 1 && (n1 % d1 === 0 || n2 % d2 === 0)) continue; // skip addends that are just whole numbers, like 6/2
-          const left = rawNum - wholes * rawDen;
           const c = mk(d1, n1, '+', d2, n2);
-          if (!isRepeat(c)) pool[left === 1 ? 'one' : left <= 3 ? 'few' : 'many'].push(c);
+          if (!isRepeat(c)) pool.push(c);
         }
       }
       return pool;
     };
-    // Pick a leftover bucket from the level's weights (only among buckets that have problems), then a random problem.
-    const fromPool = (pool) => {
-      const buckets = Object.keys(pool).filter(k => pool[k].length);
-      if (!buckets.length) return null;
-      let r = Math.random() * buckets.reduce((sum, k) => sum + leftover[k], 0);
-      const key = buckets.find(k => (r -= leftover[k]) < 0) ?? buckets[buckets.length - 1];
-      return pool[key][Math.floor(Math.random() * pool[key].length)];
-    };
+    // Uniformly random among every valid problem within the cap — no leftover-bucket weighting.
+    const fromPool = (pool) => pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
 
     let candidate = null;
     if (Math.random() < bigChance) {
@@ -1822,8 +1844,7 @@ const DissimilarIslandGame = ({
                       );
                       return (
                         <div style={{ position:'absolute', top:'32px', left:0, right:0, height:'300px', display:'flex', alignItems:'center', justifyContent:'center', zIndex:10, opacity: hideFinal ? 0 : 1, pointerEvents: hideFinal ? 'none' : 'auto', transition:'opacity 0.3s ease' }}>
-                          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, animation:'numFadeIn 0.5s ease-out both' }}>
-                            <span style={{ fontSize:13, fontWeight:700, color:'#fff', fontFamily:'"Press Start 2P", monospace', textShadow:'1px 1px 4px rgba(0,0,0,0.7)', whiteSpace:'nowrap', padding:'6px 14px', border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333' }}>Final Answer:</span>
+                          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, position:'relative', animation:'numFadeIn 0.5s ease-out both' }}>
                             {resIsWhole ? (
                               <input ref={finalNumRef} data-final="whole" type="text" inputMode="numeric" value={finalNumInput}
                                 onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g,''))}
@@ -1858,6 +1879,8 @@ const DissimilarIslandGame = ({
                                 {unsimpFraction}
                               </div>
                             )}
+                            <span style={{ fontSize:13, fontWeight:700, color:'#fff', fontFamily:'"Press Start 2P", monospace', textShadow:'1px 1px 4px rgba(0,0,0,0.7)', whiteSpace:'nowrap', padding:'6px 14px', border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333', animation:'finalAnswerPulse 1.6s ease-in-out infinite' }}>Final Answer</span>
+                            {finalAnswerParticles()}
                           </div>
                         </div>
                       );

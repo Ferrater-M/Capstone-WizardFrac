@@ -57,16 +57,16 @@ export const buildProblemDissimilar = (level = 1) => {
 // The butterfly method's denominator is d1 * d2, and an improper result is turned into a
 // mixed number with the gem/jar game (one jar of that many shards per whole), so improper
 // sums only use pairs whose product is at most maxImproperDen. improperChance is the share of
-// additions that are steered to an improper sum (the rest stay proper). leftover says how many
-// shards are left outside the jar (the new numerator): weights for exactly 1, 2-3, or 4+.
-// bigChance is the share of all problems whose sum reaches 2 or 3 wholes (the addends themselves are
-// improper fractions, like Similar Island's bigger problems): 2 wholes, or 3 with probability
-// threeWholeChance. Those are capped by DISSIMILAR_BIG so the gem game stays playable.
+// additions that are steered to an improper sum (the rest stay proper); which leftover numerator
+// they land on (1, 2-3, 4+) is left to chance rather than weighted, so the cap (DISSIMILAR_BIG) is
+// the only thing narrowing it. bigChance is the share of all problems whose sum reaches 2 or 3
+// wholes (the addends themselves are improper fractions, like Similar Island's bigger problems):
+// 2 wholes, or 3 with probability threeWholeChance. Those are capped by DISSIMILAR_BIG so the gem game stays playable.
 const DISSIMILAR_TIERS = {
-  1: { minDen: 2, maxDen: 4, subChance: 0.1,  improperChance: 0.4,  maxImproperDen: 12, bigChance: 0,    threeWholeChance: 0,   leftover: { one: 0.4,  few: 0.45, many: 0.15 } },
-  2: { minDen: 2, maxDen: 5, subChance: 0.2,  improperChance: 0.5,  maxImproperDen: 15, bigChance: 0.1,  threeWholeChance: 0,   leftover: { one: 0.3,  few: 0.4,  many: 0.3 } },
-  3: { minDen: 2, maxDen: 6, subChance: 0.3,  improperChance: 0.6,  maxImproperDen: 15, bigChance: 0.25, threeWholeChance: 0,   leftover: { one: 0.2,  few: 0.4,  many: 0.4 } },
-  4: { minDen: 2, maxDen: 8, subChance: 0.4,  improperChance: 0.75, maxImproperDen: 15, bigChance: 0.4,  threeWholeChance: 0.5, leftover: { one: 0.15, few: 0.35, many: 0.5 } },
+  1: { minDen: 2, maxDen: 4, subChance: 0.1,  improperChance: 0.4,  maxImproperDen: 12, bigChance: 0,    threeWholeChance: 0   },
+  2: { minDen: 2, maxDen: 5, subChance: 0.2,  improperChance: 0.5,  maxImproperDen: 15, bigChance: 0.1,  threeWholeChance: 0   },
+  3: { minDen: 2, maxDen: 6, subChance: 0.3,  improperChance: 0.6,  maxImproperDen: 15, bigChance: 0.25, threeWholeChance: 0   },
+  4: { minDen: 2, maxDen: 8, subChance: 0.4,  improperChance: 0.75, maxImproperDen: 15, bigChance: 0.4,  threeWholeChance: 0.5 },
 };
 
 // Limits for sums of 2+ wholes: most shards on screen (Similar Island tops out at 31), and the largest

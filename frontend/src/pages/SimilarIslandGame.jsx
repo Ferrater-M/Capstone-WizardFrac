@@ -12,6 +12,34 @@ import '../components/components.css';
 import { buildProblem, buildProblemDissimilar, buildProblemHybrid, getDifficultyParams, TIMING, getFeedbackDuration } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
 
+// Falling square particles along the bottom of a box — same set/timing as the
+// problem-statement banner's own particles (see its inline copy below), just
+// grey instead of brown so they read as belonging to a dark-grey input field
+// instead of the tan/brown problem banner.
+const FINAL_ANSWER_PARTICLES = [
+  { left: '5%',  size: 8,  dur: '2.2s', delay: '0s'    },
+  { left: '12%', size: 5,  dur: '1.6s', delay: '-0.4s' },
+  { left: '20%', size: 10, dur: '2.6s', delay: '-1.2s' },
+  { left: '28%', size: 6,  dur: '1.8s', delay: '-0.7s' },
+  { left: '36%', size: 9,  dur: '2.4s', delay: '-1.8s' },
+  { left: '44%', size: 4,  dur: '1.5s', delay: '-0.3s' },
+  { left: '52%', size: 11, dur: '2.8s', delay: '-2.1s' },
+  { left: '60%', size: 5,  dur: '1.7s', delay: '-0.9s' },
+  { left: '68%', size: 8,  dur: '2.3s', delay: '-1.5s' },
+  { left: '76%', size: 6,  dur: '1.9s', delay: '-0.6s' },
+  { left: '84%', size: 10, dur: '2.5s', delay: '-2.4s' },
+  { left: '92%', size: 4,  dur: '1.6s', delay: '-0.2s' },
+];
+const finalAnswerParticles = () => FINAL_ANSWER_PARTICLES.map((p, i) => (
+  <div key={i} style={{
+    position: 'absolute', bottom: -4, left: p.left,
+    width: p.size, height: p.size,
+    background: '#333333',
+    pointerEvents: 'none',
+    animation: `particleFall ${p.dur} ease-out ${p.delay} infinite`,
+  }} />
+));
+
 // Detects frame count from a horizontal sprite sheet.
 // Square frames (most common): width is an exact multiple of height → frame count = width / height.
 // Non-square: find the smallest divisor whose frame aspect ratio is reasonable (0.5–2).
@@ -1857,8 +1885,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         />
                       ) : (
                         /* Phase 2 — simplified fraction input */
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animation: 'problemFadeIn 0.4s ease-out' }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', animation: 'problemFadeIn 0.4s ease-out' }}>
                           {simplifiedResultIsWhole ? (
                             /* Whole number — single field */
                             <input
@@ -2018,6 +2045,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                               )}
                             </div>
                           )}
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', animation: 'finalAnswerPulse 1.6s ease-in-out infinite' }}>Final Answer</span>
+                          {finalAnswerParticles()}
                         </div>
                       )}
                     </div></div>}

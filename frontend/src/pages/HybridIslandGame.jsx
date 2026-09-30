@@ -159,6 +159,18 @@ const fallParticles = () => FALL_PARTICLES.map((p, i) => (
   }} />
 ));
 
+// Same falling particles, grey instead of brown — for the "Final Answer" box,
+// which is dark-grey rather than the tan/brown problem banner.
+const finalAnswerParticles = () => FALL_PARTICLES.map((p, i) => (
+  <div key={i} style={{
+    position: 'absolute', bottom: -4, left: p.left,
+    width: p.size, height: p.size,
+    background: '#333333',
+    pointerEvents: 'none',
+    animation: `particleFall ${p.dur} ease-out ${p.delay} infinite`,
+  }} />
+));
+
 // Raw pixel offsets inside the floating wrapper (top:32 within the 400×440 circle
 // box) — identical to Similar Island's own layout. Fly-in destinations and the
 // D-bubble travel use fractions of the container instead, since those are
@@ -474,8 +486,7 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
                       placeholder="?" style={magicNFieldStyle}
                     />
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animation: 'problemFadeIn 0.4s ease-out' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.5, maxWidth: 330, padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', animation: 'problemFadeIn 0.4s ease-out' }}>
                       {isWhole ? (
                         <input autoFocus type="text" inputMode="numeric" value={simplifiedInput} onChange={e => setSimplifiedInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleKeyDown} style={wholeFieldStyle} />
                       ) : (
@@ -485,6 +496,8 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
                           <input type="text" inputMode="numeric" value={simplifiedDenInput} onChange={e => setSimplifiedDenInput(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown} style={fracFieldStyle} />
                         </div>
                       )}
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.5, maxWidth: 330, padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', animation: 'finalAnswerPulse 1.6s ease-in-out infinite' }}>Final Answer</span>
+                      {finalAnswerParticles()}
                     </div>
                   )}
                 </div>
@@ -590,7 +603,7 @@ const MIXED_FINAL_DEST_FY = (32 + MIXED_FINAL_TOP) / 440;
 //   onAnswerSubmit – ({whole, numerator, denominator}) called once the final answer is correct
 //   onWrongAnswer  – (hint, submittedValue, errorType) called on any wrong answer
 // ─────────────────────────────────────────────────────────────────────────────
-const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestHint, onGestureStart }) => {
+const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestHint, onGestureStart, guidesPaused = false }) => {
   const { whole1: w1, numerator1: n1, denominator1: d, whole2: w2, numerator2: n2, operator } = problem;
   const wResult = operator === '+' ? w1 + w2 : w1 - w2;
   const nResult = operator === '+' ? n1 + n2 : n1 - n2;
@@ -660,6 +673,8 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
   const [wJarTick, setWJarTick] = useState(0);
 
   const circleRef = useRef(null);
+  const stageRootRef = useRef(null);
+  const finalInputsRowRef = useRef(null);
   const bubble1Ref = useRef(null);
   const bubble2Ref = useRef(null);
   const dBubbleRef = useRef(null);
@@ -686,17 +701,24 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
   // check in this stage (and it's a small comprehension check in its own
   // right: recognizing the answer collapsed to 0).
   const isZeroCase = !showFinalWhole && !showFinalFrac;
+  // Final-answer hint — same "Simplify: <unreduced value>" prompt style Similar/
+  // Dissimilar Island and ButterflyCircleStage's own simplifyHintText use (the
+  // POST-CARRY, pre-reduce value, not the fully-reduced correct answer itself —
+  // a hint should point the player toward the answer, not just hand it over).
+  const simplifyHintTextMS = postCarryWhole > 0
+    ? `Simplify: ${postCarryWhole}${postCarryNum ? ` ${postCarryNum}/${d}` : ''}`
+    : `Simplify: ${postCarryNum}/${d}`;
 
   // ── W's own jars — redoes ImproperToMixedGame's own measureTargets() jar math
   // (same GAP/IMG_ASPECT, same clamp curve, same 0.4×-width fan step) so they
   // land at the exact size/spacing the carry's real jar(s) use. They sit
   // stacked directly ABOVE the real jar (the real jar itself is untouched — it
   // keeps rendering exactly where ImproperToMixedGame already puts it, beside
-  // the input), sharing its own horizontal centre — NOT the whole input's own
-  // centre, which sits under the "Final Answer:" label and would put the stack
-  // right on top of that text. A "+" sits in the gap between the two. If the
-  // fan wouldn't fit in the room above (little headroom, or a wide fan),
-  // everything shrinks by the same extra factor to stay inside the card. ──
+  // the input), centred on the real jar's own position. A "+" sits between the
+  // two. The "Final Answer:" label now lives BELOW the input row, so it's never
+  // in this stack's way — the ceiling here is just the card's own top edge; if
+  // there isn't room for that (many jars needed), everything shrinks by the
+  // same extra factor instead (see fitScale) to stay inside the card. ──
   const wJarsActive = needsCarry && wResult > 0;
   const JAR_GAP = 14;
   const rawJarHByN = wJarsActive ? clampNum(Math.round(190 - nResult * 1.5), 120, 165) : 0;
@@ -712,37 +734,43 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
   const ROW_GAP = 10;
   const PLUS_SIZE = 20;
   const CARD_TOP_MARGIN = 8, CARD_SIDE_MARGIN = 8;
-  // The real jar fan's own centre, worked out the same way ImproperToMixedGame
+  // The real jar's own centre — worked out the same way ImproperToMixedGame
   // itself lays the fan out (each jar's own centre is `step` apart, ending at
-  // whole.l - 14 - jw/2) — the average of its first and last jar's centres.
-  const jarAnchorCx = wJarAnchor ? wJarAnchor.l - 14 - baseJw / 2 - ((carryQuotient - 1) / 2) * baseStep : null;
+  // whole.l - 14 - jw/2) — the average of its first and last jar's centres, so
+  // W's own fan sits directly above the GEM jar(s), not above the input.
+  const groupCx = wJarAnchor ? wJarAnchor.l - 14 - baseJw / 2 - ((carryQuotient - 1) / 2) * baseStep : null;
   // The real jar's own vertical centre — level with the whole input's own height.
-  const realRowCy = wJarAnchor ? wJarAnchor.t + 22 : null;
-  // How much room actually exists above the real jar (down to a small margin
-  // from the card's own top) vs. how much the un-shrunk stack would need, and
-  // on either side of the fan's centre vs. how wide it would be — the smallest
-  // of those ratios shrinks everything so both the height and the width stay inside.
+  const realRowCy = wJarAnchor ? wJarAnchor.wholeCy : null;
+  // How much room actually exists between the real jar's own top and the card's
+  // own top edge vs. how much the un-shrunk stack would need, and on either side
+  // of the centre vs. how wide the fan would be — the smallest of those ratios
+  // shrinks everything so both the height and the width stay inside the card.
   const neededH = baseJh + 2 * ROW_GAP + PLUS_SIZE;
   const availableH = realRowCy !== null ? (realRowCy - baseJh / 2) - CARD_TOP_MARGIN : neededH;
   const neededHalfW = ((wResult - 1) * baseStep) / 2 + baseJw / 2;
-  const availableHalfW = jarAnchorCx !== null ? Math.min(jarAnchorCx, GEM_BASE_W - jarAnchorCx) - CARD_SIDE_MARGIN : neededHalfW;
+  const availableHalfW = groupCx !== null ? Math.min(groupCx, GEM_BASE_W - groupCx) - CARD_SIDE_MARGIN : neededHalfW;
   const fitScale = wJarsActive
-    ? Math.min(1, neededH > 0 ? availableH / neededH : 1, neededHalfW > 0 ? availableHalfW / neededHalfW : 1)
+    ? Math.max(0.12, Math.min(1, neededH > 0 ? availableH / neededH : 1, neededHalfW > 0 ? availableHalfW / neededHalfW : 1))
     : 1;
+  // The gap and the "+" sign shrink right along with the jars — scaling only the
+  // jars would leave the (unscaled) gaps alone eating into the same fixed room,
+  // defeating the point of shrinking to fit in the first place.
   const jh = baseJh * fitScale, jStep = baseStep * fitScale;
-  const plusCy = realRowCy !== null ? realRowCy - baseJh / 2 - ROW_GAP - PLUS_SIZE / 2 : null;
-  const wJarRowCy = plusCy !== null ? plusCy - PLUS_SIZE / 2 - ROW_GAP - jh / 2 : null;
-  const wJarCenters = jarAnchorCx !== null
+  const gap = ROW_GAP * fitScale, plusSize = PLUS_SIZE * fitScale;
+  const plusCy = realRowCy !== null ? realRowCy - baseJh / 2 - gap - plusSize / 2 : null;
+  const wJarRowCy = plusCy !== null ? plusCy - plusSize / 2 - gap - jh / 2 : null;
+  const wJarCenters = groupCx !== null
     ? Array.from({ length: wResult }, (_, i) => ({
-        cx: jarAnchorCx + (i - (wResult - 1) / 2) * jStep,
+        cx: groupCx + (i - (wResult - 1) / 2) * jStep,
         cy: wJarRowCy,
       }))
     : [];
 
-  // Measure the real final-answer whole box once it exists — right when
-  // carryFinal mounts it, same moment the gem game's own finalPhase glow
-  // starts — then start moving on the SAME delay it uses (SETTLE_GLOW_MS) so
-  // both settle together.
+  // Measure the real final-answer whole box (its own height/centre), the input
+  // row as a whole (its horizontal centre) and the label above it (its top, as
+  // its own height/centre) once it exists — right when carryFinal mounts it,
+  // same moment the gem game's own finalPhase glow starts — then start moving
+  // on the SAME delay it uses (SETTLE_GLOW_MS) so both settle together.
   useEffect(() => {
     if (!carryFinal || !wJarsActive) return undefined;
     const ts = [];
@@ -753,10 +781,17 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
         const sr = stage.getBoundingClientRect();
         const sc = sr.width / stage.offsetWidth;
         const wr = wholeEl.getBoundingClientRect();
-        setWJarAnchor({ l: (wr.left - sr.left) / sc, t: (wr.top - sr.top) / sc });
+        setWJarAnchor({
+          l: (wr.left - sr.left) / sc,
+          wholeCy: (wr.top - sr.top) / sc + (wr.height / sc) / 2,
+        });
       }
     }, 60));
     ts.push(setTimeout(() => setWJarsMove(true), SETTLE_GLOW_MS));
+    // Same swoosh as the real gem jars settling into place, staggered the same way.
+    for (let j = 0; j < wResult; j++) {
+      ts.push(setTimeout(() => playSfx('/SoundEffects/numberMove.wav'), SETTLE_GLOW_MS + j * SETTLE_STAGGER * 1000));
+    }
     return () => ts.forEach(clearTimeout);
   }, [carryFinal, wJarsActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1118,7 +1153,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
   const fracDividerWidth = showFinalWhole ? 86 : 110;
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={stageRootRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       {riseParticles()}
       <style>{`
         /* Both of these bake the element's own centering transform
@@ -1252,13 +1287,25 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
               transition: 'all 0.5s ease',
             } : wholeFieldStyle;
             return (
-              <div style={{ position: 'absolute', left: '50%', top: 32 + MIXED_FINAL_TOP, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'finalAnswerFadeIn 0.4s ease-out forwards', opacity: hideFinal ? 0 : 1, pointerEvents: hideFinal ? 'none' : 'auto', transition: 'opacity 0.3s ease' }}>
+              <div style={{
+                position: 'absolute', left: '50%', top: 32 + MIXED_FINAL_TOP, zIndex: 2,
+                // hideFinal's own opacity lives on THIS wrapper, separate from the
+                // fade-in animation below — a CSS animation with fill-mode forwards
+                // keeps its own last keyframe's value (opacity: 1) on whatever
+                // element it's playing on once it ends, so putting both on the same
+                // div meant this box stayed permanently visible ~0.4s after mounting
+                // no matter what hideFinal said afterward, showing right on top of
+                // the still-unsettled jars/shards instead of waiting for them.
+                opacity: hideFinal ? 0 : 1, pointerEvents: hideFinal ? 'none' : 'auto', transition: 'opacity 0.3s ease',
+              }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'finalAnswerFadeIn 0.4s ease-out forwards' }}>
                 <style>{`@keyframes unsimpSlide { from { transform: translateX(-90px); opacity: 0.2; } to { transform: translateX(0); opacity: 1; } }`}</style>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.5, maxWidth: 330, padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
                 {isZeroCase ? (
-                  <input ref={finalNumRef} data-final="whole" autoFocus type="text" inputMode="numeric" value={finalWholeInput} placeholder="?" onChange={e => setFinalWholeInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleFinalKeyDown} style={wholeFieldStyle} />
+                  <div ref={finalInputsRowRef}>
+                    <input ref={finalNumRef} data-final="whole" autoFocus type="text" inputMode="numeric" value={finalWholeInput} placeholder="?" onChange={e => setFinalWholeInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleFinalKeyDown} style={wholeFieldStyle} />
+                  </div>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
+                  <div ref={finalInputsRowRef} style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
                     {showFinalWhole && (
                       <input ref={!showFinalFrac ? finalNumRef : null} data-final="whole" autoFocus type="text" inputMode="numeric" value={finalWholeInput} placeholder="?"
                         onChange={e => setFinalWholeInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleFinalKeyDown}
@@ -1274,6 +1321,9 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
                     {showFinalFrac && unsimpFraction}
                   </div>
                 )}
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.3, maxWidth: 330, padding: '3px 10px', border: '2px dashed #e8d5b4', borderRadius: 0, background: '#333333', animation: 'finalAnswerPulse 1.6s ease-in-out infinite' }}>Final Answer</span>
+                {finalAnswerParticles()}
+              </div>
               </div>
             );
           })()}
@@ -1301,11 +1351,30 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
 
           {/* W's own jars — shoot out from its reserved spot at the same moment the
               carry's real jars start settling, landing fanned out just left of them
-              (same size/stacking, see the geometry above), a "+" apart. */}
-          {wJarsActive && wArrival && wJarCenters.map((c, i) => {
-            const target = wJarsMove;
-            const cx = target ? c.cx : wArrival.x;
-            const cy = target ? c.cy : wArrival.y;
+              (same size/stacking, see the geometry above), a "+" apart. wArrival is
+              in PAGE coordinates (it's what the portal-rendered, position:fixed W
+              bubble uses) — these jars are plain position:absolute children of
+              circleRef instead, so wArrival has to be converted into circleRef's
+              own local coordinate space first, or they'd start from wherever
+              wArrival's raw page numbers happen to fall inside this small card
+              (usually off to the right, since page coordinates run much bigger
+              than the card itself), instead of from the corner where W actually is. */}
+          {(() => {
+            const circleRect = circleRef.current?.getBoundingClientRect();
+            const wArrivalLocal = (wArrival && circleRect)
+              ? { x: wArrival.x - circleRect.left, y: wArrival.y - circleRect.top }
+              : null;
+            if (!wJarsActive || !wArrivalLocal) return null;
+            return wJarCenters.map((c, i) => {
+            // settled drives position/scale (never flies back once it's arrived);
+            // visible is the separate opacity gate, off once "Can be simplified!"
+            // shows so the jars fade out in place instead of reverting to W's
+            // corner — the unreduced fraction they represent isn't the answer
+            // being typed anymore at that point.
+            const settled = wJarsMove;
+            const visible = wJarsMove && !unsimplified;
+            const cx = settled ? c.cx : wArrivalLocal.x;
+            const cy = settled ? c.cy : wArrivalLocal.y;
             // Same box-stays-full-size-and-gets-scaled-down technique the real jars
             // use, so the shrink is a smooth transform, not a layout resize —
             // jarScale is the real jars' own shrink, fitScale the extra squeeze
@@ -1315,7 +1384,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
             // a CSS animation fully replaces `transform` for its own element, so
             // putting both on the same element would silently drop the scale the
             // moment the float animation kicked in.
-            const scale = target ? jarScale * fitScale : 0.15;
+            const scale = settled ? jarScale * fitScale : 0.15;
             const ease = 'cubic-bezier(.2,.8,.3,1)';
             const pulsing = wJarsSettled && wJarTick % wResult === i;
             return (
@@ -1324,10 +1393,10 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
                 style={{
                   position: 'absolute', left: cx - rawJarW / 2, top: cy - rawJarH / 2,
                   width: rawJarW, height: rawJarH, zIndex: 24, pointerEvents: 'none',
-                  opacity: target ? 1 : 0,
+                  opacity: visible ? 1 : 0,
                   transform: `scale(${scale})`,
                   transition: `left ${SETTLE_MOVE}s ${ease}, top ${SETTLE_MOVE}s ${ease}, opacity 0.4s ease, transform ${SETTLE_MOVE}s ${ease}`,
-                  transitionDelay: target ? `${i * SETTLE_STAGGER}s` : '0s',
+                  transitionDelay: settled ? `${i * SETTLE_STAGGER}s` : '0s',
                 }}
               >
                 <img
@@ -1343,13 +1412,20 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
                 />
               </div>
             );
-          })}
-          {wJarsActive && wJarsMove && jarAnchorCx !== null && (
+            });
+          })()}
+          {wJarsActive && wJarsMove && groupCx !== null && (
             <span style={{
-              position: 'absolute', left: jarAnchorCx, top: plusCy, transform: 'translate(-50%, -50%)',
-              fontSize: 22, fontWeight: 900, color: '#fff', zIndex: 24, pointerEvents: 'none',
+              position: 'absolute', left: groupCx, top: plusCy, transform: 'translate(-50%, -50%)',
+              fontSize: Math.max(10, plusSize), fontWeight: 900, color: '#fff', zIndex: 24, pointerEvents: 'none',
               fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000',
-              opacity: 0, animation: 'finalAnswerFadeIn 0.4s ease-out forwards',
+              // Same fade-out-in-place as the jars once "Can be simplified!" shows —
+              // the inline opacity/transition below take over once the one-shot
+              // reveal animation is removed (animation:'none' drops its own
+              // fill-forwards hold on opacity, handing the property back to these).
+              opacity: unsimplified ? 0 : 1,
+              transition: 'opacity 0.4s ease',
+              animation: unsimplified ? 'none' : 'finalAnswerFadeIn 0.4s ease-out forwards',
               animationDelay: `${(wResult - 1) * SETTLE_STAGGER + SETTLE_MOVE * 0.6}s`,
             }}>+</span>
           )}
@@ -1417,6 +1493,12 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
         document.body
       )}
 
+      {/* Idle guide for typing steps: a pulsing cursor at the bottom right of an empty input */}
+      <InputGuideCursor
+        containerRef={stageRootRef}
+        enabled={circleDetected && !guidesPaused}
+      />
+
       {circleDetected && (wnVisible || carryActive || (finalAnswerVisible && !hideFinal)) && (
         <SolveButtonRow
           label={carryActive ? (carryUi.stage === 'confirm' ? 'Confirm' : 'Check') : finalAnswerVisible ? 'Check' : 'Cast Spell'}
@@ -1428,7 +1510,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
           }
           onHint={onRequestHint && !(carryActive && !carryUi.prompt) ? () => onRequestHint(
             carryActive ? carryUi.prompt
-            : finalAnswerVisible ? `Final answer: ${(showFinalWhole && finalWhole) || ''} ${showFinalFrac ? `${finalNum}/${finalDen}` : ''}`.trim() || '0'
+            : finalAnswerVisible ? simplifyHintTextMS
             : `${w1} ${operator} ${w2} = ? (whole), ${n1} ${operator} ${n2} = ? (numerator)`
           ) : undefined}
         />
@@ -3428,8 +3510,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
         return (
           <div style={{ position: 'absolute', top: '32px', left: 0, right: 0, height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, opacity: hideFinal ? 0 : 1, pointerEvents: hideFinal ? 'none' : 'auto', transition: 'opacity 0.3s ease' }}>
             <style>{`@keyframes unsimpSlide { from { transform: translateX(-90px); opacity: 0.2; } to { transform: translateX(0); opacity: 1; } }`}</style>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'numFadeIn 0.5s ease-out both' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.5, maxWidth: 330, padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333' }}>Final Answer:</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, position: 'relative', animation: 'numFadeIn 0.5s ease-out both' }}>
               {fIsWhole ? (
                 <input ref={finalNumRef} data-final="whole" type="text" inputMode="numeric" value={finalNumInput} placeholder="?" onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
               ) : fIsImproper ? (
@@ -3460,6 +3541,8 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
                   {unsimpFraction}
                 </div>
               )}
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.5, maxWidth: 330, padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', animation: 'finalAnswerPulse 1.6s ease-in-out infinite' }}>Final Answer</span>
+              {finalAnswerParticles()}
             </div>
           </div>
         );
@@ -4363,7 +4446,7 @@ const HybridIslandGame = ({
             }}
           >
             {corners('#fff')}
-            💡 {currentHint}
+            {currentHint === 'Can be simplified!' ? currentHint : <>💡 {currentHint}</>}
           </div>
         )}
 
@@ -4588,7 +4671,7 @@ const HybridIslandGame = ({
                       panelScale={panelBig ? bigScale : 1}
                     />
                   ) : (
-                    <MixedSimilarCircleStage key={`mixed-${roundKey}`} problem={problem} onAnswerSubmit={handleAnswerSubmit} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} />
+                    <MixedSimilarCircleStage key={`mixed-${roundKey}`} problem={problem} onAnswerSubmit={handleAnswerSubmit} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} guidesPaused={showTutorial || showSettings || !!feedback || gameOver} />
                   )}
                 </div>
               </div>
