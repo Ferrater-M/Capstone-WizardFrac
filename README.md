@@ -1,69 +1,138 @@
-﻿# Capstone-WizardFrac
+# WizardFrac
 
-🧙 WizardFrac
+WizardFrac is a free, game-based fraction assessment tool for Grade 4 students, aligned with the Philippine MATATAG curriculum. It transforms fraction addition and subtraction into an interactive wizard-themed adventure, helping learners understand mathematical concepts through visual, game-based problem solving.
 
-WizardFrac is a free, game-based fraction assessment tool for Grade 4 students, aligned with the Philippine MATATAG curriculum (Q2 Competencies 14a–14e and Q3 Competencies 10a–10e). It transforms fraction addition and subtraction into an interactive wizard‑themed spellcasting adventure.
+## Overview
 
-🎯 Project Overview
+Fractions are one of the most challenging topics for elementary learners, especially when instruction focuses only on abstract rules and procedures. Many students struggle because they are not given enough visual and conceptual support, and teachers often lack real-time insight into where misconceptions occur.
 
-Fractions are a common stumbling block in elementary mathematics. Many students struggle because traditional instruction emphasizes abstract algorithms without visual or conceptual scaffolding. Teachers also lack real‑time, step‑level diagnostic data to identify exactly where students fail (e.g., numerator arithmetic, cross‑multiplication, simplification).
+WizardFrac addresses these gaps by combining:
+- visual fraction mechanics
+- step-by-step problem solving
+- game-based progression and immediate feedback
+- detailed student performance tracking for teachers
 
-WizardFrac addresses these gaps through:
-- Same Container visualization for similar fractions → students select and combine pieces from identical containers.
+The project focuses on two core fraction strategies:
+- Same Container method for similar fractions
+- Butterfly Method for dissimilar fractions
 
-- Butterfly Method visualization for dissimilar fractions → step‑by‑step cross‑multiplication and simplification.
+It also supports mixed fractions by converting them into improper fractions before applying the appropriate strategy.
 
-- Mixed fraction handling → convert to improper form, then apply the correct mechanic.
+## Why This Project Matters
 
-- Game‑based progression → lives, streak multipliers, enemy health, and three themed islands (Proper, Improper, Hybrid).
+This project aims to make mathematics more engaging and more understandable for young learners. Instead of simply asking students to apply formulas, WizardFrac helps them see how the math works through a game environment that turns each step into a meaningful action.
 
-The system captures every student interaction (piece selections, cross‑products, errors, timing) to generate diagnostic reports for teachers without manual grading.
+The system captures student interactions such as piece selection, cross-product decisions, simplification steps, and timing so teachers can identify misconceptions like:
+- numerator mistakes
+- cross-multiplication errors
+- simplification failures
+- incorrect interpretation of mixed fractions
 
-👥 Team
+## Team
 
-Member                              Role
-Ballener, John Mark
-Moreno, Elaiza Jane R. 
-Ferrater, Marilou 
-Ybanez, Matt
-Cabrera, Alden
-
-
+- Ballener, John Mark
+- Moreno, Elaiza Jane R.
+- Ferrater, Marilou
+- Ybanez, Matt
+- Cabrera, Alden
 
 Team Code: 20
 
-🧩 Key Features
+## Key Features
 
-Module                  Focus                                                           
+### Core game modules
+- Similar Island: adding and subtracting similar fractions
+- Dissimilar Island: adding and subtracting dissimilar fractions
+- Hybrid Island: mixed and combined fraction challenges
 
-Similar Island          Q2 similar fractions (add/subtract, proper/improper)
+### Additional features
+- 3-life system with streak-based score multiplier
+- Real-time feedback with animations and hints
+- Step-level error tracking and diagnostic reporting
+- Character selection, lobby flow, and island progression
+- Student progress monitoring and gameplay history
+- Leaderboard and score-based progression
 
-Dissimilar Island
+## Tech Stack
 
-Hybrid Island
+### Frontend
+- React
+- Vite
+- JavaScript
+- HTML5 and CSS
+- Game UI and animation assets
 
-Additional features:
-- 3‑life system + streak‑based score multiplier
-- Real‑time feedback (<2 seconds) with animations and hints
-- Step‑level error tracking (e.g., wrong cross‑product, simplification failure)
+### Backend
+- Java
+- Spring Boot
+- Spring Data JPA
+- Spring Security
+- REST API architecture
 
-🛠️ Tech Stack (Planned)
+### Database
+- PostgreSQL / Supabase
+- H2 database for local development fallback
 
-- Frontend: HTML5, CSS, JavaScript (React or vanilla based on team decision)
-- Backend:  Node.js / not sure
-- Database: PostgreSQL or Firebase
-- Deployment: Web‑based (laptops/desktops)
-- Version Control: Git + GitHub
+### Deployment
+- Web-based application for laptops and desktops
+- Git and GitHub for version control
 
-📚 Alignment with MATATAG Curriculum
+## Curriculum Alignment
 
-- Q2 Competencies 14a–14e – Adding/subtracting similar fractions (proper & improper)
-- Q3 Competencies 10a–10e – Adding/subtracting dissimilar fractions (proper & improper)
-- Mixed fractions – Whole‑number conversion + appropriate mechanic
+WizardFrac is aligned with the Philippine MATATAG curriculum:
+- Q2 Competencies 14a–14e: adding and subtracting similar fractions (proper and improper)
+- Q3 Competencies 10a–10e: adding and subtracting dissimilar fractions (proper and improper)
+- Mixed fractions: conversion to improper form and correct strategy application
 
-🔬 Research Contributions
+## Research Contributions
 
-WizardFrac will provide empirical evidence on:
--  Whether visual mechanic‑based gameplay improves procedural and conceptual understanding in Philippine Grade 4 classrooms.
-- Which fraction misconceptions are most common among Filipino students (step‑level diagnosis).
-- Effectiveness of the Same Container and Butterfly Method visualizations as game mechanics.
+This project is designed to provide empirical evidence on:
+- whether visual, mechanic-based learning improves procedural and conceptual understanding in Grade 4 classrooms
+- which fraction misconceptions are most common among Filipino students
+- the effectiveness of the Same Container and Butterfly Method visualizations as learning strategies
+
+## Getting Started
+
+### Prerequisites
+- Java 21+
+- Node.js 18+
+- npm
+- Git
+
+### Backend
+```bash
+cd backend
+./gradlew bootRun
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Environment setup
+Create the backend environment file as needed for database and mail configuration:
+- `backend/.env.example`
+- `backend/src/main/resources/application.properties`
+
+The frontend connects to the backend at:
+```text
+http://localhost:8082
+```
+unless `VITE_API_URL` is configured.
+
+## Configuration
+
+The project uses environment-based configuration for:
+- database credentials
+- mail and diagnostics support
+- local and production runtime settings
+
+The backend is configured to use PostgreSQL/Supabase when available and falls back to an in-memory H2 database for local development if the external database is not reachable.
+
+## License
+
+This project does not currently include a license file. If the project is intended for public or institutional release, consider adding an appropriate open-source license such as MIT or Apache 2.0.
+
