@@ -8,8 +8,12 @@ import GameMenuModal from '../components/GameMenuModal';
 import './StudentDashboard.css';
 import LoadingScreen from '../components/LoadingScreen';
 import { API_BASE_URL } from '../config';
+import { formatStopwatch } from '../utils/stopwatch';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Sessions played before the stopwatch existed have no time saved.
+const formatTimeOrDash = (ms) => (ms == null ? '—' : formatStopwatch(ms));
 
 const RANK_TIERS = [
   { rank: 'Apprentice', icon: '🪄', hint: 'Starting rank — every wizard begins here.' },
@@ -161,12 +165,14 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
 
     if (historyData.length > 0) {
       addSectionTitle('Game History');
-      addTable(['Nickname', 'Island', 'Level', 'Hint', 'Points', 'Status'], historyData.map(entry => [
+      addTable(['Nickname', 'Island', 'Level', 'Hint', 'Points', 'Session Time', 'Avg. Solve Time', 'Status'], historyData.map(entry => [
         entry.nickname || '—',
         entry.island,
         String(entry.level),
         entry.hintLabel || '—',
         String(entry.points),
+        formatTimeOrDash(entry.sessionTimeMs),
+        formatTimeOrDash(entry.avgSolveTimeMs),
         entry.status === 'COMPLETED' ? 'Completed' : 'Not Completed',
       ]));
     }
@@ -447,6 +453,8 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
                       <th>Lvl</th>
                       <th>Hint</th>
                       <th>Points</th>
+                      <th>Total Session Time</th>
+                      <th>Avg. Solve Time</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -460,6 +468,8 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
                           {entry.hintLabel}
                         </td>
                         <td>{entry.points}</td>
+                        <td>{formatTimeOrDash(entry.sessionTimeMs)}</td>
+                        <td>{formatTimeOrDash(entry.avgSolveTimeMs)}</td>
                         <td className={entry.status === 'COMPLETED' ? 'status-completed' : 'status-not-completed'}>
                           {entry.status === 'COMPLETED' ? 'Completed' : 'Not Completed'}
                         </td>

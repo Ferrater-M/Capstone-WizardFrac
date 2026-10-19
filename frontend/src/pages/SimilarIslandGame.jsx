@@ -7,7 +7,9 @@ import SimilarFractionTutorial from '../components/SimilarFractionTutorial';
 import ImproperToMixedGame from '../components/ImproperToMixedGame';
 import InputGuideCursor from '../components/InputGuideCursor';
 import SettingsPage from './SettingsPage';
+import GameStopwatches from '../components/GameStopwatches';
 import '../components/components.css';
+import { useStopwatch, useAnimationHold } from '../utils/stopwatch';
 
 import { buildProblem, buildProblemDissimilar, buildProblemHybrid, getDifficultyParams, TIMING, getFeedbackDuration } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
@@ -171,6 +173,9 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const wizardAnimTimerRef = useRef(null);
   const [enemyAnim, setEnemyAnim] = useState('idle');
   const enemyAnimTimerRef = useRef(null);
+  const [jarBusy, setJarBusy] = useState(false);              // ImproperToMixedGame is mid-animation
+  const [problemAnswered, setProblemAnswered] = useState(false); // final answer submitted -> Solve Time stops
+  const { held: animHeld, hold: holdStopwatches } = useAnimationHold();
   const [enemySpriteInfo, setEnemySpriteInfo] = useState({
     idle:   { frames: 4, frameW: 420, frameH: 420, missing: false },
     attack: { frames: 4, frameW: 420, frameH: 420, missing: false },
@@ -558,7 +563,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status, isWon, hintsUsed: sessionHintsUsed.current }),
+          body: JSON.stringify({ status, isWon, hintsUsed: sessionHintsUsed.current, sessionTimeMs: Math.round(sessionWatch.getMs()) }),
         }
       );
       if (!res.ok) {
@@ -622,6 +627,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   };
 
   const handleAnswerSubmit = async (submittedAnswer, incorrectText) => {
+    setProblemAnswered(true);
     setAnswer(submittedAnswer);
     setIsSubmitting(true);
 
@@ -687,6 +693,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       enemyHealthBefore: enemyHealth,
       enemyHealthAfter: newEnemyHealth,
       pointsEarned: pointsEarned,
+      solveTimeMs: Math.round(solveWatch.getMs()),
     };
 
     await saveSpellAttempt(attempt);
@@ -851,6 +858,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     setAppearSparkles([]);
     setBubbles(null);
     if (arcAnimRef.current) { cancelAnimationFrame(arcAnimRef.current); arcAnimRef.current = null; }
+    setProblemAnswered(false);
+    solveWatch.reset();
     setCurrentProblem(buildProblem(gameSession.level));
   };
 
@@ -920,6 +929,21 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     : simplifiedResultIsImproper
       ? !!(simplifiedWholeInput && simplifiedInput && simplifiedDenInput)
       : !!(simplifiedInput && simplifiedDenInput);
+
+  // Stopwatches only count time the player can actually act, so they pause while anything animates.
+  const animating =
+    (circleDetected && !nVisible)                                      // circle + denominator bubbles appearing
+    || (checkPhase && (!carryPhase || carryFinal) && !checkButtonReady) // D bubble rising / final answer settling
+    || jarBusy                                                         // jar (improper -> mixed) game animations
+    || !interactableVisible || !!feedback || bgShift !== null          // answer submitted: attack, feedback, next problem sliding in
+    || fireball !== null || defeatTarget !== null
+    || animHeld;                                                       // short one-offs (hint reveal)
+  const sessionEnded = defeatTarget !== null || gameOver;
+  const sessionRunning = !showTutorial && !showSettings && !sessionEnded && !animating;
+  const solveRunning = sessionRunning && !problemAnswered;
+  // getMs() on these gives the exact time for saving.
+  const sessionWatch = useStopwatch(sessionRunning);
+  const solveWatch = useStopwatch(solveRunning);
 
   const renderHearts = (count, max) => {
     const hearts = [];
@@ -995,6 +1019,15 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
           <span style={{ color: '#222', fontSize: '13px' }}>Streak: x{multiplier.toFixed(1)}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Score: {score}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Level: {gameSession.level}/{totalLevels ?? '...'}</span>
+          {/* Stopwatches — hang under the stats box at half its width, without pushing the battle area down */}
+          <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: -4, width: 'calc(50% + 4px)', zIndex: 5 }}>
+            <GameStopwatches
+              sessionMs={sessionWatch.ms}
+              solveMs={solveWatch.ms}
+              sessionRunning={sessionRunning}
+              solveRunning={solveRunning}
+            />
+          </div>
         </div>
 
         {/* Hint display in header — glows white then settles to white-border + black */}
@@ -2101,6 +2134,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       dismiss={!!unsimplified}
                       onFinalSettled={handleFinalSettled}
                       onUiChange={setCarryUi}
+                      onBusyChange={setJarBusy}
                       onWrong={(quotient) => {
                         setInteractableVisible(false);
                         setBgShift('left'); lastBgShiftRef.current = 'left';
@@ -2453,7 +2487,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             <p style={{ fontSize:11, color:'#2a1a1a', margin:'0 0 8px', lineHeight:1.9 }}>Using a hint will <span style={{color:'#b91c1c', fontWeight:900}}>reduce your score</span> for this problem.</p>
             <p style={{ fontSize:11, color:'#2a1a1a', margin:'0 0 24px', lineHeight:1.9 }}>Your answer will <span style={{color:'#b91c1c', fontWeight:900}}>not be fully recorded</span> in your progress.</p>
             <div style={{ display:'flex', gap:12, justifyContent:'center' }}>
-              <button onClick={() => { recordHintUsed(); if (carryPhase && !carryFinal) { setCarryHintUsed(true); } else if (finalAnswerVisible) { setPhase2HintUsed(true); } else { setHintUsed(true); } setFormulaVisible(true); setShowHintConfirm(false); }}
+              <button onClick={() => { recordHintUsed(); if (carryPhase && !carryFinal) { setCarryHintUsed(true); } else if (finalAnswerVisible) { setPhase2HintUsed(true); } else { setHintUsed(true); } setFormulaVisible(true); setShowHintConfirm(false); holdStopwatches(800); }}
                 style={{ position:'relative', padding:'10px 20px', fontWeight:700, fontFamily:'"Press Start 2P", monospace', fontSize:12, background:'#703737', border:'4px solid #703737', color:'#e8d5b4', cursor:'pointer', borderRadius:0 }}>
                 YES, SHOW HINT
               </button>

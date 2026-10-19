@@ -69,6 +69,7 @@ public class GameProgressService {
         attempt.setEnemyHealthBefore(attemptDTO.getEnemyHealthBefore());
         attempt.setEnemyHealthAfter(attemptDTO.getEnemyHealthAfter());
         attempt.setPointsEarned(attemptDTO.getPointsEarned());
+        attempt.setSolveTimeMs(attemptDTO.getSolveTimeMs());
         attempt.setTimestamp(LocalDateTime.now());
 
         // Update session stats
@@ -116,7 +117,7 @@ public class GameProgressService {
 
     // End game session and save full session record (UC-1.2 - session end saving)
     @Transactional
-    public void endGameSession(Long gameSessionId, String status, boolean isWon, Integer hintsUsed) {
+    public void endGameSession(Long gameSessionId, String status, boolean isWon, Integer hintsUsed, Long sessionTimeMs) {
         Optional<GameSession> sessionOpt = gameSessionRepository.findById(gameSessionId);
         if (sessionOpt.isEmpty()) {
             throw new RuntimeException("Game session not found");
@@ -127,6 +128,9 @@ public class GameProgressService {
         session.setEndedAt(LocalDateTime.now());
         if (hintsUsed != null) {
             session.setHintsUsed(hintsUsed);
+        }
+        if (sessionTimeMs != null) {
+            session.setSessionTimeMs(sessionTimeMs);
         }
 
         // Serialize session data to JSON (all spell attempts)
@@ -144,6 +148,7 @@ public class GameProgressService {
                 map.put("streakCount", attempt.getStreakCount());
                 map.put("multiplierValue", attempt.getMultiplierValue());
                 map.put("pointsEarned", attempt.getPointsEarned());
+                map.put("solveTimeMs", attempt.getSolveTimeMs());
                 map.put("timestamp", attempt.getTimestamp() != null ? attempt.getTimestamp().toString() : null);
                 return map;
             }).toList();
@@ -306,6 +311,11 @@ public class GameProgressService {
         int correctAnswers = (int) attempts.stream()
             .filter(SpellAttempt::getIsCorrect)
             .count();
+        // Only correct answers count toward the average solve time
+        OptionalDouble avgSolve = attempts.stream()
+            .filter(a -> Boolean.TRUE.equals(a.getIsCorrect()) && a.getSolveTimeMs() != null)
+            .mapToLong(SpellAttempt::getSolveTimeMs)
+            .average();
 
         int hints = session.getHintsUsed() != null ? session.getHintsUsed() : 0;
         String nickname = session.getPlayerNickname();
@@ -321,6 +331,8 @@ public class GameProgressService {
             hints > 0 ? String.valueOf(hints) : "Not using hint",
             session.getScore(),
             correctAnswers,
+            session.getSessionTimeMs(),
+            avgSolve.isPresent() ? Math.round(avgSolve.getAsDouble()) : null,
             session.getStatus()
         );
     }

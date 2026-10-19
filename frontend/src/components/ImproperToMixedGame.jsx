@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { playSfx } from '../utils/audio';
+import { useReportBusy } from '../utils/stopwatch';
 
 const FONT = '"Press Start 2P", monospace';
 const BROWN = '#703737';
@@ -105,7 +106,7 @@ const SparkleSpin = ({ size, fade }) => (
 // jar while the numerator crystallises into a gem that shatters into `numerator`
 // shards (each worth 1/denominator). Every jar is filled with `denominator` shards;
 // the jars are the whole number and the shards left outside are the new numerator.
-const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUiChange, actionRef, finalPhase, onFinalSettled, startPos, dismiss, startBox = true, stageW = BASE_W, stageH = BASE_H, hideCounts = false }) => {
+const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUiChange, onBusyChange, actionRef, finalPhase, onFinalSettled, startPos, dismiss, startBox = true, stageW = BASE_W, stageH = BASE_H, hideCounts = false }) => {
   const {
     STAGE_W, STAGE_H, ROW_Y, N_SHINE, D_SHINE, N_PAIR, D_PAIR, N_ROW, DIV_POS, D_ROW, EQ_POS, INPUT_POS,
     GEM_CENTER, JAR_MID_Y, ZONE_TOP, ZONE_BOTTOM,
@@ -486,6 +487,10 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
   useEffect(() => {
     onUiChange?.({ stage: uiStage, canSubmit: uiCanSubmit, prompt });
   }, [uiStage, uiCanSubmit, prompt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Busy = something is animating and the player can't act: every phase except typing the quotient
+  // and filling the jars, the final settle, and the "needs simplifying" fade-out.
+  useReportBusy(!['divide', 'play'].includes(phase) || (finalPhase && !finalSettled) || (dismiss && !dismissGone), onBusyChange);
 
 
   useEffect(() => {

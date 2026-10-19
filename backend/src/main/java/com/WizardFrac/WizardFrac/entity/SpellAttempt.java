@@ -53,6 +53,10 @@ public class SpellAttempt {
     @Column(nullable = false)
     private Integer pointsEarned;
 
+    // In-game Solve Time stopwatch for this problem (ms); pauses during animations
+    @Column(nullable = true)
+    private Long solveTimeMs;
+
     public SpellAttempt() {
         this.timestamp = LocalDateTime.now();
     }
@@ -176,5 +180,13 @@ public class SpellAttempt {
 
     public void setPointsEarned(Integer pointsEarned) {
         this.pointsEarned = pointsEarned;
+    }
+
+    public Long getSolveTimeMs() {
+        return solveTimeMs;
+    }
+
+    public void setSolveTimeMs(Long solveTimeMs) {
+        this.solveTimeMs = solveTimeMs;
     }
 }

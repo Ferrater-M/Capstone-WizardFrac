@@ -14,6 +14,7 @@ public class SpellAttemptDTO {
     private Integer enemyHealthBefore;
     private Integer enemyHealthAfter;
     private Integer pointsEarned;
+    private Long solveTimeMs;
 
     // Constructors
     public SpellAttemptDTO() {}
@@ -141,5 +142,13 @@ public class SpellAttemptDTO {
 
     public void setPointsEarned(Integer pointsEarned) {
         this.pointsEarned = pointsEarned;
+    }
+
+    public Long getSolveTimeMs() {
+        return solveTimeMs;
+    }
+
+    public void setSolveTimeMs(Long solveTimeMs) {
+        this.solveTimeMs = solveTimeMs;
     }
 }

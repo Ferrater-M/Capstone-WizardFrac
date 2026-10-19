@@ -8,13 +8,16 @@ public class GameplayHistoryDTO {
     private String hintLabel;
     private Integer points;
     private Integer correctAnswers;
+    private Long sessionTimeMs;     // null for sessions played before the stopwatch existed
+    private Long avgSolveTimeMs;    // average Solve Time over correct answers only; null if none
     private String status;
 
     public GameplayHistoryDTO() {}
 
     public GameplayHistoryDTO(String nickname, String island, Integer level,
                               Integer hintsUsed, String hintLabel,
-                              Integer points, Integer correctAnswers, String status) {
+                              Integer points, Integer correctAnswers,
+                              Long sessionTimeMs, Long avgSolveTimeMs, String status) {
         this.nickname = nickname;
         this.island = island;
         this.level = level;
@@ -22,6 +25,8 @@ public class GameplayHistoryDTO {
         this.hintLabel = hintLabel;
         this.points = points;
         this.correctAnswers = correctAnswers;
+        this.sessionTimeMs = sessionTimeMs;
+        this.avgSolveTimeMs = avgSolveTimeMs;
         this.status = status;
     }
 
@@ -79,6 +84,22 @@ public class GameplayHistoryDTO {
 
     public void setCorrectAnswers(Integer correctAnswers) {
         this.correctAnswers = correctAnswers;
+    }
+
+    public Long getSessionTimeMs() {
+        return sessionTimeMs;
+    }
+
+    public void setSessionTimeMs(Long sessionTimeMs) {
+        this.sessionTimeMs = sessionTimeMs;
+    }
+
+    public Long getAvgSolveTimeMs() {
+        return avgSolveTimeMs;
+    }
+
+    public void setAvgSolveTimeMs(Long avgSolveTimeMs) {
+        this.avgSolveTimeMs = avgSolveTimeMs;
     }
 
     public String getStatus() {

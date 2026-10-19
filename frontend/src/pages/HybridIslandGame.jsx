@@ -13,6 +13,8 @@ import SettingsPage from './SettingsPage';
 import './game.css';
 import { getFeedbackDuration, getDifficultyParamsHybrid } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
+import GameStopwatches from '../components/GameStopwatches';
+import { useStopwatch, useAnimationHold, useReportBusy } from '../utils/stopwatch';
 
 // Debug/compliance toggle — false (default) makes generateProblem() order same-
 // denominator subtraction's W and N independently so neither ever goes negative,
@@ -603,7 +605,7 @@ const MIXED_FINAL_DEST_FY = (32 + MIXED_FINAL_TOP) / 440;
 //   onAnswerSubmit – ({whole, numerator, denominator}) called once the final answer is correct
 //   onWrongAnswer  – (hint, submittedValue, errorType) called on any wrong answer
 // ─────────────────────────────────────────────────────────────────────────────
-const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestHint, onGestureStart, guidesPaused = false }) => {
+const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestHint, onUseHint, onGestureStart, guidesPaused = false, onBusyChange }) => {
   const { whole1: w1, numerator1: n1, denominator1: d, whole2: w2, numerator2: n2, operator } = problem;
   const wResult = operator === '+' ? w1 + w2 : w1 - w2;
   const nResult = operator === '+' ? n1 + n2 : n1 - n2;
@@ -1074,6 +1076,15 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
   }, [wJarsSettled]);
   const carryActive = carryPhase && !carryFinal;
   const hideFinal = carryPhase && carryFinal && !finalInputsShown;
+  // Busy = animating, the player can't act (pauses the stopwatches in HybridIslandGame).
+  const [jarBusy, setJarBusy] = useState(false);
+  useReportBusy(
+    (circleDetected && !wnVisible)                         // circle + denominators appearing, W/N boxes coming in
+    || (combineDone && !needsCarry && !finalAnswerVisible) // W/N/D travelling to the final answer
+    || (combineDone && needsCarry && !carryPhase)          // handing off to the jar game
+    || jarBusy || hideFinal,                               // jar game animations
+    onBusyChange
+  );
 
   const checkFinal = () => {
     if (actionLocked.current) return;
@@ -1342,6 +1353,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
               startBox={false}
               onFinalSettled={handleFinalSettled}
               onUiChange={setCarryUi}
+              onBusyChange={setJarBusy}
               onWrong={(quotient) => {
                 setTimeout(() => onWrongAnswer?.(`${nResult} ÷ ${d} = ${carryQuotient}`, String(quotient), 'INCORRECT_ANSWER'), 300);
               }}
@@ -1508,7 +1520,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
             : finalAnswerVisible ? (isZeroCase ? !!finalWholeInput : (showFinalWhole ? !!finalWholeInput : true) && (showFinalFrac ? !!(finalNumInput && finalDenInput) : true))
             : !!(wInput && nInput)
           }
-          onHint={onRequestHint && !(carryActive && !carryUi.prompt) ? () => onRequestHint(
+          onHint={onUseHint && !(carryActive && !carryUi.prompt) ? () => onUseHint(
             carryActive ? carryUi.prompt
             : finalAnswerVisible ? simplifyHintTextMS
             : `${w1} ${operator} ${w2} = ? (whole), ${n1} ${operator} ${n2} = ? (numerator)`
@@ -1606,7 +1618,7 @@ const NODE_POS = {
 //   problem         – full problem object
 //   onForgeComplete – ({ imp1: {n,d}, imp2: {n,d} }) called when both fractions are done
 // ─────────────────────────────────────────────────────────────────────────────
-const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHint, onGestureStart, guidesPaused = false }) => {
+const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHint, onUseHint, onGestureStart, guidesPaused = false, onBusyChange }) => {
   const [showHint, setShowHint] = useState(true);
   const [gestureDone, setGestureDone] = useState(false);
   const [fracIndex, setFracIndex] = useState(0);
@@ -1656,6 +1668,13 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
   const magnetSoundRef = useRef(null);
 
   const allLanded = revealed.w && revealed.n && revealed.d;
+  // Busy = animating, the player can't act (pauses the stopwatches in HybridIslandGame).
+  useReportBusy(
+    (gestureDone && !allLanded)                           // W/N/D flying into the circle
+    || bursts.length > 0 || shattering || forgeCompleting // drop burst, numerator shatter, circle fading out
+    || forgeShaking || forgeFailSequence !== null,        // strike shake, fail sequence
+    onBusyChange
+  );
 
   const p      = problem;
   const isFirst = fracIndex === 0;
@@ -2349,7 +2368,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
           label="Forge"
           onConfirm={frac.step === 'ask_product' ? checkProduct : frac.step === 'ask_sum_input' ? checkSum : () => {}}
           confirmEnabled={allLanded && (frac.step === 'ask_product' || frac.step === 'ask_sum_input') && !!inputVal}
-          onHint={onRequestHint ? () => onRequestHint(
+          onHint={onUseHint ? () => onUseHint(
             frac.step === 'ask_sum_input' ? `${frac.product} + ${n} = ?` : `${d} × ${w} = ?`
           ) : undefined}
         />
@@ -2477,7 +2496,7 @@ const BUTTERFLY_LABEL_POS = {
 //   onAnswerSubmit – ({numerator, denominator}) called once the final answer is confirmed correct
 //   onWrongAnswer  – (hint, submittedValue, errorType, onResolved) called on a hard fail / wrong final answer
 // ─────────────────────────────────────────────────────────────────────────────
-const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestHint, onGestureStart, guidesPaused = false, onSdSolvedChange, onEnlargeChange, panelScale = 1 }) => {
+const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestHint, onUseHint, onGestureStart, guidesPaused = false, onSdSolvedChange, onEnlargeChange, panelScale = 1, onBusyChange }) => {
   const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
 
   const [showHint, setShowHint] = useState(true);
@@ -2988,6 +3007,17 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
     : `Simplify: ${rawNum}/${rawDen}`;
   const carryActive = carryPhase && !carryFinal;
   const hideFinal = carryPhase && carryFinal && !finalInputsShown;
+  // Busy = animating, the player can't act (pauses the stopwatches in HybridIslandGame).
+  const [jarBusy, setJarBusy] = useState(false);
+  useReportBusy(
+    (circleDetected && !(n1Visible && d1Visible && n2Visible && d2Visible))      // numbers flying into the circle
+    || ['glowing', 'to-sd', 'arc-returning'].includes(denominatorPhase)          // denominators combining
+    || crossExplosion !== null || circleShaking || circleFailSequence !== null   // cross-multiply burst, strike shake, fail sequence
+    || (centerCorrect && !finalAnswerPhase && !carryPhase)                       // centre solved -> next step appearing
+    || jarBusy || hideFinal || (countsHidden && !carryFinal)                     // jar game, incl. the panel shrinking back
+    || !interactableVisible,                                                     // answer submitted
+    onBusyChange
+  );
 
   // ── fail system ──
   const resetCircleState = () => {
@@ -3635,6 +3665,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
           hideCounts={countsHidden}
           onFinalSettled={handleFinalSettled}
           onUiChange={setCarryUi}
+          onBusyChange={setJarBusy}
           onWrong={(quotient) => {
             // A wrong quotient fails the round right away, like a wrong final answer.
             setInteractableVisible(false);
@@ -3659,7 +3690,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
           label={carryActive ? (carryUi.stage === 'confirm' ? 'Confirm' : 'Check') : finalActive ? 'Cast Spell' : 'Confirm'}
           onConfirm={handleConfirm}
           confirmEnabled={confirmEnabled}
-          onHint={onRequestHint && !(carryActive && !carryUi.prompt) ? () => onRequestHint(
+          onHint={onUseHint && !(carryActive && !carryUi.prompt) ? () => onUseHint(
             carryActive    ? carryUi.prompt
           : finalAnswerPhase ? simplifyHintText
           : sdActive     ? `${d1} × ${d2} = ?`
@@ -3802,6 +3833,20 @@ const HybridIslandGame = ({
   // uiVisible: hides the interactable card (and pulls player/enemy in close) the instant
   // any answer is submitted — mirrors Similar/Dissimilar Island's interactableVisible.
   const [uiVisible,        setUiVisible]        = useState(true);
+  const [stageBusy,        setStageBusy]        = useState(false); // the mounted stage is mid-animation
+  const [answeredRound,    setAnsweredRound]    = useState(null);
+  // Hints used this session, saved with the session when it ends. The Hint button can be pressed
+  // again and again, so each distinct hint counts once per problem.
+  const sessionHintsUsed = useRef(0);
+  const roundHintsSeen = useRef(new Set());
+  const handleUseHint = (text) => {
+    if (!roundHintsSeen.current.has(text)) {
+      roundHintsSeen.current.add(text);
+      sessionHintsUsed.current += 1;
+    }
+    setCurrentHint(text);
+  };  // roundKey whose final answer was submitted -> Solve Time stops
+  const { held: animHeld, hold: holdStopwatches } = useAnimationHold();
   // gestureActive: true only once the CURRENT stage's own draw gesture (triangle/
   // circle/infinity) has actually succeeded — mirrors Similar/Dissimilar Island's
   // `circleDetected`, so the player/enemy push-apart is tied to the gesture itself,
@@ -4163,7 +4208,7 @@ const HybridIslandGame = ({
       const res = await fetch(
         `${API_BASE_URL}/api/game-progress/end-session/${gameSession.sessionId}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status, isWon, hintsUsed: 0 }) }
+          body: JSON.stringify({ status, isWon, hintsUsed: sessionHintsUsed.current, sessionTimeMs: Math.round(sessionWatch.getMs()) }) }
       );
       if (!res.ok) {
         const body = await res.text();
@@ -4271,6 +4316,7 @@ const HybridIslandGame = ({
       correctAnswer: getCorrectAnswerStr(), isCorrect: true, errorType: null,
       remainingLives: playerHealth, streakCount: newStreak, multiplierValue: newMultiplier,
       enemyHealthBefore: enemyLives * 33, enemyHealthAfter: newEnemyLives * 33, pointsEarned,
+      solveTimeMs: Math.round(solveWatch.getMs()),
     });
 
     if (newEnemyLives <= 0) {
@@ -4306,6 +4352,7 @@ const HybridIslandGame = ({
   };
 
   const handleAnswerSubmit = (payload) => {
+    setAnsweredRound(roundKey);
     // Hide the interactable card + shift the background/pull player&enemy close —
     // matches Similar/Dissimilar Island's click-time behavior on every answer.
     setUiVisible(false);
@@ -4317,6 +4364,7 @@ const HybridIslandGame = ({
   };
 
   const handleWrongAnswer = async (hint, submittedValue, errorType, onResolved) => {
+    setAnsweredRound(roundKey);
     // Hide the interactable card + shift the background/pull player&enemy close,
     // immediately — before the enemy-attack/player-hurt sequence plays, matching
     // Similar/Dissimilar Island. The hint bubble is intentionally never populated
@@ -4346,6 +4394,7 @@ const HybridIslandGame = ({
       errorType: errorType || 'INCORRECT_ANSWER', remainingLives: newLives,
       streakCount: 0, multiplierValue: 1.0,
       enemyHealthBefore: enemyLives * 33, enemyHealthAfter: enemyLives * 33, pointsEarned: 0,
+      solveTimeMs: Math.round(solveWatch.getMs()),
     });
 
     if (newLives <= 0) {
@@ -4396,6 +4445,30 @@ const HybridIslandGame = ({
     if (resolve) resolve();
   };
 
+  // ── stopwatches ──
+  // They only count time the player can actually act, so they pause while anything animates.
+  const animating =
+    stageBusy                                        // the stage's own animations (fly-ins, bursts, jar game...)
+    || !uiVisible || !!feedback || bgShift !== null  // answer submitted: attack, feedback, next problem sliding in
+    || fireball !== null
+    || animHeld;                                     // header hint sliding in
+  const sessionEnded = gameOver || enemyLives <= 0 || playerHealth <= 0;
+  const sessionRunning = !showTutorial && !showSettings && !sessionEnded && !animating;
+  const solveRunning = sessionRunning && answeredRound !== roundKey;
+  // getMs() on these gives the exact time for saving.
+  const sessionWatch = useStopwatch(sessionRunning);
+  const solveWatch = useStopwatch(solveRunning);
+
+  // Every new problem starts its Solve Time from 0.
+  useEffect(() => {
+    solveWatch.reset();
+    roundHintsSeen.current = new Set();
+  }, [roundKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (currentHint) holdStopwatches(800); // hintReveal is 0.8s
+  }, [currentHint]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── render ──
   return (
     <div
@@ -4433,6 +4506,15 @@ const HybridIslandGame = ({
           <span style={{ color: '#222', fontSize: '13px' }}>Streak: x{multiplier.toFixed(1)}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Score: {score}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Level: {gameSession.level || 1}/7</span>
+          {/* Stopwatches — hang under the stats box at half its width, without pushing the battle area down */}
+          <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: -4, width: 'calc(50% + 4px)', zIndex: 5 }}>
+            <GameStopwatches
+              sessionMs={sessionWatch.ms}
+              solveMs={solveWatch.ms}
+              sessionRunning={sessionRunning}
+              solveRunning={solveRunning}
+            />
+          </div>
         </div>
 
         {currentHint && (
@@ -4655,15 +4737,17 @@ const HybridIslandGame = ({
                 }}>
                   {corners('#703737')}
                   {stage === 'forge' ? (
-                    <ForgeCircleStage key={`forge-${roundKey}`} problem={problem} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} guidesPaused={showTutorial || showSettings || !!feedback || gameOver} />
+                    <ForgeCircleStage key={`forge-${roundKey}`} problem={problem} onBusyChange={setStageBusy} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onUseHint={handleUseHint} onGestureStart={() => setGestureActive(true)} guidesPaused={showTutorial || showSettings || !!feedback || gameOver} />
                   ) : stage === 'butterfly' ? (
                     <ButterflyCircleStage
                       key={`butterfly-${roundKey}`}
+                      onBusyChange={setStageBusy}
                       problem={butterflyProblem}
                       playerHealth={playerHealth}
                       onAnswerSubmit={handleAnswerSubmit}
                       onWrongAnswer={handleWrongAnswer}
                       onRequestHint={setCurrentHint}
+                      onUseHint={handleUseHint}
                       onGestureStart={() => setGestureActive(true)}
                       guidesPaused={showTutorial || showSettings || !!feedback || gameOver}
                       onSdSolvedChange={setSdSolved}
@@ -4671,7 +4755,7 @@ const HybridIslandGame = ({
                       panelScale={panelBig ? bigScale : 1}
                     />
                   ) : (
-                    <MixedSimilarCircleStage key={`mixed-${roundKey}`} problem={problem} onAnswerSubmit={handleAnswerSubmit} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onGestureStart={() => setGestureActive(true)} guidesPaused={showTutorial || showSettings || !!feedback || gameOver} />
+                    <MixedSimilarCircleStage key={`mixed-${roundKey}`} problem={problem} onBusyChange={setStageBusy} onAnswerSubmit={handleAnswerSubmit} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onUseHint={handleUseHint} onGestureStart={() => setGestureActive(true)} guidesPaused={showTutorial || showSettings || !!feedback || gameOver} />
                   )}
                 </div>
               </div>
