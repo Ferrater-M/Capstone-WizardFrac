@@ -7,7 +7,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  /* Pixel font for every piece of text on the landing screen, matching the
+     floating fractions. The About panel sets its own readable font. */
+  font-family: 'Press Start 2P', monospace;
 }
 
 .main-canvas {
@@ -33,42 +35,28 @@
   background: radial-gradient(ellipse 70% 60% at 50% 45%, rgba(8, 6, 24, 0.08) 0%, rgba(6, 4, 18, 0.58) 100%);
 }
 
-/* Time-of-day greeting badge */
+/* Time-of-day greeting, pinned like a sticker to the bottom-right corner of
+   the title: plain white pixel text with a hard black outline, no badge */
 .main-greeting {
   position: absolute;
-  top: 28px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 6;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 22px;
-  font-size: 0.95em;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: #e8ddff;
-  background: rgba(109, 40, 217, 0.28);
-  border: 1px solid rgba(180, 140, 255, 0.40);
-  border-radius: 50px;
-  backdrop-filter: blur(6px);
-  box-shadow: 0 0 16px rgba(130, 90, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  right: 0;
+  bottom: 0;
+  transform: translate(32%, 160%) rotate(-12deg);
+  z-index: 1;
+  font-size: clamp(0.6em, 1.1vw, 0.85em);
+  line-height: 1.4;
+  color: #ffffff;
+  text-shadow:
+    -2px -2px 0 #000,  0 -2px 0 #000,  2px -2px 0 #000,
+    -2px  0   0 #000,                  2px  0   0 #000,
+    -2px  2px 0 #000,  0  2px 0 #000,  2px  2px 0 #000;
   white-space: nowrap;
-}
-
-.main-greeting-icon {
-  font-size: 1.1em;
-  line-height: 1;
 }
 
 @media (max-width: 700px) {
   .main-greeting {
-    top: auto;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.8em;
-    padding: 8px 16px;
+    transform: translate(5%, 280%) rotate(-12deg);
+    font-size: 0.5em;
   }
 }
 
@@ -78,82 +66,23 @@
   inset: 0;
   z-index: 4;
   pointer-events: none;
-  background: rgba(180, 220, 255, 0);
+  background: rgba(255, 255, 255, 0);
   transition: background 0.04s ease-out;
 }
 .lightning-overlay.active {
-  background: rgba(180, 220, 255, 0.22);
+  background: rgba(255, 255, 255, 0.2);
   transition: none;
 }
 
-/* Floating fraction bubbles */
-.frac-bubbles-layer {
+/* Floating magic circles + pixel fractions with chain lightning. Sits above
+   the scrim so the white arcs aren't dulled at the screen edges. */
+.main-fx-canvas {
   position: absolute;
   inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.frac-bubble {
-  position: absolute;
-  bottom: -140px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 18px;
-  background: rgba(100, 60, 220, 0.14);
-  border: 1px solid rgba(180, 140, 255, 0.30);
-  border-radius: 50px;
-  backdrop-filter: blur(5px);
-  color: rgba(220, 205, 255, 0.88);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  font-weight: 700;
-  box-shadow:
-    0 0 14px rgba(130, 90, 255, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10);
-  animation: fracBubbleFloat linear infinite;
-  will-change: transform, opacity;
-}
-
-.fb-frac {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1.15;
-  font-size: 0.82em;
-}
-
-.fb-n,
-.fb-d {
-  display: block;
-  text-align: center;
-  min-width: 14px;
-}
-
-.fb-bar {
-  display: block;
   width: 100%;
-  min-width: 14px;
-  height: 1.5px;
-  background: rgba(210, 190, 255, 0.65);
-  margin: 2px 0;
-}
-
-.fb-op {
-  font-size: 1em;
-  color: rgba(246, 184, 37, 0.95);
-  font-weight: 900;
-  line-height: 1;
-}
-
-@keyframes fracBubbleFloat {
-  0%   { transform: translateY(0) translateX(0);                          opacity: 0; }
-  8%   { opacity: 0.78; }
-  40%  { transform: translateY(calc(-40vh - 56px)) translateX(16px); }
-  70%  { transform: translateY(calc(-70vh - 98px)) translateX(-14px); }
-  92%  { opacity: 0.55; }
-  100% { transform: translateY(calc(-100vh - 200px)) translateX(8px);     opacity: 0; }
+  height: 100%;
+  z-index: 4;
+  pointer-events: none;
 }
 
 /* About modal palette */
@@ -521,9 +450,9 @@
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  font-size: 0.95em;
-  font-weight: 700;
-  letter-spacing: 1px;
+  font-family: inherit;
+  font-size: 0.7em;
+  line-height: 1.4;
   color: #e8ddff;
   background: rgba(109, 40, 217, 0.28);
   border: 1px solid rgba(180, 140, 255, 0.40);
@@ -545,47 +474,6 @@
   line-height: 1;
 }
 
-/* Feature row: Play / Learn / Master */
-.main-features {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: clamp(28px, 6vw, 72px);
-  margin-top: 4px;
-}
-
-.main-feature {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  color: rgba(230, 220, 255, 0.85);
-  text-align: center;
-}
-
-.main-feature-icon {
-  width: clamp(72px, 9vw, 108px);
-  height: clamp(72px, 9vw, 108px);
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  filter: drop-shadow(0 0 10px rgba(246, 184, 37, 0.45));
-}
-
-.main-feature-label {
-  font-size: clamp(0.85em, 1.4vw, 1em);
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  color: #f6b825;
-  text-shadow: 0 0 12px rgba(246, 184, 37, 0.5);
-}
-
-.main-feature-desc {
-  font-size: clamp(0.7em, 1.1vw, 0.82em);
-  color: rgba(210, 200, 255, 0.70);
-  font-style: italic;
-}
-
 /* Main content */
 .main-content {
   position: relative;
@@ -601,22 +489,31 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 2px;
+}
+
+/* Anchor for the greeting sticker on the title's corner */
+.main-title-wrap {
+  position: relative;
 }
 
 .main-title {
   margin: 0;
   /* letter-spacing adds a trailing gutter after the last letter, which
      nudges the visible text left of true center — pull it back */
-  margin-right: -8px;
+  margin-right: -4px;
   /* the global :root font shorthand fixes line-height at ~26px (145% of
      18px) and that literal px value inherits straight into this much
-     bigger heading, squashing its box until it overlaps SOLVE IT! below —
+     bigger heading, squashing its box until it overlaps the tagline below —
      reset it so the line box scales with this element's own font-size */
-  line-height: 1.05;
-  font-size: clamp(3.5em, 9vw, 8em);
-  font-weight: 900;
-  letter-spacing: 8px;
+  line-height: 1.2;
+  /* every pixel-font glyph is a full 1em wide, so this runs smaller than a
+     normal font would to fit the same width */
+  font-size: clamp(2.2em, 6.5vw, 5.5em);
+  /* index.css gives every h1 its own heading font */
+  font-family: inherit;
+  font-weight: 400;
+  letter-spacing: 4px;
   text-transform: uppercase;
   color: #f6b825;
   text-shadow:
@@ -626,60 +523,70 @@
   animation: titlePulse 3s ease-in-out infinite;
 }
 
-.main-solve {
-  margin: 0;
-  margin-right: -10px;
-  line-height: 1.1;
-  font-size: clamp(1.8em, 4vw, 3.5em);
-  font-weight: 800;
-  letter-spacing: 10px;
-  text-transform: uppercase;
-  color: #a78bfa;
-  text-shadow:
-    0 0 18px rgba(167, 139, 250, 0.75),
-    2px 2px 6px rgba(0, 0, 0, 0.85);
-}
-
 .main-tagline {
-  margin: 6px 0 0;
-  margin-right: -2px;
-  font-size: clamp(0.95em, 1.8vw, 1.4em);
-  color: rgba(200, 190, 255, 0.70);
-  font-style: italic;
-  letter-spacing: 2px;
-  text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.85);
+  margin: 10px 0 0;
+  margin-right: -1px;
+  font-size: clamp(0.6em, 1.2vw, 0.95em);
+  line-height: 1.6;
+  color: #ffffff;
+  letter-spacing: 1px;
+  text-shadow:
+    -2px -2px 0 #000,  0 -2px 0 #000,  2px -2px 0 #000,
+    -2px  0   0 #000,                  2px  0   0 #000,
+    -2px  2px 0 #000,  0  2px 0 #000,  2px  2px 0 #000;
 }
 
+/* Bare pixel text, no pill: white with the same black outline as the
+   greeting, and a white glow that pulses to invite the click */
 .main-start-btn {
-  padding: 18px 56px;
-  font-size: clamp(1em, 2vw, 1.35em);
-  font-weight: 800;
-  letter-spacing: 3px;
+  padding: 12px 24px;
+  font-family: inherit;
+  font-size: clamp(0.9em, 1.7vw, 1.3em);
+  line-height: 1.4;
+  font-weight: 400;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: #fff;
-  background: linear-gradient(135deg, #6d28d9 0%, #3730a3 100%);
-  border: 2px solid rgba(200, 180, 255, 0.30);
-  border-radius: 50px;
+  background: none;
+  border: none;
   cursor: pointer;
-  box-shadow:
-    0 0 28px rgba(109, 40, 217, 0.65),
-    0 0 60px rgba(55, 48, 163, 0.35),
-    0 8px 32px rgba(0, 0, 0, 0.55);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-  animation: btnFloat 4s ease-in-out infinite;
+  transition: filter 0.2s ease;
+  animation:
+    btnFloat 4s ease-in-out infinite,
+    btnGlow 1.8s ease-in-out infinite;
 }
 
 .main-start-btn:hover {
-  transform: scale(1.07) translateY(-3px);
-  background: linear-gradient(135deg, #7c3aed 0%, #4338ca 100%);
-  box-shadow:
-    0 0 45px rgba(124, 58, 237, 0.85),
-    0 0 80px rgba(67, 56, 202, 0.45),
-    0 12px 40px rgba(0, 0, 0, 0.60);
+  filter: brightness(1.15) drop-shadow(0 0 10px rgba(255, 255, 255, 0.8));
 }
 
 .main-start-btn:active {
-  transform: scale(0.97);
+  filter: brightness(0.9);
+}
+
+.main-start-btn:focus-visible {
+  outline: 2px dashed #fff;
+  outline-offset: 4px;
+}
+
+@keyframes btnGlow {
+  0%, 100% {
+    text-shadow:
+      -2px -2px 0 #000,  0 -2px 0 #000,  2px -2px 0 #000,
+      -2px  0   0 #000,                  2px  0   0 #000,
+      -2px  2px 0 #000,  0  2px 0 #000,  2px  2px 0 #000,
+      0 0 4px  rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    text-shadow:
+      -2px -2px 0 #000,  0 -2px 0 #000,  2px -2px 0 #000,
+      -2px  0   0 #000,                  2px  0   0 #000,
+      -2px  2px 0 #000,  0  2px 0 #000,  2px  2px 0 #000,
+      0 0 10px rgba(255, 255, 255, 1),
+      0 0 22px rgba(255, 255, 255, 1),
+      0 0 44px rgba(255, 255, 255, 0.9),
+      0 0 80px rgba(255, 255, 255, 0.7);
+  }
 }
 
 @keyframes titlePulse {
@@ -700,4 +607,19 @@
 @keyframes btnFloat {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-6px); }
+}
+
+/* Phones: the desktop clamp floor is wider than the screen, and the
+   narrower title would put the greeting sticker on top of the tagline, so
+   give the sticker its own row. Kept after .main-title so it wins the
+   cascade. */
+@media (max-width: 700px) {
+  .main-title {
+    font-size: 7.5vw;
+    letter-spacing: 1px;
+    margin-right: -1px;
+  }
+  .main-tagline {
+    margin-top: 48px;
+  }
 }

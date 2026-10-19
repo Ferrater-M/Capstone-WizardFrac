@@ -1,12 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './MainPage.css';
 
-const FEATURES = [
-  { icon: '/PlayerAssets/Shield.png',  label: 'PLAY',   desc: 'Fun & Engaging' },
-  { icon: '/PlayerAssets/books.png',   label: 'LEARN',  desc: 'Step by Step' },
-  { icon: '/PlayerAssets/trophyy.png', label: 'MASTER', desc: 'Become a Champion' },
-];
-
 const ABOUT_SECTIONS = [
   {
     icon: '/PlayerAssets/hat.png',
@@ -27,68 +21,68 @@ const WHY_WIZARDFRAC = [
   'Safe, fun, and student-friendly environment',
 ];
 
-const FRAC_BUBBLES = [
-  { id: 1,  left: '4%',  delay: '0s',    dur: '13s', n1: '1', d1: '2', op: '+', n2: '1', d2: '4' },
-  { id: 2,  left: '15%', delay: '4s',    dur: '10s', n1: '3', d1: '5', op: '−', n2: '1', d2: '5' },
-  { id: 3,  left: '28%', delay: '7.5s',  dur: '15s', n1: '2', d1: '3', op: '+', n2: '1', d2: '6' },
-  { id: 4,  left: '43%', delay: '2s',    dur: '11s', n1: '5', d1: '8', op: '−', n2: '3', d2: '8' },
-  { id: 5,  left: '57%', delay: '9s',    dur: '12s', n1: '1', d1: '3', op: '+', n2: '1', d2: '2' },
-  { id: 6,  left: '70%', delay: '5s',    dur: '14s', n1: '7', d1: '8', op: '−', n2: '1', d2: '4' },
-  { id: 7,  left: '82%', delay: '1.5s',  dur: '16s', n1: '1', d1: '4', op: '+', n2: '1', d2: '4' },
-  { id: 8,  left: '91%', delay: '11s',   dur: '10s', n1: '2', d1: '3', op: '−', n2: '1', d2: '6' },
-  { id: 9,  left: '36%', delay: '14s',   dur: '13s', n1: '3', d1: '4', op: '+', n2: '1', d2: '8' },
-  { id: 10, left: '63%', delay: '17s',   dur: '11s', n1: '4', d1: '5', op: '−', n2: '2', d2: '5' },
+// The four island magic circles stay fixed at the screen sides (x/y are
+// fractions of the screen), spinning steadily in place while randomly
+// generated pixel fractions float up past them
+const PINNED_CIRCLES = [
+  { src: '/InteractableUI/MixedMagicCircle.png',        x: 0.10, y: 0.30, spin:  0.45 }, // triangle, left
+  { src: '/InteractableUI/DissimilarMagicCircle.png',   x: 0.10, y: 0.73, spin: -0.35 }, // butterfly, left
+  { src: '/InteractableUI/SimilarMagicCircleMixed.png', x: 0.90, y: 0.28, spin: -0.40 }, // two rings, right
+  { src: '/InteractableUI/SimilarMagicCircle.png',      x: 0.90, y: 0.73, spin:  0.50 }, // plain ring, right
 ];
 
-function makeBoltPoints(x1, y1, x2, y2, jag, segs) {
-  const pts = [{ x: x1, y: y1 }];
-  for (let i = 1; i < segs; i++) {
-    const t = i / segs;
-    pts.push({
-      x: x1 + (x2 - x1) * t + (Math.random() - 0.5) * jag,
-      y: y1 + (y2 - y1) * t + (Math.random() - 0.5) * jag * 0.2,
-    });
+const rand    = (a, b) => a + Math.random() * (b - a);
+const randInt = (a, b) => Math.floor(rand(a, b + 1));
+
+// Mostly proper fractions, with the occasional improper one
+function randomFraction() {
+  const d = randInt(2, 12);
+  const n = Math.random() < 0.8 ? randInt(1, d - 1) : randInt(d + 1, d * 2);
+  return { n: String(n), d: String(d) };
+}
+
+// Midpoint displacement: every pass splits each segment and kicks the new
+// point sideways, so the arc is jagged at every scale instead of a neat zigzag
+function jaggedPath(x1, y1, x2, y2, roughness) {
+  let pts = [{ x: x1, y: y1 }, { x: x2, y: y2 }];
+  let offset = Math.hypot(x2 - x1, y2 - y1) * roughness;
+  for (let pass = 0; pass < 5; pass++) {
+    const next = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const k = (Math.random() - 0.5) * 2 * offset;
+      next.push({ x: (a.x + b.x) / 2 - (dy / len) * k, y: (a.y + b.y) / 2 + (dx / len) * k }, b);
+    }
+    pts = next;
+    offset *= 0.5;
   }
-  pts.push({ x: x2, y: y2 });
   return pts;
 }
 
-function drawBolt(ctx, pts, width, alpha) {
+function strokePath(ctx, pts) {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+}
+
+// Pure white arc: wide soft halo, then a hard bright core
+function drawWhiteArc(ctx, pts, width, alpha) {
   if (pts.length < 2 || alpha <= 0) return;
-  // outer glow
   ctx.save();
-  ctx.shadowColor = 'rgba(120, 180, 255, 0.9)';
-  ctx.shadowBlur = 28;
-  ctx.strokeStyle = `rgba(160, 210, 255, ${alpha * 0.45})`;
-  ctx.lineWidth = width * 5;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  pts.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
-  ctx.stroke();
-  ctx.restore();
-  // core bolt
-  ctx.save();
-  ctx.strokeStyle = `rgba(220, 235, 255, ${alpha})`;
+  ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
+  ctx.shadowBlur = 24;
+  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.35})`;
+  ctx.lineWidth = width * 4;
+  strokePath(ctx, pts);
+  ctx.shadowBlur = 10;
+  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
   ctx.lineWidth = width;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  pts.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
-  ctx.stroke();
-  ctx.restore();
-  // bright center
-  ctx.save();
-  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.85})`;
-  ctx.lineWidth = width * 0.3;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  pts.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
-  ctx.stroke();
+  strokePath(ctx, pts);
   ctx.restore();
 }
 
@@ -100,15 +94,17 @@ function getTimeOfDay(date = new Date()) {
 }
 
 const GREETINGS = {
-  morning:   { text: 'Good Morning, Wizard!',   icon: '⛅' },
-  afternoon: { text: 'Good Afternoon, Wizard!', icon: '☀️' },
-  evening:   { text: 'Good Evening, Wizard!',   icon: '🌙' },
+  morning:   'Good Morning, Wizard!',
+  afternoon: 'Good Afternoon, Wizard!',
+  evening:   'Good Evening, Wizard!',
 };
 
 const MainPage = ({ onStart }) => {
   const canvasRef = useRef(null);
   const frameRef  = useRef(null);
   const flashRef  = useRef(null);
+  const fxCanvasRef = useRef(null);
+  const contentRef  = useRef(null);
   const [showAbout, setShowAbout] = useState(false);
   const [timeOfDay, setTimeOfDay] = useState(getTimeOfDay());
 
@@ -338,10 +334,10 @@ const MainPage = ({ onStart }) => {
           const ex = sx + (Math.random() - 0.5) * w * 0.28;
           const ey = (0.42 + Math.random() * 0.38) * h;
 
-          const main   = makeBoltPoints(sx, sy, ex, ey, 75, 14);
+          const main   = jaggedPath(sx, sy, ex, ey, 0.2);
           const mid    = main[Math.floor(main.length / 2)];
           const branch = Math.random() < 0.70
-            ? makeBoltPoints(mid.x, mid.y, mid.x + (Math.random() - 0.5) * w * 0.22, mid.y + Math.random() * h * 0.22, 45, 8)
+            ? jaggedPath(mid.x, mid.y, mid.x + (Math.random() - 0.5) * w * 0.22, mid.y + Math.random() * h * 0.22, 0.25)
             : null;
 
           const dur = 110 + Math.random() * 100;
@@ -370,8 +366,8 @@ const MainPage = ({ onStart }) => {
         lt.queue.forEach(b => {
           if (now < b.startTime) return;
           const alpha = Math.max(0, 1 - (now - b.startTime) / (b.endTime - b.startTime));
-          drawBolt(ctx, b.main, 2.5, alpha);
-          if (b.branch) drawBolt(ctx, b.branch, 1.4, alpha * 0.65);
+          drawWhiteArc(ctx, b.main, 3, alpha);
+          if (b.branch) drawWhiteArc(ctx, b.branch, 1.6, alpha * 0.7);
         });
       }
 
@@ -385,63 +381,294 @@ const MainPage = ({ onStart }) => {
     };
   }, [timeOfDay]);
 
+  // Fixed spinning magic circles + floating pixel fractions that shine and
+  // chain white lightning between each other. Lives on its own canvas so it
+  // keeps running untouched when the sky swaps at a time-of-day change.
+  useEffect(() => {
+    const canvas = fxCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const motion = reduceMotion ? 0.3 : 1;
+
+    const circles = PINNED_CIRCLES.map(c => {
+      const img = new Image();
+      img.src = c.src;
+      return {
+        kind: 'circle',
+        img,
+        spot: c,
+        x: 0, y: 0, size: 0,
+        angle: rand(0, Math.PI * 2),
+        phase: rand(0, Math.PI * 2),
+        pulseSpeed: rand(1.4, 2.6),
+        flash: 0,
+        alpha: 0,
+      };
+    });
+    // Canvas text can't trigger a webfont download itself
+    document.fonts?.load('16px "Press Start 2P"');
+
+    let w = 0, h = 0;
+    // The title/tagline/button block. Floaters only dim while passing
+    // behind it, so they show evenly across the rest of the screen.
+    let textBox = null;
+    let nextMeasureAt = 0;
+    const measureText = () => {
+      textBox = contentRef.current?.getBoundingClientRect() ?? null;
+    };
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width  = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      measureText();
+      const size = Math.min(170, Math.max(80, Math.min(w, h) * 0.22));
+      circles.forEach(c => {
+        c.x = c.spot.x * w;
+        c.y = c.spot.y * h;
+        c.size = size;
+      });
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Re-rolls a floating fraction, so each trip up the screen shows
+    // a brand-new one
+    const reroll = f => {
+      f.frac      = randomFraction();
+      f.size      = rand(15, 24);
+      f.vy        = -rand(14, 34) * motion;
+      f.driftAmp  = rand(8, 26);
+      f.driftFreq = rand(0.15, 0.4);
+    };
+
+    const count = Math.round(Math.min(14, Math.max(8, (w * h) / 90000)));
+    const floaters = Array.from({ length: count }, () => {
+      const f = {
+        kind: 'fraction',
+        x: rand(0.04, 0.96) * w,
+        y: rand(0, 1) * h,
+        angle: rand(-0.7, 0.7),
+        targetAngle: 0,
+        nextSpinAt: 0,
+        phase: rand(0, Math.PI * 2),
+        pulseSpeed: rand(1.4, 2.6),
+        flash: 0,
+        alpha: 0,
+        t0: rand(0, 100),
+      };
+      reroll(f);
+      return f;
+    });
+
+    let links = [];
+    let nextChainAt = performance.now() + 900;
+
+    // One strike hops to the nearest circle or fraction it hasn't hit yet,
+    // again and again, each hop landing a beat after the last. Most strikes
+    // fire out of a magic circle.
+    const startChain = now => {
+      const live = [...circles, ...floaters].filter(f => f.alpha > 0.4);
+      if (live.length < 2) return;
+      const liveCircles = live.filter(f => f.kind === 'circle');
+      let cur = liveCircles.length && Math.random() < 0.7
+        ? liveCircles[randInt(0, liveCircles.length - 1)]
+        : live[randInt(0, live.length - 1)];
+      const visited = new Set([cur]);
+      const maxDist = Math.max(260, Math.min(w, h) * 0.5);
+      const hops = randInt(2, 5);
+      for (let i = 0; i < hops; i++) {
+        let best = null, bestD = Infinity;
+        live.forEach(f => {
+          if (visited.has(f)) return;
+          const d = Math.hypot(f.x - cur.x, f.y - cur.y);
+          if (d < bestD) { bestD = d; best = f; }
+        });
+        if (!best || bestD > maxDist) break;
+        const start = now + i * 90;
+        links.push({ a: cur, b: best, start, end: start + rand(300, 440), pts: null, forks: [], nextJitter: 0, struck: false });
+        visited.add(best);
+        cur = best;
+      }
+    };
+
+    const drawFloater = (f, now) => {
+      if (f.alpha <= 0.01) return;
+      const pulse = 0.5 + 0.5 * Math.sin(now / 1000 * f.pulseSpeed + f.phase);
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.angle);
+      ctx.globalAlpha = f.alpha;
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+      ctx.shadowBlur = 6 + pulse * 16 + f.flash * 40;
+
+      if (f.kind === 'circle') {
+        const img = f.img;
+        if (img.complete && img.naturalWidth) {
+          const s = f.size / Math.max(img.naturalWidth, img.naturalHeight);
+          const iw = img.naturalWidth * s, ih = img.naturalHeight * s;
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(img, -iw / 2, -ih / 2, iw, ih);
+          // Struck circles flare white-hot, then cool back down
+          if (f.flash > 0.02) {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = f.alpha * f.flash * 0.85;
+            ctx.drawImage(img, -iw / 2, -ih / 2, iw, ih);
+          }
+        }
+      } else {
+        const fs = f.size;
+        ctx.font = `${fs}px "Press Start 2P", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const barW = Math.max(ctx.measureText(f.frac.n).width, ctx.measureText(f.frac.d).width) + fs * 0.5;
+        const barH = Math.max(2, Math.round(fs / 5));
+        // Dark blocky outline first so white digits still read on the
+        // bright morning/afternoon sky
+        ctx.lineJoin = 'miter';
+        ctx.lineWidth = Math.max(3, fs / 4);
+        ctx.strokeStyle = 'rgba(24, 14, 56, 0.85)';
+        ctx.strokeText(f.frac.n, 0, -fs * 0.95);
+        ctx.strokeText(f.frac.d, 0,  fs * 0.95);
+        ctx.strokeRect(-barW / 2, -barH / 2, barW, barH);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(f.frac.n, 0, -fs * 0.95);
+        ctx.fillText(f.frac.d, 0,  fs * 0.95);
+        ctx.fillRect(-barW / 2, -barH / 2, barW, barH);
+      }
+      ctx.restore();
+    };
+
+    let last = performance.now();
+    const tick = now => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      ctx.clearRect(0, 0, w, h);
+
+      // Re-measure now and then, since webfonts landing can resize the title
+      if (now >= nextMeasureAt) {
+        measureText();
+        nextMeasureAt = now + 1000;
+      }
+
+      // Dim a little while directly behind the title text so it keeps
+      // reading cleanly
+      const behindText = f => {
+        if (!textBox) return 1;
+        const SOFT = 40;
+        const dx = Math.max(textBox.left - f.x, 0, f.x - textBox.right);
+        const dy = Math.max(textBox.top - f.y, 0, f.y - textBox.bottom);
+        return 1 - (1 - Math.min(1, Math.hypot(dx, dy) / SOFT)) * 0.4;
+      };
+
+      floaters.forEach(f => {
+        f.y += f.vy * dt;
+        f.x += Math.cos((now / 1000 + f.t0) * f.driftFreq) * f.driftAmp * dt;
+        const pad = f.size * 3;
+        if (f.y < -pad) {
+          f.y = h + pad;
+          f.x = rand(0.04, 0.96) * w;
+          reroll(f);
+        }
+
+        // Fractions only tilt to a new random lean, since upside down
+        // 6/8 would read as 8/9
+        if (now >= f.nextSpinAt) {
+          f.targetAngle = rand(-0.7, 0.7);
+          f.nextSpinAt = now + rand(1500, 4000);
+        }
+        f.angle += (f.targetAngle - f.angle) * Math.min(1, dt * 1.2 * motion);
+
+        f.flash = Math.max(0, f.flash - dt * 2.2);
+
+        // Fade in at the bottom and out at the top
+        const edge = Math.max(0, Math.min(1, Math.min(f.y + pad, h + pad - f.y) / 140));
+        f.alpha = 0.95 * edge * behindText(f);
+      });
+
+      // Fixed circles never move, only spin at their own steady speed
+      circles.forEach(c => {
+        c.angle += c.spot.spin * motion * dt;
+        c.flash = Math.max(0, c.flash - dt * 2.2);
+        c.alpha = behindText(c);
+      });
+
+      floaters.forEach(f => drawFloater(f, now));
+      circles.forEach(c => drawFloater(c, now));
+
+      if (!reduceMotion) {
+        if (now >= nextChainAt) {
+          startChain(now);
+          nextChainAt = now + rand(1100, 2600);
+        }
+
+        links = links.filter(l => now < l.end);
+        links.forEach(l => {
+          if (now < l.start) return;
+          if (!l.struck) {
+            l.struck = true;
+            l.a.flash = 1;
+            l.b.flash = 1;
+          }
+          // Re-roll the whole shape every few frames so it crackles
+          // instead of sitting still
+          if (now >= l.nextJitter) {
+            l.pts = jaggedPath(l.a.x, l.a.y, l.b.x, l.b.y, 0.22);
+            l.forks = [];
+            const forkCount = randInt(1, 3);
+            const len = Math.hypot(l.b.x - l.a.x, l.b.y - l.a.y);
+            for (let i = 0; i < forkCount; i++) {
+              const p = l.pts[randInt(4, l.pts.length - 5)];
+              const ang = Math.atan2(l.b.y - l.a.y, l.b.x - l.a.x) + rand(-1.1, 1.1);
+              const fl = len * rand(0.15, 0.35);
+              l.forks.push(jaggedPath(p.x, p.y, p.x + Math.cos(ang) * fl, p.y + Math.sin(ang) * fl, 0.3));
+            }
+            l.nextJitter = now + rand(35, 70);
+          }
+          const life = (now - l.start) / (l.end - l.start);
+          // Flicker: random brightness dips on top of the fade out
+          const alpha = (1 - life) * (Math.random() < 0.18 ? 0.35 : 1);
+          drawWhiteArc(ctx, l.pts, 2.6, alpha);
+          l.forks.forEach(fk => drawWhiteArc(ctx, fk, 1.3, alpha * 0.75));
+        });
+      }
+
+      fxFrame = requestAnimationFrame(tick);
+    };
+    let fxFrame = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(fxFrame);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
   return (
     <div className={`main-page time-${timeOfDay}`}>
       <canvas ref={canvasRef} className="main-canvas" />
       <div className="main-scrim" aria-hidden="true" />
+      <canvas ref={fxCanvasRef} className="main-fx-canvas" aria-hidden="true" />
       <div ref={flashRef} className="lightning-overlay" />
 
       <button className="main-about-btn" onClick={() => setShowAbout(true)}>
         <span className="main-about-icon">ⓘ</span> About
       </button>
 
-      <div className="main-greeting">
-        <span className="main-greeting-icon" aria-hidden="true">{GREETINGS[timeOfDay].icon}</span>
-        {GREETINGS[timeOfDay].text}
-      </div>
-
-      <div className="frac-bubbles-layer" aria-hidden="true">
-        {FRAC_BUBBLES.map(b => (
-          <div
-            key={b.id}
-            className="frac-bubble"
-            style={{ left: b.left, animationDelay: b.delay, animationDuration: b.dur }}
-          >
-            <span className="fb-frac">
-              <span className="fb-n">{b.n1}</span>
-              <span className="fb-bar" />
-              <span className="fb-d">{b.d1}</span>
-            </span>
-            <span className="fb-op">{b.op}</span>
-            <span className="fb-frac">
-              <span className="fb-n">{b.n2}</span>
-              <span className="fb-bar" />
-              <span className="fb-d">{b.d2}</span>
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <div className="main-content">
+      <div className="main-content" ref={contentRef}>
         <div className="main-title-group">
-          <h1 className="main-title">WIZARDFRAC</h1>
-          <h2 className="main-solve">SOLVE IT!</h2>
+          <div className="main-title-wrap">
+            <h1 className="main-title">WIZARDFRAC</h1>
+            <div className="main-greeting">{GREETINGS[timeOfDay]}</div>
+          </div>
           <p className="main-tagline">Master your fractions skills</p>
         </div>
 
         <button className="main-start-btn" onClick={onStart}>
           Start your Journey
         </button>
-
-        <div className="main-features">
-          {FEATURES.map(f => (
-            <div className="main-feature" key={f.label}>
-              <div className="main-feature-icon" style={{ backgroundImage: `url(${f.icon})` }} role="img" aria-hidden="true" />
-              <span className="main-feature-label">{f.label}</span>
-              <span className="main-feature-desc">{f.desc}</span>
-            </div>
-          ))}
-        </div>
       </div>
 
       {showAbout && (
