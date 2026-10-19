@@ -11,7 +11,9 @@ import '../components/components.css';
 import { getDissimilarTier, TIMING, getFeedbackDuration } from '../utils/gameUtils';
 import ImproperToMixedGame from '../components/ImproperToMixedGame';
 import InputGuideCursor from '../components/InputGuideCursor';
+import GameStopwatches from '../components/GameStopwatches';
 import { API_BASE_URL } from '../config';
+import { useStopwatch, useAnimationHold } from '../utils/stopwatch';
 
 // Falling square particles along the bottom of a box — same set/timing as the
 // problem-statement banner's own particles, just grey instead of brown so they
@@ -155,6 +157,7 @@ const DissimilarIslandGame = ({
   const feedbackClickableTimeoutRef = useRef(null);
   const [currentHint, setCurrentHint] = useState('');
   const [hintUsed, setHintUsed] = useState(false);
+  const sessionHintsUsed = useRef(0); // hints used this session; saved with the session when it ends
   const [showHintConfirm, setShowHintConfirm] = useState(false);
   const [enemyAttacking, setEnemyAttacking] = useState(false);
   const [enemyFlashing, setEnemyFlashing] = useState(false);
@@ -246,6 +249,9 @@ const DissimilarIslandGame = ({
   const [circleMistakes, setCircleMistakes] = useState([]);
   const [circleFailSequence, setCircleFailSequence] = useState(null);
   const [circleShaking, setCircleShaking] = useState(false);
+  const [jarBusy, setJarBusy] = useState(false);                 // ImproperToMixedGame is mid-animation
+  const [answeredProblem, setAnsweredProblem] = useState(null);  // problem whose final answer was submitted -> Solve Time stops
+  const { held: animHeld, hold: holdStopwatches } = useAnimationHold();
   const numFontSize = (val, boxSize) => {
     const len = String(Math.abs(val ?? 0)).length;
     if (boxSize >= 40) return len <= 1 ? 21 : len === 2 ? 15 : 10;
@@ -1082,7 +1088,7 @@ const DissimilarIslandGame = ({
   const saveGameEnd = async (status, isWon) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/game-progress/end-session/${gameSession.sessionId}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, isWon }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, isWon, hintsUsed: sessionHintsUsed.current, sessionTimeMs: Math.round(sessionWatch.getMs()) }),
       });
       if (!res.ok) {
         const body = await res.text();
@@ -1134,6 +1140,7 @@ const DissimilarIslandGame = ({
   };
 
   const handleAnswerSubmit = async ({ numerator, denominator, skipAnim = false }) => {
+    setAnsweredProblem(problem);
     const totalHp   = enemyData?.hp || enemyLives || 1;
     const hpPerHit  = Math.floor(100 / totalHp);
     const newELives = Math.max(0, (enemyLives ?? 1) - 1);
@@ -1160,6 +1167,7 @@ const DissimilarIslandGame = ({
       isCorrect: true, errorType: null,
       remainingLives: lives, streakCount: newStreak, multiplierValue: newMult,
       enemyHealthBefore: enemyHealth, enemyHealthAfter: newEHp, pointsEarned: pts,
+      solveTimeMs: Math.round(solveWatch.getMs()),
     });
 
     const doReset = () => {
@@ -1187,6 +1195,7 @@ const DissimilarIslandGame = ({
   };
 
   const handleWrongAnswer = async (hint, submittedValue, errorType, onResolved) => {
+    setAnsweredProblem(problem);
     lastFailedProblemKey.current = problemKey(problem);
     const newLives = lives - 1;
     setLives(newLives); setStreak(0); setMultiplier(1.0);
@@ -1207,6 +1216,7 @@ const DissimilarIslandGame = ({
       isCorrect: false, errorType: errorType || 'INCORRECT_ANSWER',
       remainingLives: newLives, streakCount: 0, multiplierValue: 1.0,
       enemyHealthBefore: enemyHealth, enemyHealthAfter: enemyHealth, pointsEarned: 0,
+      solveTimeMs: Math.round(solveWatch.getMs()),
     });
 
     if (newLives <= 0) {
@@ -1235,6 +1245,33 @@ const DissimilarIslandGame = ({
     feedbackResolveRef.current = null;
     if (resolve) resolve();
   };
+
+  // ── Stopwatches ───────────────────────────────────────────────────────────
+  // They only count time the player can actually act, so they pause while anything animates.
+  const animating =
+    (circleDetected && !(n1Visible && d1Visible && n2Visible && d2Visible))      // numbers flying into the circle
+    || ['glowing', 'to-sd', 'arc-returning'].includes(denominatorPhase)          // denominators combining
+    || crossExplosion !== null || circleShaking || circleFailSequence !== null   // cross-multiply burst, strike shake, fail sequence
+    || (centerCorrect && !finalAnswerPhase && !carryPhase)                       // centre solved -> next step appearing
+    || jarBusy || hideFinal                                                      // jar (improper -> mixed) game animations
+    || !interactableVisible || !!feedback || bgShift !== null                    // answer submitted: attack, feedback, next problem sliding in
+    || fireball !== null || defeatTarget !== null
+    || animHeld;                                                                 // header hint sliding in
+  const sessionEnded = defeatTarget !== null || gameOver;
+  const sessionRunning = !showTutorial && !showSettings && !sessionEnded && !animating;
+  const solveRunning = sessionRunning && answeredProblem !== problem;
+  // getMs() on these gives the exact time for saving.
+  const sessionWatch = useStopwatch(sessionRunning);
+  const solveWatch = useStopwatch(solveRunning);
+
+  // Every new problem starts its Solve Time from 0.
+  useEffect(() => {
+    solveWatch.reset();
+  }, [problem]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (headerHint) holdStopwatches(800); // hintReveal is 0.8s
+  }, [headerHint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Heart renderer ────────────────────────────────────────────────────────
   const renderHearts = (count, max) => Array.from({ length: max }, (_, i) => (
@@ -1289,6 +1326,15 @@ const DissimilarIslandGame = ({
           <span style={{ color: '#222', fontSize: '13px' }}>Streak: x{multiplier.toFixed(1)}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Score: {score}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Level: {gameSession.level}/{totalLevels ?? '...'}</span>
+          {/* Stopwatches — hang under the stats box at half its width, without pushing the battle area down */}
+          <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: -4, width: 'calc(50% + 4px)', zIndex: 5 }}>
+            <GameStopwatches
+              sessionMs={sessionWatch.ms}
+              solveMs={solveWatch.ms}
+              sessionRunning={sessionRunning}
+              solveRunning={solveRunning}
+            />
+          </div>
         </div>
         {headerHint && (
           <div key={headerHint} style={{
@@ -1947,6 +1993,7 @@ const DissimilarIslandGame = ({
                                   isCorrect: false, errorType: misconceptionType,
                                   remainingLives: lives, streakCount: streak, multiplierValue: multiplier,
                                   enemyHealthBefore: enemyHealth, enemyHealthAfter: enemyHealth, pointsEarned: 0,
+                                  solveTimeMs: Math.round(solveWatch.getMs()),
                                 });
                               }
                               return updated;
@@ -2098,6 +2145,7 @@ const DissimilarIslandGame = ({
                         startBox={false}
                         onFinalSettled={handleFinalSettled}
                         onUiChange={setCarryUi}
+                        onBusyChange={setJarBusy}
                         onWrong={(quotient) => {
                           // A wrong quotient fails the round right away, like a wrong final answer.
                           pendingBgShiftRef.current = 'left';
@@ -2343,6 +2391,7 @@ const DissimilarIslandGame = ({
               <button onClick={() => {
                 setShowHintConfirm(false);
                 setHintUsed(true);
+                sessionHintsUsed.current += 1;
                 // Gem game: the header then shows the current prompt. Final answer: show the conversion result to simplify.
                 if (carryActive) { setCarryHintUsed(true); return; }
                 if (finalAnswerPhase) { setPhase2HintUsed(true); setCurrentHint(simplifyHintText); return; }

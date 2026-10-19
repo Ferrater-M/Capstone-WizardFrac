@@ -53,6 +53,10 @@ public class GameSession {
     @Column(nullable = true)
     private Integer hintsUsed = 0;
 
+    // In-game Session stopwatch at the end (ms); pauses for tutorial/menu and animations
+    @Column(nullable = true)
+    private Long sessionTimeMs;
+
     public GameSession() {
         this.startedAt = LocalDateTime.now();
         this.status = "ACTIVE";
@@ -188,5 +192,13 @@ public class GameSession {
 
     public void setHintsUsed(Integer hintsUsed) {
         this.hintsUsed = hintsUsed;
+    }
+
+    public Long getSessionTimeMs() {
+        return sessionTimeMs;
+    }
+
+    public void setSessionTimeMs(Long sessionTimeMs) {
+        this.sessionTimeMs = sessionTimeMs;
     }
 }
