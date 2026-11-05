@@ -11,17 +11,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class GameProgressService {
-    private static final int DAILY_QUEST_TARGET = 5;
-    private static final int DAILY_QUEST_REWARD_CURRENCY = 50;
-    private static final int DAILY_QUEST_REWARD_SCORE = 20;
     private static final int CURRENCY_PER_STAR = 5;
     // Leveling curve: level 1->2 costs BASE_SCORE_PER_LEVEL XP; each level after
     // that costs SCORE_PER_LEVEL_INCREMENT more than the one before it, until the
@@ -80,39 +75,7 @@ public class GameProgressService {
         session.setScore(session.getScore() + attemptDTO.getPointsEarned());
         gameSessionRepository.save(session);
 
-        SpellAttempt saved = spellAttemptRepository.save(attempt);
-
-        if (Boolean.TRUE.equals(attemptDTO.getIsCorrect()) && session.getStudent() != null) {
-            updateDailyQuestProgress(session.getStudent());
-        }
-
-        return saved;
-    }
-
-    // Advance the daily "solve N problems" quest by one correct answer, resetting on a new day
-    // and granting the reward exactly once when the target is first reached (UC daily engagement)
-    private void updateDailyQuestProgress(Student student) {
-        GameProgress progress = gameProgressRepository.findByStudentId(student.getId())
-            .orElseGet(() -> gameProgressRepository.save(new GameProgress(student)));
-
-        LocalDate today = LocalDate.now();
-        if (!today.equals(progress.getDailyQuestDate())) {
-            progress.setDailyQuestDate(today);
-            progress.setDailyQuestProgress(0);
-            progress.setDailyQuestClaimed(false);
-        }
-
-        if (progress.getDailyQuestProgress() < DAILY_QUEST_TARGET) {
-            progress.setDailyQuestProgress(progress.getDailyQuestProgress() + 1);
-        }
-
-        if (progress.getDailyQuestProgress() >= DAILY_QUEST_TARGET && !progress.getDailyQuestClaimed()) {
-            progress.setDailyQuestClaimed(true);
-            progress.setStarCurrency(progress.getStarCurrency() + DAILY_QUEST_REWARD_CURRENCY);
-            progress.setTotalScore(progress.getTotalScore() + DAILY_QUEST_REWARD_SCORE);
-        }
-
-        gameProgressRepository.save(progress);
+        return spellAttemptRepository.save(attempt);
     }
 
     // End game session and save full session record (UC-1.2 - session end saving)
@@ -259,25 +222,7 @@ public class GameProgressService {
             progress.setStarCurrency(progress.getStarCurrency() + starsEarned * CURRENCY_PER_STAR);
         }
 
-        updateStreak(progress);
-
         gameProgressRepository.save(progress);
-    }
-
-    // Consecutive-day play streak: +1 if last active yesterday, reset to 1 on a gap,
-    // unchanged if already played today (UC daily engagement)
-    private void updateStreak(GameProgress progress) {
-        LocalDate today = LocalDate.now();
-        LocalDate lastActive = progress.getLastActiveDate();
-
-        if (lastActive == null || !lastActive.equals(today)) {
-            if (lastActive != null && lastActive.equals(today.minusDays(1))) {
-                progress.setCurrentStreak(progress.getCurrentStreak() + 1);
-            } else {
-                progress.setCurrentStreak(1);
-            }
-            progress.setLastActiveDate(today);
-        }
     }
 
     // Get game progress for a student
@@ -415,21 +360,6 @@ public class GameProgressService {
             ));
         }
 
-        // Calculate streak history
-        List<DiagnosticsDTO.StreakHistoryDTO> streakHistory = new ArrayList<>();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-dd");
-
-        for (GameSession session : sessions) {
-            String dateStr = session.getStartedAt().format(formatter);
-            int peakStreak = session.getActiveStreak(); // Simplified
-            streakHistory.add(new DiagnosticsDTO.StreakHistoryDTO(dateStr, peakStreak));
-        }
-
-        // Limit to last 10 sessions
-        if (streakHistory.size() > 10) {
-            streakHistory = streakHistory.subList(0, 10);
-        }
-
         List<GameplayHistoryDTO> gameHistory = sessions.stream()
             .filter(session -> session.getEndedAt() != null)
             .map(this::toGameplayHistoryDTO)
@@ -438,7 +368,7 @@ public class GameProgressService {
         List<DiagnosticsDTO.MisconceptionDTO> dissimilarMisconceptions =
             getMisconceptionBreakdown(attemptsByCompetency.getOrDefault("ButterflyMethod", new ArrayList<>()));
 
-        return new DiagnosticsDTO(competencies, summary, streakHistory, gameHistory, dissimilarMisconceptions);
+        return new DiagnosticsDTO(competencies, summary, gameHistory, dissimilarMisconceptions);
     }
 
     // UC-2.3 - diagnostic tracking for recurring misconceptions in dissimilar fraction operations
@@ -508,10 +438,6 @@ public class GameProgressService {
 
     public int getXpForNextLevel(int totalScore) {
         return xpRequiredForLevel(getLevel(totalScore));
-    }
-
-    public int getDailyQuestTarget() {
-        return DAILY_QUEST_TARGET;
     }
 
     // Rank every student who has played (has a GameProgress row) by total score, all-time

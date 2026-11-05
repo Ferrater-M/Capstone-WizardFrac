@@ -7,6 +7,7 @@ import ImproperToMixedGame, {
   MANUAL_MAX_SHARDS, IMG_ASPECT, clamp as clampNum, BASE_W as GEM_BASE_W,
   SETTLE_STAGGER, SETTLE_MOVE, SETTLE_GLOW_MS,
 } from '../components/ImproperToMixedGame';
+import EdgeBurst, { triggerEdgeBurst } from '../components/EdgeBurst';
 import HybridFractionTutorial from '../components/HybridFractionTutorial';
 import GameMenuModal from '../components/GameMenuModal';
 import SettingsPage from './SettingsPage';
@@ -66,7 +67,7 @@ const buttonCorners = (color) => (
 // ever appears when that button is actually clicked, never automatically.
 // ─────────────────────────────────────────────────────────────────────────────
 const SolveButtonRow = ({ label, onConfirm, confirmEnabled, onHint }) => (
-  <div style={{ position: 'absolute', bottom: 12, left: '50%', display: 'flex', gap: 10, zIndex: 4, pointerEvents: 'auto', animation: 'nAreaFadeIn 0.5s ease-out forwards' }}>
+  <div style={{ position: 'absolute', bottom: 12, left: '50%', display: 'flex', gap: 10, zIndex: 4, pointerEvents: 'auto', animation: 'nAreaFadeIn 0.35s ease-out forwards' }}>
     <button
       onClick={onConfirm}
       disabled={!confirmEnabled}
@@ -266,11 +267,11 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
     setTimeout(() => {
       setBubbles(prev => prev && ({ b1: { ...s1, opacity: 1 }, b2: { ...s2, opacity: 1 } }));
       playSfx('/SoundEffects/sparkleSound.wav');
-    }, 500);
+    }, 250);
 
     setTimeout(() => {
       playSfx('/SoundEffects/numberMove.wav');
-      const duration = 900, start = performance.now();
+      const duration = 650, start = performance.now();
       const bezier = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
       const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 
@@ -289,21 +290,20 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
           const explodeSound = new Audio('/SoundEffects/sparkleExplode.wav');
           explodeSound.volume = getSfxVolume();
           explodeSound.play().catch(() => {});
-          explodeSound.addEventListener('ended', () => {
-            setTimeout(() => {
-              setNVisible(true);
-              playSfx('/SoundEffects/circleAppear.wav');
-            }, 200);
-          });
+          // N appears partway into the explosion sound instead of after it ends
+          setTimeout(() => {
+            setNVisible(true);
+            playSfx('/SoundEffects/circleAppear.wav');
+          }, 650);
         }
       };
       requestAnimationFrame(frame);
-    }, 2000);
+    }, 1000);
   };
 
   useEffect(() => {
     if (!circleDetected) return;
-    const t = setTimeout(triggerDenominatorFlyIn, 1200);
+    const t = setTimeout(triggerDenominatorFlyIn, 600);
     return () => clearTimeout(t);
   }, [circleDetected]);
 
@@ -331,7 +331,7 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
 
         setTimeout(() => {
           playSfx('/SoundEffects/numberMove.wav');
-          const dur = 800, t0 = performance.now();
+          const dur = 560, t0 = performance.now();
           const ease = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
           const anim = (now) => {
             const raw = Math.min((now - t0) / dur, 1);
@@ -345,16 +345,16 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
               const explode = new Audio('/SoundEffects/sparkleExplode.wav');
               explode.volume = getSfxVolume();
               explode.play().catch(() => {});
-              explode.addEventListener('ended', () => {
+              setTimeout(() => {
                 setDBubble(null);
                 setFinalAnswerVisible(true);
-                setTimeout(() => { setCheckButtonReady(true); actionLocked.current = false; }, 600);
+                setTimeout(() => { setCheckButtonReady(true); actionLocked.current = false; }, 350);
                 playSfx('/SoundEffects/circleAppear.wav');
-              });
+              }, 650);
             }
           };
           requestAnimationFrame(anim);
-        }, 550);
+        }, 300);
       } else {
         actionLocked.current = false;1
       }
@@ -455,7 +455,7 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
             <img
               src="/InteractableUI/SimilarMagicCircle.png"
               alt="magic circle"
-              style={{ position: 'absolute', top: 0, left: 0, right: 0, width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', animation: 'problemFadeIn 0.5s ease-out' }}
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', animation: 'problemFadeIn 0.35s ease-out' }}
             />
 
             {/* Landed denominator */}
@@ -488,7 +488,7 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
                       placeholder="?" style={magicNFieldStyle}
                     />
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', animation: 'problemFadeIn 0.4s ease-out' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', animation: 'problemFadeIn 0.3s ease-out' }}>
                       {isWhole ? (
                         <input autoFocus type="text" inputMode="numeric" value={simplifiedInput} onChange={e => setSimplifiedInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleKeyDown} style={wholeFieldStyle} />
                       ) : (
@@ -834,11 +834,11 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
     setTimeout(() => {
       setBubbles(prev => prev && ({ b1: { ...s1, opacity: 1 }, b2: { ...s2, opacity: 1 } }));
       playSfx('/SoundEffects/sparkleSound.wav');
-    }, 500);
+    }, 250);
 
     setTimeout(() => {
       playSfx('/SoundEffects/numberMove.wav');
-      const duration = 900, start = performance.now();
+      const duration = 650, start = performance.now();
       const bezier = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
       const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 
@@ -857,21 +857,21 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
           const explodeSound = new Audio('/SoundEffects/sparkleExplode.wav');
           explodeSound.volume = getSfxVolume();
           explodeSound.play().catch(() => {});
-          explodeSound.addEventListener('ended', () => {
-            setTimeout(() => {
-              setWnVisible(true);
-              playSfx('/SoundEffects/circleAppear.wav');
-            }, 200);
-          });
+          // W/N appear partway into the explosion sound instead of after it ends
+          setTimeout(() => {
+            setWnVisible(true);
+            triggerEdgeBurst('Circle');
+            playSfx('/SoundEffects/circleAppear.wav');
+          }, 650);
         }
       };
       requestAnimationFrame(frame);
-    }, 2000);
+    }, 1000);
   };
 
   useEffect(() => {
     if (!circleDetected) return;
-    const t = setTimeout(triggerDenominatorFlyIn, 1200);
+    const t = setTimeout(triggerDenominatorFlyIn, 600);
     return () => clearTimeout(t);
   }, [circleDetected]);
 
@@ -950,7 +950,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
             actionLocked.current = false;
           }
 
-          const dur = 850, t0 = performance.now();
+          const dur = 600, t0 = performance.now();
           const ease = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
           const bez = (a, c, b, t) => (1 - t) ** 2 * a + 2 * (1 - t) * t * c + t ** 2 * b;
           // W actually spirals in toward wDest — its radius (distance from wDest)
@@ -1014,17 +1014,17 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
                 const explode = new Audio('/SoundEffects/sparkleExplode.wav');
                 explode.volume = getSfxVolume();
                 explode.play().catch(() => {});
-                explode.addEventListener('ended', () => {
+                setTimeout(() => {
                   setDBubble(null); setNBubble(null);
                   playSfx('/SoundEffects/circleAppear.wav');
                   enterFinalAnswer();
                   actionLocked.current = false;
-                });
+                }, 650);
               }
             }
           };
           requestAnimationFrame(anim);
-        }, 550);
+        }, 300);
       } else {
         actionLocked.current = false;
       }
@@ -1102,7 +1102,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
     // flow as Dissimilar Island / ButterflyCircleStage.
     const equivalent = showFinalFrac && !isZeroCase && nv > 0 && dv > 0 && wv === finalWhole && nv * d === postCarryNum * dv;
     if (equivalent && !unsimplified && !(nv === finalNum && dv === finalDen)) {
-      setUnsimplified({ n: nv, d: dv });
+      setUnsimplified({ n: nv, d: dv }); triggerEdgeBurst('Simplify');
       setFinalNumInput(''); setFinalDenInput('');
       actionLocked.current = false;
       playSfx('/SoundEffects/starAppear.wav');
@@ -1116,7 +1116,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
     const correct = wCorrect && nCorrect && dCorrect;
     if (correct && showFinalFrac && !unsimplified && needsReduce) {
       // Went straight to the simplified answer without the unsimplified step first.
-      setPerfectPopup(true);
+      setPerfectPopup(true); triggerEdgeBurst('Perfect');
       playSfx('/SoundEffects/perfectEffect.wav');
       if (perfectTimeoutRef.current) clearTimeout(perfectTimeoutRef.current);
       perfectTimeoutRef.current = setTimeout(() => setPerfectPopup(false), 2250);
@@ -1240,8 +1240,8 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
               alt="magic circle"
               style={{
                 position: 'absolute', top: 0, left: 0, right: 0, width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none',
-                animation: 'problemFadeIn 0.5s ease-out',
-                opacity: combineDone ? 0 : 1, transition: 'opacity 0.6s ease-out',
+                animation: 'problemFadeIn 0.35s ease-out',
+                opacity: combineDone ? 0 : 1, transition: 'opacity 0.4s ease-out',
               }}
             />
 
@@ -1279,7 +1279,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
               combine-step boxes) so it sits steady, same as Similar/Dissimilar
               Island's and ButterflyCircleStage's own final answer never bobbing. */}
           {finalAnswerVisible && (() => {
-            const unsimpStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, animation: 'unsimpSlide 0.6s ease-out', color: '#000', fontWeight: 800, fontSize: 20, fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' };
+            const unsimpStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, animation: 'unsimpSlide 0.4s ease-out', color: '#000', fontWeight: 800, fontSize: 20, fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' };
             const unsimpFraction = unsimplified && (
               <div style={{ position: 'absolute', left: '100%', top: '50%', marginLeft: 14, transform: 'translateY(-50%)' }}>
                 <div style={unsimpStyle}>
@@ -1295,7 +1295,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
               ...wholeFieldStyle,
               border: '3px solid transparent', background: 'transparent', color: '#000000',
               boxShadow: 'none', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)',
-              transition: 'all 0.5s ease',
+              transition: 'all 0.35s ease',
             } : wholeFieldStyle;
             return (
               <div style={{
@@ -1355,7 +1355,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
               onUiChange={setCarryUi}
               onBusyChange={setJarBusy}
               onWrong={(quotient) => {
-                setTimeout(() => onWrongAnswer?.(`${nResult} ÷ ${d} = ${carryQuotient}`, String(quotient), 'INCORRECT_ANSWER'), 300);
+                setTimeout(() => onWrongAnswer?.(`${nResult} ÷ ${d} = ${carryQuotient}`, String(quotient), 'INCORRECT_ANSWER'), 200);
               }}
               onComplete={revealFinalAnswer}
             />
@@ -1784,8 +1784,8 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
 
       const items = [
         { key: 'w', ref: bubbleWRef, to: dest('w'), delay: 0 },
-        { key: 'n', ref: bubbleNRef, to: dest('n'), delay: 150 },
-        { key: 'd', ref: bubbleDRef, to: dest('d'), delay: 300 },
+        { key: 'n', ref: bubbleNRef, to: dest('n'), delay: 100 },
+        { key: 'd', ref: bubbleDRef, to: dest('d'), delay: 200 },
       ];
 
       setBubbles({
@@ -1807,7 +1807,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
 
           timers.push(setTimeout(() => {
             playSfx('/SoundEffects/numberMove.wav');
-            const duration = 900;
+            const duration = 650;
             const start = performance.now();
             const bezier = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
             const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
@@ -1830,19 +1830,21 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
                 timers.push(setTimeout(() => {
                   setRevealed(prev => ({ ...prev, [key]: true }));
                   playSfx('/SoundEffects/circleAppear.wav');
-                }, 300));
+                  // D lands last (largest delay) — this fraction's numbers are all in place
+                  if (key === 'd') triggerEdgeBurst('Forge');
+                }, 200));
               }
             };
             flyAnimRefs.current.push(requestAnimationFrame(frame));
-          }, 1500));
-        }, delay + 200));
+          }, 750));
+        }, delay + 100));
       });
     };
 
     // A small pause after the triangle is actually drawn before anything starts
     // moving — but NOT when merely advancing to the next fraction (fracIndex
     // flipping 0→1 via "Next Fraction →"), since that isn't a fresh gesture draw.
-    timers.push(setTimeout(runFlyIn, fracIndex === 0 ? 500 : 0));
+    timers.push(setTimeout(runFlyIn, fracIndex === 0 ? 300 : 0));
 
     return () => timers.forEach(clearTimeout);
   }, [gestureDone, fracIndex]);
@@ -1945,7 +1947,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
     setForgeFailSequence('flashing');
     playSfx('/SoundEffects/initialDissimilarFail.wav');
 
-    setTimeout(() => { setForgeFailSequence('fading'); }, 2000);
+    setTimeout(() => { setForgeFailSequence('fading'); }, 1300);
 
     // The full reset now runs as onWrongAnswer's own onResolved callback, so it
     // fires exactly when the popup closes (or is skipped) instead of a fixed
@@ -1955,7 +1957,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
       setForgeFailSequence(null);
       const last = mistakes[mistakes.length - 1];
       onWrongAnswer?.(`${last.formula} = ${last.correct}, not ${last.entered}.`, last.entered, last.errorType, resetForgeState);
-    }, 2900);
+    }, 1900);
   };
 
   const recordForgeFail = (formula, entered, correct, errorType) => {
@@ -2045,9 +2047,9 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
             imp1: { n: fracs[0].improper_n, d: p.denominator1 },
             imp2: { n: fracs[1].improper_n, d: p.denominator2 },
           });
-        }, 550);
+        }, 400);
       }
-    }, 650);
+    }, 450);
   };
 
   const handleGestureDetected = () => {
@@ -2258,8 +2260,8 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
               ? 'circleShake 0.5s ease-in-out 2, magicFloat 4s ease-in-out infinite'
               : 'magicFloat 4s ease-in-out infinite',
             opacity: forgeFailSequence === 'fading' || forgeCompleting ? 0 : 1,
-            transition: forgeFailSequence === 'fading' ? 'opacity 0.6s ease-out'
-              : forgeCompleting ? 'opacity 0.5s ease-out' : undefined,
+            transition: forgeFailSequence === 'fading' ? 'opacity 0.4s ease-out'
+              : forgeCompleting ? 'opacity 0.35s ease-out' : undefined,
           }}>
             <img
               src="/InteractableUI/MixedMagicCircle.png"
@@ -2689,7 +2691,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
       setTimeout(() => {
         setFlyBubbles(prev => prev !== null ? { ...prev, [key]: { ...sources[key], opacity: 1, value: values[key] } } : prev);
         playSfx('/SoundEffects/sparkleSound.wav');
-      }, 500 + idx * 150);
+      }, 250 + idx * 100);
     });
 
     let arrived = 0;
@@ -2699,7 +2701,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
           playSfx('/SoundEffects/numberMove.wav');
           const s = sources[key], d = dst[key], c = ctrl[key];
           const ref = bRefs[key];
-          const duration = 900, t0 = performance.now();
+          const duration = 650, t0 = performance.now();
 
           const frame = (now) => {
             const raw = Math.min((now - t0) / duration, 1);
@@ -2721,13 +2723,13 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
               setExplodeSparkles(prev => [...prev, { id: sid, left: pos.left + pos.size / 2, top: pos.top + pos.size / 2 }]);
               setTimeout(() => setExplodeSparkles(prev => prev.filter(s => s.id !== sid)), 800);
               arrived++;
-              if (arrived === order.length) setFlyBubbles(null);
+              if (arrived === order.length) { setFlyBubbles(null); triggerEdgeBurst('Infinity'); }
             }
           };
           requestAnimationFrame(frame);
-        }, idx * 150);
+        }, idx * 100);
       });
-    }, 2000);
+    }, 1000);
   };
 
   const handleInfinityDetected = () => {
@@ -2738,7 +2740,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
 
   useEffect(() => {
     if (!circleDetected) return;
-    const t = setTimeout(triggerNumberFlyIn, 1200);
+    const t = setTimeout(triggerNumberFlyIn, 600);
     return () => clearTimeout(t);
   }, [circleDetected]);
 
@@ -2783,7 +2785,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
     const dists = ['n1', 'n2', otherKey].map(tk => {
       const t = BUTTERFLY_BASE_POS[tk];
       const dist = Math.hypot(myCx - (t.left + t.size / 2), myCy - (t.top + t.size / 2));
-      if (dist < BUTTERFLY_MAGNET_THRESHOLD && !(confirmPressed && tk === otherKey)) {
+      if (dist < BUTTERFLY_MAGNET_THRESHOLD && !((denominatorPhase || sdBlinking) && tk === otherKey)) {
         newMagnet[d.key] = true;
         if (RESTRICTED[d.key] !== tk) newMagnet[tk] = true;
         if (ALLOWED_TARGETS[d.key].includes(tk)) { newPulse[d.key] = true; newPulse[tk] = true; }
@@ -2838,7 +2840,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
       const bezierIn = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
       const easeIn = t => 1 - Math.pow(1 - t, 3);
       const d1El = d1OverlayRef.current, d2El = d2OverlayRef.current;
-      const dur = 500, t0 = performance.now();
+      const dur = 400, t0 = performance.now();
       const frame = (now) => {
         const raw = Math.min((now - t0) / dur, 1);
         const t = easeIn(raw);
@@ -2848,7 +2850,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
         else { setDragOffsets({ d1: { dx: 71, dy: 44 }, d2: { dx: -69, dy: 44 } }); }
       };
       requestAnimationFrame(frame);
-    }, 400);
+    }, 250);
     setTimeout(() => {
       setDenExplosion(true);
       setSdBlinking(true);
@@ -2858,7 +2860,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
       const bezier = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
       const ease   = t => 1 - Math.pow(1 - t, 3);
       const d1El = d1OverlayRef.current, d2El = d2OverlayRef.current;
-      const dur = 650, t0 = performance.now();
+      const dur = 500, t0 = performance.now();
       const frame = (now) => {
         const raw = Math.min((now - t0) / dur, 1);
         const t   = ease(raw);
@@ -2877,7 +2879,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
         }
       };
       requestAnimationFrame(frame);
-    }, 1720);
+    }, 1100);
   };
 
   // ── cross products ──
@@ -2896,7 +2898,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
     const cpY = Math.min(sy, ey) - 70;
     const bez = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
     const ease = t => 1 - Math.pow(1 - t, 3);
-    const dur = 600, t0 = performance.now();
+    const dur = 450, t0 = performance.now();
     const frame = now => {
       const raw = Math.min((now - t0) / dur, 1), t = ease(raw);
       if (el) { el.style.left = bez(t, sx, cpX, ex) + 'px'; el.style.top = bez(t, sy, cpY, ey) + 'px'; }
@@ -2929,6 +2931,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
   // ── CENTER unlock ──
   useEffect(() => {
     if (sdCorrect && n1CrossCorrect && n2CrossCorrect && !centerPhase) {
+      triggerEdgeBurst('Butterfly');
       setCenterPhase('blinking');
       setCenterVal('');
       setCenterCorrect(false);
@@ -2962,7 +2965,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
         setFinalAnswerPhase(true);
         setFinalWholeInput(''); setFinalNumInput(''); setFinalDenInput('');
         setTimeout(() => finalNumRef.current?.focus(), 100);
-      }, 1200);
+      }, 700);
     }
   }, [centerCorrect]);
 
@@ -3057,7 +3060,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
     setTimeout(() => {
       setCircleFailSequence('fading');
       setInteractableVisible(false);
-    }, 2000);
+    }, 1300);
 
     // The full reset now runs as onWrongAnswer's own onResolved callback, so it
     // fires exactly when the popup closes (or is skipped) instead of a fixed
@@ -3079,10 +3082,12 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
     }, 2900);
   };
 
-  const recordFail = (label, entered, correct, prevMistakes) => {
-    const updated = [...prevMistakes, { label, entered: String(entered), correct: String(correct) }];
+  // Each wrong answer in a batch confirm is its own strike (same as confirming them separately),
+  // with one shake/sound for the whole batch.
+  const recordFails = (misses) => {
+    const updated = [...circleMistakes, ...misses.map(m => ({ label: m.label, entered: String(m.entered), correct: String(m.correct) }))];
     setCircleMistakes(updated);
-    const newCount = circleFailCount + 1;
+    const newCount = circleFailCount + misses.length;
     setCircleFailCount(newCount);
     playSfx('/SoundEffects/dissimilarWrong.wav');
     setCircleShaking(true);
@@ -3092,63 +3097,76 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
   };
 
   // ── Confirm button ──
-  const sdActive     = denominatorPhase === 'sd-input' && !confirmPressed && !!sdInputVal && !circleFailSequence;
-  const n1Active      = n1CrossPhase === 'blinking' && !n1CrossConfirmed && !!n1CrossVal && !circleFailSequence;
-  const n2Active      = n2CrossPhase === 'blinking' && !n2CrossConfirmed && !!n2CrossVal && !circleFailSequence;
+  // SD / N1 / N2 inputs that are open but not yet confirmed. Confirm checks all of them at once,
+  // and only lights up once every open one has something typed in.
+  const sdOpen        = denominatorPhase === 'sd-input' && !confirmPressed && !circleFailSequence;
+  const n1Open        = n1CrossPhase === 'blinking' && !n1CrossConfirmed && !circleFailSequence;
+  const n2Open        = n2CrossPhase === 'blinking' && !n2CrossConfirmed && !circleFailSequence;
+  const butterflyActive = (sdOpen || n1Open || n2Open)
+    && (!sdOpen || !!sdInputVal) && (!n1Open || !!n1CrossVal) && (!n2Open || !!n2CrossVal);
   const centerActive  = centerPhase === 'blinking' && !centerConfirmed && !!centerVal && !circleFailSequence;
   const finalFilled   = fIsWhole ? !!finalNumInput
     : fIsImproper ? !!(finalWholeInput && finalNumInput && finalDenInput)
     : !!(finalNumInput && finalDenInput);
   const finalActive   = finalAnswerPhase && !hideFinal && finalFilled;
-  const confirmEnabled = carryActive ? carryUi.canSubmit : (sdActive || n1Active || n2Active || centerActive || finalActive);
+  const confirmEnabled = carryActive ? carryUi.canSubmit : (butterflyActive || centerActive || finalActive);
 
   const handleConfirm = () => {
     if (carryActive) { carryActionRef.current?.(); return; }
-    if (sdActive) {
-      const sdAns = d1 * d2;
-      if (parseInt(sdInputVal) === sdAns) {
-        setConfirmPressed(true);
-        setSdCorrect(true);
-        playSfx('/SoundEffects/circleAppear.wav');
-        const spawnBatch = () => {
-          const spread = 18, pid = Date.now(), ps = [];
-          for (let i = 0; i < 7; i++) {
-            ps.push({ id: pid + i,      sl: 126 + (Math.random() - .5) * spread, st: 186 + (Math.random() - .5) * spread, tx: 71  + (Math.random() - .5) * spread, ty: 44 + (Math.random() - .5) * spread, delay: Math.random() * .18, size: Math.floor(Math.random() * 5 + 4) });
-            ps.push({ id: pid + i + 20, sl: 266 + (Math.random() - .5) * spread, st: 186 + (Math.random() - .5) * spread, tx: -69 + (Math.random() - .5) * spread, ty: 44 + (Math.random() - .5) * spread, delay: Math.random() * .18, size: Math.floor(Math.random() * 5 + 4) });
-          }
-          setSdParticles(ps);
-        };
-        spawnBatch();
-        if (sdParticleIvRef.current) clearInterval(sdParticleIvRef.current);
-        sdParticleIvRef.current = setInterval(spawnBatch, 600);
-      } else {
-        recordFail('SD', sdInputVal, sdAns, circleMistakes);
+    if (butterflyActive) {
+      const misses = [];
+      let anyCorrect = false;
+      if (sdOpen) {
+        const sdAns = d1 * d2;
+        if (parseInt(sdInputVal) === sdAns) {
+          anyCorrect = true;
+          setConfirmPressed(true);
+          setSdCorrect(true);
+          const spawnBatch = () => {
+            const spread = 18, pid = Date.now(), ps = [];
+            for (let i = 0; i < 7; i++) {
+              ps.push({ id: pid + i,      sl: 126 + (Math.random() - .5) * spread, st: 186 + (Math.random() - .5) * spread, tx: 71  + (Math.random() - .5) * spread, ty: 44 + (Math.random() - .5) * spread, delay: Math.random() * .18, size: Math.floor(Math.random() * 5 + 4) });
+              ps.push({ id: pid + i + 20, sl: 266 + (Math.random() - .5) * spread, st: 186 + (Math.random() - .5) * spread, tx: -69 + (Math.random() - .5) * spread, ty: 44 + (Math.random() - .5) * spread, delay: Math.random() * .18, size: Math.floor(Math.random() * 5 + 4) });
+            }
+            setSdParticles(ps);
+          };
+          spawnBatch();
+          if (sdParticleIvRef.current) clearInterval(sdParticleIvRef.current);
+          sdParticleIvRef.current = setInterval(spawnBatch, 600);
+        } else {
+          misses.push({ label: 'SD', entered: sdInputVal, correct: sdAns });
+        }
       }
-    } else if (n1Active) {
-      const n1Ans = d2 * n1;
-      if (parseInt(n1CrossVal) === n1Ans) {
-        setN1CrossConfirmed(true);
-        setN1CrossCorrect(true);
-        playSfx('/SoundEffects/circleAppear.wav');
-        spawnCrossParticles(setN1CrossParticles, n1CrossParticleIvRef, 266, 186, -140, -86);
-      } else {
-        recordFail('N1', n1CrossVal, n1Ans, circleMistakes);
+      if (n1Open) {
+        const n1Ans = d2 * n1;
+        if (parseInt(n1CrossVal) === n1Ans) {
+          anyCorrect = true;
+          setN1CrossConfirmed(true);
+          setN1CrossCorrect(true);
+          spawnCrossParticles(setN1CrossParticles, n1CrossParticleIvRef, 266, 186, -140, -86);
+        } else {
+          misses.push({ label: 'N1', entered: n1CrossVal, correct: n1Ans });
+        }
       }
-    } else if (n2Active) {
-      const n2Ans = d1 * n2;
-      if (parseInt(n2CrossVal) === n2Ans) {
-        setN2CrossConfirmed(true);
-        setN2CrossCorrect(true);
-        playSfx('/SoundEffects/circleAppear.wav');
-        spawnCrossParticles(setN2CrossParticles, n2CrossParticleIvRef, 126, 186, 142, -86);
-      } else {
-        recordFail('N2', n2CrossVal, n2Ans, circleMistakes);
+      if (n2Open) {
+        const n2Ans = d1 * n2;
+        if (parseInt(n2CrossVal) === n2Ans) {
+          anyCorrect = true;
+          setN2CrossConfirmed(true);
+          setN2CrossCorrect(true);
+          spawnCrossParticles(setN2CrossParticles, n2CrossParticleIvRef, 126, 186, 142, -86);
+        } else {
+          misses.push({ label: 'N2', entered: n2CrossVal, correct: n2Ans });
+        }
       }
+      if (anyCorrect && !misses.length) playSfx('/SoundEffects/circleAppear.wav');
+      if (misses.length) recordFails(misses);
     } else if (centerActive) {
       setCenterConfirmed(true);
       const ans = crossSum();
       if (parseInt(centerVal) === ans) {
         setCenterCorrect(true);
+        triggerEdgeBurst('Combine');
         playSfx('/SoundEffects/circleAppear.wav');
         const spawn = () => {
           const pid = Date.now(), ps = [];
@@ -3172,7 +3190,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
       // Right whole number (if any) and an equivalent but unreduced fraction: don't fail yet, ask for the simplified form.
       const equivalent = !fIsWhole && nv > 0 && dv > 0 && wv === targetWhole && nv * fSDen === targetNum * dv;
       if (equivalent && !unsimplified && !(nv === targetNum && dv === fSDen)) {
-        setUnsimplified({ n: nv, d: dv });
+        setUnsimplified({ n: nv, d: dv }); triggerEdgeBurst('Simplify');
         setFinalNumInput(''); setFinalDenInput('');
         actionLocked.current = false;
         playSfx('/SoundEffects/starAppear.wav');
@@ -3185,7 +3203,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
         : wv === targetWhole && nv === targetNum && dv === fSDen;
       if (correct && !fIsWhole && !unsimplified && (fIsImproper ? rawLeft > 0 && gcd(rawLeft, rawDen) > 1 : gcd(rawNum, rawDen) > 1)) {
         // Went straight to the simplified answer without the unsimplified step first.
-        setPerfectPopup(true);
+        setPerfectPopup(true); triggerEdgeBurst('Perfect');
         playSfx('/SoundEffects/perfectEffect.wav');
         if (perfectTimeoutRef.current) clearTimeout(perfectTimeoutRef.current);
         perfectTimeoutRef.current = setTimeout(() => setPerfectPopup(false), 2250);
@@ -3200,7 +3218,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
             : fIsImproper ? { whole: targetWhole, numerator: targetNum, denominator: fSDen }
             : { numerator: fSNum, denominator: fSDen }
           );
-        }, 500);
+        }, 300);
       } else {
         const finalMisconceptionType = equivalent ? 'FAILED_TO_SIMPLIFY' : 'INCORRECT_ANSWER';
         const correctText = fIsWhole ? `${fSNum}` : fIsImproper ? `${targetWhole} ${targetNum}/${fSDen}` : `${fSNum}/${fSDen}`;
@@ -3210,7 +3228,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
           // Reset runs as onWrongAnswer's onResolved callback so it fires exactly when the popup closes
           // (or is skipped) instead of a fixed delay that can fall out of sync with the popup's duration.
           onWrongAnswer?.(`The final answer is ${correctText}`, enteredText, finalMisconceptionType, resetCircleState);
-        }, 500);
+        }, 300);
       }
     }
   };
@@ -3279,9 +3297,11 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
       }
     }
 
-    const dragEnabled = draggable && (!denominatorPhase || confirmPressed)
-      && !(sdCorrect && n1CrossCorrect && n2CrossCorrect)
-      && !((n1CrossPhase === 'blinking' && !n1CrossConfirmed) || (n2CrossPhase === 'blinking' && !n2CrossConfirmed));
+    // Denominators stay draggable while SD/N1/N2 answers are still unconfirmed, so the player can open
+    // several spots and confirm them all at once — only blocked while a combine/cross animation is playing.
+    const dragEnabled = draggable && !['glowing', 'to-sd', 'arc-returning'].includes(denominatorPhase)
+      && crossExplosion === null
+      && !(sdCorrect && n1CrossCorrect && n2CrossCorrect);
 
     return (
       <div
@@ -3373,7 +3393,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
               position: 'absolute', top: 32, left: 0, right: 0, height: '300px',
               animation: 'magicFloat 4s ease-in-out infinite',
               opacity: circleFailSequence === 'fading' || finalAnswerPhase || carryPhase ? 0 : 1,
-              transition: (circleFailSequence === 'fading' || finalAnswerPhase || carryPhase) ? 'opacity 0.6s ease-out' : undefined,
+              transition: (circleFailSequence === 'fading' || finalAnswerPhase || carryPhase) ? 'opacity 0.4s ease-out' : undefined,
             }}
           >
             <img
@@ -3385,7 +3405,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
                 animation: circleFailSequence === 'flashing' ? 'circleFlash 0.12s ease-in-out infinite'
                   : circleFailCount === 2 ? 'circlePulse2 0.4s ease-in-out infinite'
                   : circleFailCount === 1 ? 'circlePulse1 0.75s ease-in-out infinite'
-                  : 'problemFadeIn 0.5s ease-out',
+                  : 'problemFadeIn 0.35s ease-out',
               }}
             />
 
@@ -3521,7 +3541,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
       {finalAnswerPhase && (() => {
         const inputBase = { fontWeight: 800, textAlign: 'center', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', color: '#ffffff', outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace', WebkitAppearance: 'none' };
         const fieldStyle = { ...inputBase, width: 60, height: 44, fontSize: 20 };
-        const unsimpStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, animation: 'unsimpSlide 0.6s ease-out', color: '#000', fontWeight: 800, fontSize: 20, fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' };
+        const unsimpStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, animation: 'unsimpSlide 0.4s ease-out', color: '#000', fontWeight: 800, fontSize: 20, fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' };
         const unsimpFraction = unsimplified && (
           <div style={{ position: 'absolute', left: '100%', top: '50%', marginLeft: 14, transform: 'translateY(-50%)' }}>
             <div style={unsimpStyle}>
@@ -3540,7 +3560,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
         return (
           <div style={{ position: 'absolute', top: '32px', left: 0, right: 0, height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, opacity: hideFinal ? 0 : 1, pointerEvents: hideFinal ? 'none' : 'auto', transition: 'opacity 0.3s ease' }}>
             <style>{`@keyframes unsimpSlide { from { transform: translateX(-90px); opacity: 0.2; } to { transform: translateX(0); opacity: 1; } }`}</style>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, position: 'relative', animation: 'numFadeIn 0.5s ease-out both' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, position: 'relative', animation: 'numFadeIn 0.35s ease-out both' }}>
               {fIsWhole ? (
                 <input ref={finalNumRef} data-final="whole" type="text" inputMode="numeric" value={finalNumInput} placeholder="?" onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g, ''))} style={fieldStyle} />
               ) : fIsImproper ? (
@@ -3554,7 +3574,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
                       background: unsimplified ? 'transparent' : '#333333',
                       color: unsimplified ? '#000000' : '#ffffff',
                       textShadow: unsimplified ? '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' : 'none',
-                      transition: 'all 0.5s ease',
+                      transition: 'all 0.35s ease',
                     }} />
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                     {numField(null)}
@@ -3669,7 +3689,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
           onWrong={(quotient) => {
             // A wrong quotient fails the round right away, like a wrong final answer.
             setInteractableVisible(false);
-            setTimeout(() => onWrongAnswer?.(`${rawNum} ÷ ${rawDen} = ${rawWhole}`, String(quotient), 'INCORRECT_ANSWER', resetCircleState), 500);
+            setTimeout(() => onWrongAnswer?.(`${rawNum} ÷ ${rawDen} = ${rawWhole}`, String(quotient), 'INCORRECT_ANSWER', resetCircleState), 300);
           }}
           onComplete={revealFinalAnswer}
         />
@@ -3693,9 +3713,9 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
           onHint={onUseHint && !(carryActive && !carryUi.prompt) ? () => onUseHint(
             carryActive    ? carryUi.prompt
           : finalAnswerPhase ? simplifyHintText
-          : sdActive     ? `${d1} × ${d2} = ?`
-          : n1Active     ? `${d2} × ${n1} = ?`
-          : n2Active     ? `${d1} × ${n2} = ?`
+          : sdOpen       ? `${d1} × ${d2} = ?`
+          : n1Open       ? `${d2} × ${n1} = ?`
+          : n2Open       ? `${d1} × ${n2} = ?`
           : centerActive ? `${d2 * n1} ${problem.operator} ${d1 * n2} = ?`
           :                `Simplify ${rawNum}/${rawDen}.`
           ) : undefined}
@@ -4235,14 +4255,14 @@ const HybridIslandGame = ({
       : { attack1: 7,  attack2: 9, hurt: 4 };
     if (wizardAnimTimerRef.current) clearTimeout(wizardAnimTimerRef.current);
     setWizardAnim(anim);
-    wizardAnimTimerRef.current = setTimeout(() => setWizardAnim('idle'), (frameCount[anim] / 10) * 1000);
+    wizardAnimTimerRef.current = setTimeout(() => setWizardAnim('idle'), (frameCount[anim] / 14) * 1000);
   };
 
   const playEnemyAnim = (anim) => {
     if (enemyAnimTimerRef.current) clearTimeout(enemyAnimTimerRef.current);
     setEnemyAnim(anim);
     const frames = enemySpriteInfoRef.current[anim]?.frames || 4;
-    enemyAnimTimerRef.current = setTimeout(() => setEnemyAnim('idle'), (frames / 10) * 1000);
+    enemyAnimTimerRef.current = setTimeout(() => setEnemyAnim('idle'), (frames / 14) * 1000);
   };
 
   const launchFireball = (onHit) => {
@@ -4266,7 +4286,7 @@ const HybridIslandGame = ({
     setTimeout(() => {
       playSfx('/SoundEffects/spellThrow.wav');
       setFireball({ sx, sy, ex, ey, flying: true });
-    }, 800);
+    }, 400);
   };
 
   // ── forge complete ──
@@ -4321,7 +4341,7 @@ const HybridIslandGame = ({
 
     if (newEnemyLives <= 0) {
       await saveGameEnd('COMPLETED', true);
-      setTimeout(() => onGameEnd({ isWon: true, score: newScore }), 1500);
+      setTimeout(() => onGameEnd({ isWon: true, score: newScore }), 1000);
       return;
     }
 
@@ -4344,7 +4364,7 @@ const HybridIslandGame = ({
       if (lastBgShiftRef.current) {
         setBgShift(`return-${lastBgShiftRef.current}`);
         lastBgShiftRef.current = null;
-        setTimeout(() => setBgShift(null), 700);
+        setTimeout(() => setBgShift(null), 500);
       }
     };
     feedbackResolveRef.current = resolveFeedback;
@@ -4360,7 +4380,7 @@ const HybridIslandGame = ({
     lastBgShiftRef.current = 'right';
     playSfx('/VoiceLines/castSuccess.wav');
     playWizardAnim(Math.random() < 0.5 ? 'attack1' : 'attack2');
-    setTimeout(() => launchFireball(() => resolveCorrectAnswer(payload)), 500);
+    setTimeout(() => launchFireball(() => resolveCorrectAnswer(payload)), 300);
   };
 
   const handleWrongAnswer = async (hint, submittedValue, errorType, onResolved) => {
@@ -4466,7 +4486,7 @@ const HybridIslandGame = ({
   }, [roundKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (currentHint) holdStopwatches(800); // hintReveal is 0.8s
+    if (currentHint) holdStopwatches(600); // hintReveal is 0.6s
   }, [currentHint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── render ──
@@ -4482,7 +4502,7 @@ const HybridIslandGame = ({
       }}
     >
       {/* Bobbing background layer — outer div bobs (transform), inner div shifts position on answer */}
-      <div style={{ position: 'absolute', inset: '-20px', animation: 'bgBob 12s ease-in-out infinite', zIndex: 0, pointerEvents: 'none' }}>
+      <div data-edge-dim style={{ position: 'absolute', inset: '-20px', animation: 'bgBob 12s ease-in-out infinite', zIndex: 0, pointerEvents: 'none' }}>
         <div
           style={{
             position: 'absolute',
@@ -4490,10 +4510,10 @@ const HybridIslandGame = ({
             backgroundImage: 'url(/InMatchUIElements/HybridIsland/MysticCombatBackground.png)',
             backgroundSize: 'contain',
             backgroundPosition: 'center',
-            animation: bgShift === 'right'        ? 'bgShiftRight  0.6s ease-out forwards'
-                     : bgShift === 'left'         ? 'bgShiftLeft   0.6s ease-out forwards'
-                     : bgShift === 'return-right' ? 'bgReturnRight 0.7s ease-in-out forwards'
-                     : bgShift === 'return-left'  ? 'bgReturnLeft  0.7s ease-in-out forwards'
+            animation: bgShift === 'right'        ? 'bgShiftRight  0.45s ease-out forwards'
+                     : bgShift === 'left'         ? 'bgShiftLeft   0.45s ease-out forwards'
+                     : bgShift === 'return-right' ? 'bgReturnRight 0.5s ease-in-out forwards'
+                     : bgShift === 'return-left'  ? 'bgReturnLeft  0.5s ease-in-out forwards'
                      : 'none',
           }}
         />
@@ -4501,7 +4521,7 @@ const HybridIslandGame = ({
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '8px 0', gap: '10px', position: 'relative', zIndex: 1 }}>
-        <div style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div data-edge-dim style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
           {corners('#703737')}
           <span style={{ color: '#222', fontSize: '13px' }}>Streak: x{multiplier.toFixed(1)}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Score: {score}</span>
@@ -4524,7 +4544,7 @@ const HybridIslandGame = ({
               position: 'relative', border: '4px solid #fff', background: '#000', color: '#fff',
               fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
               padding: '0 12px', margin: '0 88px', flex: 1, whiteSpace: 'nowrap',
-              animation: 'hintReveal 0.8s ease-out forwards',
+              animation: 'hintReveal 0.6s ease-out forwards',
             }}
           >
             {corners('#fff')}
@@ -4569,7 +4589,7 @@ const HybridIslandGame = ({
         >
 
           {/* Player */}
-          <div className="wireframe-player" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginRight: gestureActive && uiVisible ? '160px' : '36px', transition: 'margin 0.5s ease', zIndex: 2, flexShrink: 0, position: 'relative', willChange: 'margin-right' }}>
+          <div className="wireframe-player" data-edge-dim style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginRight: gestureActive && uiVisible ? '160px' : '36px', transition: 'margin 0.35s ease', zIndex: 2, flexShrink: 0, position: 'relative', willChange: 'margin-right' }}>
             <div ref={playerBoxRef} style={{ width: '320px', height: '320px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
               {(() => {
                 const FRAMES = isWitch
@@ -4579,7 +4599,7 @@ const HybridIslandGame = ({
                 const n = FRAMES[wizardAnim];
                 const DISP = 420;
                 const kf = `${charKey}_${wizardAnim}`;
-                const sprAnim = `${kf} ${(n / 10).toFixed(2)}s steps(${n}) ${wizardAnim === 'idle' ? 'infinite' : '1 forwards'}`;
+                const sprAnim = `${kf} ${(n / (wizardAnim === 'idle' ? 10 : 14)).toFixed(2)}s steps(${n}) ${wizardAnim === 'idle' ? 'infinite' : '1 forwards'}`;
                 const combined = playerFlashing
                   ? `${sprAnim}, enemyFlash 0.5s ease-out, damageShake 0.5s ease-out`
                   : sprAnim;
@@ -4651,7 +4671,7 @@ const HybridIslandGame = ({
           {/* Center — problem display + interactive solving panel */}
           <div className="wireframe-problem" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', paddingTop: '32px', minHeight: 0, overflow: bigLayout ? 'visible' : 'hidden', zIndex: bigLayout ? 6 : 1 }}>
             <div style={{
-              opacity: uiVisible ? 1 : 0, transition: 'opacity 0.4s ease',
+              opacity: uiVisible ? 1 : 0, transition: 'opacity 0.3s ease',
               animation: 'magicFloat 3s ease-in-out infinite', position: 'relative',
               filter: pulse > 0.15 ? `drop-shadow(0 0 ${(pulse * 32).toFixed(1)}px rgba(112,55,55,${Math.min(pulse * 1.2, 1).toFixed(2)}))` : 'none',
               transform: `scale(${(1 + pulse * 0.07).toFixed(4)})`,
@@ -4682,7 +4702,7 @@ const HybridIslandGame = ({
                   this — MixedSimilarCircleStage flies in straight off the original
                   mixed digits (data-fly="frac{0|1}-d"), since it skips forging. */}
               {stage === 'butterfly' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '6px 28px 32px', border: '4px solid transparent', boxSizing: 'border-box', animation: 'problemFadeIn 0.4s ease-out' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '6px 28px 32px', border: '4px solid transparent', boxSizing: 'border-box', animation: 'problemFadeIn 0.3s ease-out' }}>
                   {/* Each original fraction's num/den column sits shifted right by its
                       own whole-number span + gap (FractionBox always shows one, since
                       isMixed is always true) — mirror that exact spacer here so the
@@ -4763,7 +4783,7 @@ const HybridIslandGame = ({
           </div>
 
           {/* Enemy */}
-          <div className="wireframe-enemy" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginLeft: gestureActive && uiVisible ? '160px' : '36px', transition: 'margin 0.5s ease', zIndex: 2, flexShrink: 0, willChange: 'margin-left' }}>
+          <div className="wireframe-enemy" data-edge-dim style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginLeft: gestureActive && uiVisible ? '160px' : '36px', transition: 'margin 0.35s ease', zIndex: 2, flexShrink: 0, willChange: 'margin-left' }}>
             <div ref={enemyBoxRef} style={{ width: '320px', height: '320px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
               {(() => {
                 const info = enemySpriteInfo[enemyAnim] || enemySpriteInfo.idle;
@@ -4771,7 +4791,7 @@ const HybridIslandGame = ({
                 const BOX = 420;
                 const safeName = (enemyData?.name || 'unknown').replace(/\s+/g, '_');
                 const kf = `enemy_${safeName}_${enemyAnim}`;
-                const sprAnim = `${kf} ${(frames / 10).toFixed(2)}s steps(${frames}) ${enemyAnim === 'idle' ? 'infinite' : '1 forwards'}`;
+                const sprAnim = `${kf} ${(frames / (enemyAnim === 'idle' ? 10 : 14)).toFixed(2)}s steps(${frames}) ${enemyAnim === 'idle' ? 'infinite' : '1 forwards'}`;
                 const combined = enemyFlashing
                   ? `${sprAnim}, enemyFlash 0.5s ease-out, damageShake 0.5s ease-out`
                   : sprAnim;
@@ -4836,6 +4856,7 @@ const HybridIslandGame = ({
       </div>
 
       {/* Fireball */}
+      <EdgeBurst />
       {fireball && (
         <img
           key={fireball.flying ? 'flying' : 'idle'}
@@ -4850,10 +4871,10 @@ const HybridIslandGame = ({
             zIndex: 9999,
             '--sx': `${fireball.sx}px`, '--sy': `${fireball.sy}px`,
             '--ex': `${fireball.ex}px`, '--ey': `${fireball.ey}px`,
-            animation: fireball.flying ? 'fireballArc 0.65s ease-in-out forwards' : 'none',
+            animation: fireball.flying ? 'fireballArc 0.5s ease-in-out forwards' : 'none',
           }}
           onAnimationEnd={() => {
-            playSfx('/SoundEffects/spellHit.wav');
+            playSfx('/SoundEffects/spellHit.wav'); triggerEdgeBurst('Hit');
             setFireball(null);
             setEnemyFlashing(true);
             setTimeout(() => setEnemyFlashing(false), 500);
@@ -4870,7 +4891,7 @@ const HybridIslandGame = ({
             border: '6px solid #fff', background: '#000',
             color: feedbackType === 'correct' ? '#4ade80' : '#f87171',
             fontSize: '22px', fontWeight: 700, whiteSpace: 'nowrap',
-            animation: 'feedbackSlideToCenter 0.6s ease-out forwards',
+            animation: 'feedbackSlideToCenter 0.4s ease-out forwards',
           }}>
             {corners('#fff')}
             <div style={{ paddingTop: '6px' }}>{feedback}</div>

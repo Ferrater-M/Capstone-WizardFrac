@@ -6,7 +6,7 @@ import IslandInterior from './IslandInterior';
 import GameMechanicsIntro from '../components/GameMechanicsIntro';
 import SettingsPage from './SettingsPage';
 import Leaderboard from './Leaderboard';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, SHOW_LEADERBOARD } from '../config';
 
 const MECHANICS_INTRO_KEY = 'wizardfrac_seen_mechanics_intro';
 
@@ -679,7 +679,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   // in enemyData.txt (see islandStageCounts above). If an island has no
   // entries there, there's genuinely no known stage count — return null
   // instead of guessing a number, so the UI can show "null" for it.
-  const STARS_PER_STAGE = 3;
   const getIslandStageCount = (islandName) => islandStageCounts[islandName] || null;
 
   const islandStarTotal = (islandName) => {
@@ -740,9 +739,11 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
 
   const profilePictureUrl = studentId ? `${API_BASE_URL}/api/students/${studentId}/profile-picture` : null;
 
-  const totalStarsAll = islands.reduce((sum, isl) => sum + islandStarTotal(isl.name), 0);
-  const totalStarsPossible = islands.reduce((sum, isl) => sum + (isl.totalStages || 0) * STARS_PER_STAGE, 0);
-  const overallPercent = Math.round((totalStarsAll / totalStarsPossible) * 100) || 0;
+  // Overall progress = stages cleared across all three islands, same measure as each island card's bar
+  const totalStagesAll = islands.reduce((sum, isl) => sum + (isl.totalStages || 0), 0);
+  const clearedStages = (isl) => Math.min(isl.maxStage, isl.totalStages || 0);
+  const clearedStagesAll = islands.reduce((sum, isl) => sum + clearedStages(isl), 0);
+  const overallPercent = Math.round((clearedStagesAll / totalStagesAll) * 100) || 0;
 
   const level = gameProgress?.level || 1;
   const xpIntoLevel = gameProgress?.xpIntoLevel || 0;
@@ -750,11 +751,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const xpPercent = Math.round((xpIntoLevel / xpForNextLevel) * 100);
   const wizardRank = gameProgress?.wizardRank || 'Apprentice';
   const starCurrency = gameProgress?.starCurrency ?? 0;
-  const currentStreak = gameProgress?.currentStreak ?? 0;
-  const dailyQuestProgress = gameProgress?.dailyQuestProgress ?? 0;
-  const dailyQuestTarget = gameProgress?.dailyQuestTarget || 5;
-  const dailyQuestClaimed = gameProgress?.dailyQuestClaimed || false;
-  const dailyQuestPercent = Math.round((dailyQuestProgress / dailyQuestTarget) * 100);
 
   if (showInterior && selectedIsland) {
     const liveMaxStage = (() => {
@@ -880,11 +876,9 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
             {pixelCorners('var(--gl-border)')}
             <button className="sidebar-item active" onClick={onOpenDashboard}><span>🏠</span>Dashboard</button>
             <button className="sidebar-item" onClick={onOpenDashboard}><span>📊</span>Progress</button>
-            <button className="sidebar-item" onClick={() => setShowLeaderboard(true)}><span>👑</span>Leaderboard</button>
-            <button className="sidebar-item soon" disabled>
-              <span className="sidebar-item-row"><span>🏆</span>Achievements</span>
-              <span className="soon-tag">Soon</span>
-            </button>
+            {SHOW_LEADERBOARD && (
+              <button className="sidebar-item" onClick={() => setShowLeaderboard(true)}><span>👑</span>Leaderboard</button>
+            )}
             <button className="sidebar-item" onClick={() => setShowSettings(true)}><span>⚙️</span>Settings</button>
           </nav>
         </div>
@@ -970,41 +964,22 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
 
       <div className="lobby-bottom-bar">
         <div className="bottom-bar-info">
-          <span className="bottom-progress-label">Overall Progress: {overallPercent}%</span>
-          <span className="bottom-achievement-label">
-            Recent Achievement: <strong>Fraction Finder</strong>
-            <span className="bottom-achievement-badge">⭐</span>
+          <span className="bottom-progress-label">
+            Overall Progress: {overallPercent}% <small>({clearedStagesAll} / {totalStagesAll} stages)</small>
           </span>
         </div>
         <div className="bottom-progress-track">
-          <div className="bottom-progress-fill" style={{ width: `${overallPercent}%` }} />
-        </div>
-      </div>
-
-      <div className="side-cards-slider">
-        <div className="side-cards-tab">
-          <span className="side-cards-arrow">◀</span>
-        </div>
-        <div className="side-cards-panel">
-          <div className="side-card quest-card">
-            {pixelCorners('var(--gl-border)')}
-            <p className="side-card-title"><span>📜</span> DAILY QUEST</p>
-            <p className="quest-desc">Solve {dailyQuestTarget} fraction problems</p>
-            <p className="quest-count">{dailyQuestProgress} / {dailyQuestTarget}</p>
-            <div className="mini-progress-track"><div className="mini-progress-fill" style={{ width: `${dailyQuestPercent}%` }} /></div>
-            <div className="quest-reward">
-              <span className="quest-reward-label">{dailyQuestClaimed ? 'CLAIMED ✓' : 'REWARD'}</span>
-              <span>⭐ 50</span>
-              <span>🔮 20</span>
-            </div>
-          </div>
-          <div className="side-card streak-card">
-            {pixelCorners('var(--gl-border)')}
-            <p className="side-card-title"><span>🔥</span> WIZARD STREAK</p>
-            <div className="streak-flame">🔥</div>
-            <p className="streak-days">{currentStreak} <small>days</small></p>
-            <p className="streak-note">Keep it up!</p>
-          </div>
+          {islands.map(isl => (
+            <div
+              key={isl.name}
+              className="bottom-progress-fill"
+              title={`${isl.title}: ${clearedStages(isl)} / ${isl.totalStages || 0}`}
+              style={{
+                width: totalStagesAll ? `${(clearedStages(isl) / totalStagesAll) * 100}%` : 0,
+                background: isl.color,
+              }}
+            />
+          ))}
         </div>
       </div>
 

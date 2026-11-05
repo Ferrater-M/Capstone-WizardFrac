@@ -15,10 +15,6 @@ public class GameProgressDTO {
     private Integer xpForNextLevel;
     private String wizardRank;
     private Integer starCurrency;
-    private Integer currentStreak;
-    private Integer dailyQuestProgress;
-    private Integer dailyQuestTarget;
-    private Boolean dailyQuestClaimed;
 
     // Constructors
     public GameProgressDTO() {}
@@ -28,8 +24,7 @@ public class GameProgressDTO {
                           Boolean hybridIslandUnlocked, Integer hybridIslandMaxStage,
                           Integer totalScore, Integer totalGamesPlayed, Integer totalGamesWon,
                           Integer level, Integer xpIntoLevel, Integer xpForNextLevel, String wizardRank,
-                          Integer starCurrency, Integer currentStreak,
-                          Integer dailyQuestProgress, Integer dailyQuestTarget, Boolean dailyQuestClaimed) {
+                          Integer starCurrency) {
         this.studentId = studentId;
         this.similarIslandMaxStage = similarIslandMaxStage;
         this.dissimilarIslandUnlocked = dissimilarIslandUnlocked;
@@ -44,10 +39,6 @@ public class GameProgressDTO {
         this.xpForNextLevel = xpForNextLevel;
         this.wizardRank = wizardRank;
         this.starCurrency = starCurrency;
-        this.currentStreak = currentStreak;
-        this.dailyQuestProgress = dailyQuestProgress;
-        this.dailyQuestTarget = dailyQuestTarget;
-        this.dailyQuestClaimed = dailyQuestClaimed;
     }
 
     // Getters and Setters
@@ -161,37 +152,5 @@ public class GameProgressDTO {
 
     public void setStarCurrency(Integer starCurrency) {
         this.starCurrency = starCurrency;
-    }
-
-    public Integer getCurrentStreak() {
-        return currentStreak;
-    }
-
-    public void setCurrentStreak(Integer currentStreak) {
-        this.currentStreak = currentStreak;
-    }
-
-    public Integer getDailyQuestProgress() {
-        return dailyQuestProgress;
-    }
-
-    public void setDailyQuestProgress(Integer dailyQuestProgress) {
-        this.dailyQuestProgress = dailyQuestProgress;
-    }
-
-    public Integer getDailyQuestTarget() {
-        return dailyQuestTarget;
-    }
-
-    public void setDailyQuestTarget(Integer dailyQuestTarget) {
-        this.dailyQuestTarget = dailyQuestTarget;
-    }
-
-    public Boolean getDailyQuestClaimed() {
-        return dailyQuestClaimed;
-    }
-
-    public void setDailyQuestClaimed(Boolean dailyQuestClaimed) {
-        this.dailyQuestClaimed = dailyQuestClaimed;
     }
 }

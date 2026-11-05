@@ -26,6 +26,13 @@ public class DataInitializer {
             jdbcTemplate.execute(
                 "ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS player_nickname VARCHAR(255)"
             );
+            // Daily quest and daily play streak were removed; ddl-auto=update never drops
+            // columns, and the leftover NOT NULL ones would reject new game_progress rows.
+            for (String column : new String[] {
+                    "current_streak", "last_active_date",
+                    "daily_quest_progress", "daily_quest_date", "daily_quest_claimed" }) {
+                jdbcTemplate.execute("ALTER TABLE game_progress DROP COLUMN IF EXISTS " + column);
+            }
         };
     }
 

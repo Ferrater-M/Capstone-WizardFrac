@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { playSfx } from '../utils/audio';
 import { useReportBusy } from '../utils/stopwatch';
+import { triggerEdgeBurst } from './EdgeBurst';
 
 const FONT = '"Press Start 2P", monospace';
 const BROWN = '#703737';
@@ -35,7 +36,7 @@ const makeGeo = (W, H) => {
   };
 };
 export const IMG_ASPECT = 2 / 3;
-const JAR_STAGGER = 300;
+const JAR_STAGGER = 200;
 const GUIDE_IDLE_MS = 3000;  // no shard movement for this long -> guide a shard to a jar
 const GUIDE_LOOP_MS = 2600;  // length of one guide demonstration
 // Up to this many shards the player drags them into the jars one by one. Above it, the player sweeps the pointer
@@ -45,12 +46,12 @@ const SWEEP_R = 30;
 const BROOM_W = 88;                          // gemSweep.png is drawn this wide; its bristles' centre is at (49%, 78%) and it swings from the top of the handle (49%, 7%)
 const SWEEP_TEXT_DELAY = 500;                // "Sweep!" shows this long after the gem shatters
 const SWEEP_TEXT_SHOW = 3000;                // ...and stays this long (or until the player starts sweeping)
-export const SETTLE_STAGGER = 0.12;
-export const SETTLE_MOVE = 0.6;
+export const SETTLE_STAGGER = 0.08;
+export const SETTLE_MOVE = 0.45;
 // How long finalPhase sits on its glow beat before the jars/shards actually start
 // moving (see the finalPhase effect below) — a caller animating something else to
 // land at the same time (W's own jars) starts on this same delay.
-export const SETTLE_GLOW_MS = 1300;
+export const SETTLE_GLOW_MS = 800;
 
 // shine -> pair -> divide (player types the quotient) -> throw (jars thrown, D splits and
 // lands on them) -> charge (N powers up) -> gem -> shake -> shatter -> play
@@ -257,8 +258,8 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
     playSfx('/SoundEffects/sparkleSound.wav');
     const ts = [];
     ts.push(setTimeout(() => setBoxOn(false), 60));
-    ts.push(setTimeout(() => setPhase('pair'), 1800));
-    ts.push(setTimeout(() => { setPhase('divide'); playSfx('/SoundEffects/circleAppear.wav'); }, 2700));
+    ts.push(setTimeout(() => setPhase('pair'), 1100));
+    ts.push(setTimeout(() => { setPhase('divide'); playSfx('/SoundEffects/circleAppear.wav'); triggerEdgeBurst('Divide'); }, 1700));
     return () => ts.forEach(clearTimeout);
   }, []);
 
@@ -286,18 +287,19 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
     setJarStage('bottom');
     for (let j = 0; j < wholes; j++) later(j * JAR_STAGGER, () => playSfx('/SoundEffects/spellThrow.wav'));
     const base = (wholes - 1) * JAR_STAGGER;
-    later(900 + base, () => { setDSplit(true); playSfx('/SoundEffects/sparkleSound.wav'); });
-    later(1800 + base, () => setDLanded(true));
-    later(1900 + base, () => setPhase('charge'));
-    later(3100 + base, () => { setPhase('gem'); setBurstKey(1); playSfx('/SoundEffects/sparkleExplode.wav'); });
-    later(4100 + base, () => {
+    later(600 + base, () => { setDSplit(true); playSfx('/SoundEffects/sparkleSound.wav'); });
+    later(1200 + base, () => { setDLanded(true); triggerEdgeBurst('Divide'); });
+    later(1250 + base, () => setPhase('charge'));
+    later(2000 + base, () => { setPhase('gem'); setBurstKey(1); playSfx('/SoundEffects/sparkleExplode.wav'); });
+    later(2700 + base, () => {
       setPhase('shake');
       const a = playSfx('/SoundEffects/shake.wav');
       a.loop = true;
       shakeAudioRef.current = a;
     });
-    later(5100 + base, () => {
+    later(3400 + base, () => {
       setPhase('shatter');
+      triggerEdgeBurst('Shatter');
       setBurstKey(2);
       shakeAudioRef.current?.pause();
       shakeAudioRef.current = null;
@@ -314,8 +316,8 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
         return { ...s, x: t.x, y: t.y, rot: t.rot };
       }));
     });
-    later(5500 + base, () => { setJarStage('mid'); playSfx('/SoundEffects/numberMove.wav'); });
-    later(6500 + base, () => setPhase('play'));
+    later(3700 + base, () => { setJarStage('mid'); playSfx('/SoundEffects/numberMove.wav'); });
+    later(4400 + base, () => setPhase('play'));
   };
 
   // Final answer phase: leftover shards go white and line up beside the numerator input;
@@ -372,7 +374,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
       // Jars and shards travel on their own schedules; the final inputs appear once both are in place.
       const gemTime = left ? (left - 1) * SETTLE_STAGGER + SETTLE_MOVE : 0;
       const jarTime = (wholes - 1) * SETTLE_STAGGER + SETTLE_MOVE;
-      ts.push(setTimeout(() => setGemsGone(true), 700));
+      ts.push(setTimeout(() => setGemsGone(true), 500));
       ts.push(setTimeout(() => { setFinalSettled(true); onFinalSettled?.(); }, Math.max(gemTime, jarTime) * 1000 + 300));
     }, SETTLE_GLOW_MS));
     return () => ts.forEach(clearTimeout);
@@ -396,7 +398,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
     })));
     setDismissed(true);
     playSfx('/SoundEffects/sparkleExplode.wav');
-    const t = setTimeout(() => { setDismissGone(true); setParticles([]); }, 1000);
+    const t = setTimeout(() => { setDismissGone(true); setParticles([]); }, 700);
     return () => clearTimeout(t);
   }, [dismiss]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -461,7 +463,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
   // When the jars move to their final spots the locks fade out and are removed.
   useEffect(() => {
     if (!finalMoved) return undefined;
-    const t = setTimeout(() => setLocksGone(true), 400);
+    const t = setTimeout(() => setLocksGone(true), 300);
     return () => clearTimeout(t);
   }, [finalMoved]);
 
@@ -748,8 +750,8 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
 
       {/* Numerator */}
       {idx <= PHASES.indexOf('charge') && (
-        <div style={positioned(nPos, { zIndex: 13, transition: 'left 0.8s ease-in-out, top 0.8s ease-in-out' })}>
-          <div style={{ position: 'relative', animation: phase === 'charge' ? 'gemCharge 1.1s ease-in forwards' : 'none' }}>
+        <div style={positioned(nPos, { zIndex: 13, transition: 'left 0.55s ease-in-out, top 0.55s ease-in-out' })}>
+          <div style={{ position: 'relative', animation: phase === 'charge' ? 'gemCharge 0.75s ease-in forwards' : 'none' }}>
             <SparkleSpin size={96} fade={boxOn} />
             <div style={{
               ...bigNumber, fontSize: 30, width: 90, height: 64, boxSizing: 'border-box',
@@ -769,7 +771,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
           style={positioned(i === 0 ? DIV_POS : EQ_POS, {
             ...bigNumber, fontSize: 24, zIndex: 14, pointerEvents: 'none',
             opacity: phase === 'divide' ? 1 : 0,
-            transition: `opacity 0.5s ease ${sym === '÷' && phase === 'divide' ? '0.8s' : '0s'}`,
+            transition: `opacity 0.5s ease ${sym === '÷' && phase === 'divide' ? '0.5s' : '0s'}`,
           })}
         >{sym}</div>
       ))}
@@ -821,7 +823,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
             draggable={false}
             style={{
               width: gemW, height: gemH, display: 'block',
-              animation: phase === 'shake' ? 'gemShake 0.12s linear infinite' : 'gemAppear 0.6s ease-out forwards',
+              animation: phase === 'shake' ? 'gemShake 0.12s linear infinite' : 'gemAppear 0.45s ease-out forwards',
             }}
           />
         </div>
@@ -838,7 +840,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
               position: 'absolute', left: s.x + shardW / 2, top: s.y + shardH / 2,
               width: shardH * 1.4, height: shardH * 1.4, marginLeft: -shardH * 0.7, marginTop: -shardH * 0.7,
               opacity: shine ? 1 : 0, zIndex: 24, pointerEvents: 'none',
-              transition: dragging ? 'none' : 'left 1s cubic-bezier(.15,.85,.3,1), top 1s cubic-bezier(.15,.85,.3,1), opacity 0.3s',
+              transition: dragging ? 'none' : 'left 0.7s cubic-bezier(.15,.85,.3,1), top 0.7s cubic-bezier(.15,.85,.3,1), opacity 0.3s',
             }}
           >
             <div style={{ width: '100%', height: '100%', animation: `gemPulse 1.1s ease-in-out ${(s.id % 4) * -0.28}s infinite` }}>
@@ -879,7 +881,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
               transition: dragging ? 'none'
                 : finalMoved && !inJar
                   ? `left ${SETTLE_MOVE}s cubic-bezier(.2,.8,.3,1), top ${SETTLE_MOVE}s cubic-bezier(.2,.8,.3,1), width ${SETTLE_MOVE}s ease, height ${SETTLE_MOVE}s ease, transform ${SETTLE_MOVE}s ease, opacity 0.6s, filter 0.2s ease`
-                  : 'left 1s cubic-bezier(.15,.85,.3,1), top 1s cubic-bezier(.15,.85,.3,1), width 1s ease, height 1s ease, transform 1s cubic-bezier(.15,.85,.3,1), opacity 0.6s, filter 0.2s ease',
+                  : 'left 0.7s cubic-bezier(.15,.85,.3,1), top 0.7s cubic-bezier(.15,.85,.3,1), width 0.7s ease, height 0.7s ease, transform 0.7s cubic-bezier(.15,.85,.3,1), opacity 0.45s, filter 0.2s ease',
               // The stagger only delays the move (left, top, width, height, transform, opacity), not the pulse
               // glow (filter): a delayed glow on the later shards would end before it ever started.
               transitionDelay: finalMoved && !inJar ? `${Array(6).fill(`${freeIdx * SETTLE_STAGGER}s`).join(', ')}, 0s` : '0s',
@@ -920,7 +922,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
           transform: hidden ? 'scale(0.25) rotate(-40deg)' : jt ? `scale(${jt.scale}) rotate(0deg)` : 'scale(1) rotate(0deg)',
           transition: finalMoved
             ? `left ${SETTLE_MOVE}s ${ease}, top ${SETTLE_MOVE}s ${ease}, opacity 0.4s ease, transform ${SETTLE_MOVE}s ${ease}`
-            : `left 0.9s ${ease}, top 0.9s ${ease}, opacity 0.4s ease, transform 0.9s ${ease}`,
+            : `left 0.6s ${ease}, top 0.6s ${ease}, opacity 0.3s ease, transform 0.6s ${ease}`,
           transitionDelay: finalMoved ? `${j * SETTLE_STAGGER}s` : jarStage === 'bottom' ? `${(j * JAR_STAGGER) / 1000}s` : '0s',
           pointerEvents: 'none',
         };
@@ -1000,7 +1002,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
             style={{
               position: 'absolute', left: pos.x, top: pos.y,
               transform: tag ? 'translate(-100%, -100%)' : 'translate(-50%, -50%)',
-              transition: tag ? 'opacity 0.5s ease' : 'left 0.9s cubic-bezier(.2,.8,.3,1), top 0.9s cubic-bezier(.2,.8,.3,1), font-size 0.9s ease, transform 0.9s cubic-bezier(.2,.8,.3,1)',
+              transition: tag ? 'opacity 0.5s ease' : 'left 0.6s cubic-bezier(.2,.8,.3,1), top 0.6s cubic-bezier(.2,.8,.3,1), font-size 0.6s ease, transform 0.6s cubic-bezier(.2,.8,.3,1)',
               fontSize: size, fontWeight: tag ? 700 : 900, color: '#fff', zIndex: 30, pointerEvents: 'none',
               // hideCounts: the caller asks for the fraction counts to fade out early (Hybrid, while the enlarged panel shrinks).
               opacity: (j === 0 || dSplit) && !finalMoved && !hideCounts ? 1 : 0,

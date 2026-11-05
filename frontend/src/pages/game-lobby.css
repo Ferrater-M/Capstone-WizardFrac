@@ -272,31 +272,6 @@
   box-shadow: 0 0 16px rgba(124, 58, 237, 0.45);
 }
 
-.sidebar-item.soon {
-  cursor: default;
-  opacity: 0.55;
-  /* Pixel-font "Achievements" plus the Soon badge no longer fit on one
-     line, so the badge sits on its own row below the icon + label. */
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
-
-.sidebar-item-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.soon-tag {
-  font-size: 0.75em;
-  font-weight: 800;
-  color: var(--gl-muted);
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 50px;
-  padding: 2px 8px;
-}
-
 /* ── Center column ── */
 .lobby-title-area {
   grid-area: title;
@@ -555,102 +530,6 @@
   color: var(--gl-text2);
 }
 
-/* ── Side cards: Daily Quest / Wizard Streak ── */
-.lobby-side-cards {
-  grid-area: sidecards;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.side-card {
-  position: relative;
-  background: var(--gl-panel2);
-  border: 4px solid var(--gl-border);
-  border-radius: 0;
-  padding: 20px;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 10px 24px rgba(0, 0, 0, 0.5);
-}
-
-.side-card-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 12px;
-  color: var(--gl-gold);
-  font-size: 0.88em;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-}
-
-.quest-desc {
-  margin: 0 0 10px;
-  color: var(--gl-text);
-  font-size: 0.92em;
-  font-weight: 600;
-}
-
-.quest-count {
-  margin: 0 0 8px;
-  color: var(--gl-text2);
-  font-size: 0.9em;
-  font-weight: 700;
-}
-
-.quest-reward {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 14px;
-  font-size: 0.92em;
-  font-weight: 700;
-  color: var(--gl-text2);
-}
-
-.quest-reward-label {
-  color: var(--gl-muted);
-  font-size: 0.95em;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  margin-right: 2px;
-}
-
-.streak-card {
-  text-align: center;
-}
-
-.streak-flame {
-  font-size: 2.9em;
-  filter: drop-shadow(0 0 14px rgba(245, 158, 11, 0.6));
-}
-
-.streak-days {
-  margin: 6px 0 2px;
-  color: var(--gl-text);
-  font-size: 1.9em;
-  font-weight: 800;
-}
-
-.streak-days small {
-  font-size: 0.5em;
-  color: var(--gl-text2);
-  font-weight: 700;
-}
-
-.streak-note {
-  margin: 0;
-  color: var(--gl-text2);
-  font-size: 0.86em;
-  font-weight: 600;
-}
-
-.streak-bonus {
-  display: block;
-  color: var(--gl-gold);
-  font-weight: 800;
-  margin-top: 2px;
-}
-
 /* ── Pet ── */
 .lobby-pet {
   grid-area: pet;
@@ -729,25 +608,15 @@
   font-weight: 700;
 }
 
-.bottom-achievement-label {
-  color: var(--gl-text2);
-  font-size: 0.85em;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.bottom-progress-label small {
+  color: var(--gl-muted);
+  font-size: 0.9em;
 }
 
-.bottom-achievement-label strong {
-  color: var(--gl-text);
-  font-weight: 800;
-}
-
-.bottom-achievement-badge {
-  font-size: 1.1em;
-}
-
+/* One fill segment per island, in that island's color; the track's rounded
+   ends and overflow clip give the joined segments a single pill shape. */
 .bottom-progress-track {
+  display: flex;
   width: 100%;
   height: 12px;
   border-radius: 50px;
@@ -758,8 +627,6 @@
 
 .bottom-progress-fill {
   height: 100%;
-  border-radius: 50px;
-  background: linear-gradient(90deg, var(--gl-amber) 0%, var(--gl-gold) 100%);
   transition: width 0.4s ease;
 }
 
@@ -785,62 +652,6 @@
   color: var(--gl-glow);
   font-size: 0.8em;
   vertical-align: middle;
-}
-
-.achievement-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.achievement-badge {
-  position: relative;
-  flex: 0 0 auto;
-  width: 46px;
-  height: 46px;
-  border-radius: 12px 12px 12px 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(160deg, var(--gl-glow) 0%, var(--gl-primary) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 0 14px rgba(168, 85, 247, 0.5);
-}
-
-.achievement-badge-star {
-  font-size: 1.3em;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
-}
-
-.achievement-badge-check {
-  position: absolute;
-  bottom: -5px;
-  right: -5px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #22C55E;
-  color: #06210f;
-  font-size: 0.62em;
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid var(--gl-panel);
-}
-
-.achievement-title {
-  margin: 0;
-  color: var(--gl-text);
-  font-size: 0.82em;
-  font-weight: 800;
-}
-
-.achievement-desc {
-  margin: 2px 0 0;
-  color: var(--gl-text2);
-  font-size: 0.72em;
-  font-weight: 600;
 }
 
 .overview-row {
@@ -1108,68 +919,6 @@
   .start-btn {
     width: 100%;
   }
-}
-
-/* ── Slide-out side panel ── */
-.side-cards-slider {
-  position: fixed;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%) translateX(calc(100% - 36px));
-  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  z-index: 100;
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-}
-
-.side-cards-slider:hover {
-  transform: translateY(-50%) translateX(0);
-}
-
-.side-cards-tab {
-  width: 36px;
-  flex-shrink: 0;
-  background: transparent;
-  border: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 16px 0;
-}
-
-.side-cards-arrow {
-  color: var(--gl-gold);
-  font-size: 1.1em;
-  text-shadow:
-    0 0 6px rgba(251, 191, 36, 0.9),
-    0 0 14px rgba(251, 191, 36, 0.6),
-    0 0 28px rgba(168, 85, 247, 0.5);
-  animation: arrowPulse 2s ease-in-out infinite;
-}
-
-@keyframes arrowPulse {
-  0%, 100% { opacity: 1;   transform: translateX(0);   text-shadow: 0 0 6px rgba(251,191,36,0.9), 0 0 14px rgba(251,191,36,0.6), 0 0 28px rgba(168,85,247,0.5); }
-  50%       { opacity: 0.6; transform: translateX(-4px); text-shadow: 0 0 10px rgba(251,191,36,1),   0 0 22px rgba(251,191,36,0.8), 0 0 40px rgba(168,85,247,0.7); }
-}
-
-.side-cards-slider:hover .side-cards-arrow {
-  animation: none;
-  opacity: 0.25;
-  text-shadow: none;
-}
-
-.side-cards-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  padding: 20px;
-  width: 280px;
-  /* Same guard as .left-panel-content: don't let overflow bleed into the
-     always-visible collapsed tab strip. */
-  overflow: hidden;
 }
 
 /* ── Fixed player card (top-left) ── */

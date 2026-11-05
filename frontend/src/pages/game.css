@@ -629,3 +629,17 @@
   from { opacity: 0; transform: translateY(-10px); }
   to   { opacity: 0.3; transform: translateY(0); }
 }
+
+/* EdgeBurst (components/EdgeBurst.jsx): background/characters/HUD dim (data-edge-dim), then white cubes + phase words shoot from the screen edges */
+[data-edge-dim] { transition: filter 0.12s ease-out; }
+body.wf-edge-dim [data-edge-dim] { filter: brightness(0.35); }
+@keyframes edgeCube {
+  0%   { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--r)) scale(0.2); }
+}
+@keyframes edgeWordShoot {
+  0%   { opacity: 0; transform: translate(0, -50%) rotate(var(--r0)) scale(0.6); }
+  12%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), calc(-50% + var(--dy))) rotate(var(--r1)) scale(1); }
+}

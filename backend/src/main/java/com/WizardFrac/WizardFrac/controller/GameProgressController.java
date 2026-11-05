@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,12 +73,6 @@ public class GameProgressController {
         }
         GameProgress p = progress.get();
 
-        // Daily quest resets at midnight; if today's data hasn't been touched yet,
-        // show it as fresh without writing to the DB on a plain read.
-        boolean questIsForToday = p.getDailyQuestDate() != null && p.getDailyQuestDate().isEqual(LocalDate.now());
-        int questProgress = questIsForToday ? p.getDailyQuestProgress() : 0;
-        boolean questClaimed = questIsForToday && Boolean.TRUE.equals(p.getDailyQuestClaimed());
-
         int totalScore = p.getTotalScore();
         GameProgressDTO dto = new GameProgressDTO(
             p.getStudent().getId(),
@@ -95,11 +88,7 @@ public class GameProgressController {
             gameProgressService.getXpIntoLevel(totalScore),
             gameProgressService.getXpForNextLevel(totalScore),
             gameProgressService.getWizardRank(totalScore),
-            p.getStarCurrency(),
-            p.getCurrentStreak(),
-            questProgress,
-            gameProgressService.getDailyQuestTarget(),
-            questClaimed
+            p.getStarCurrency()
         );
         return ResponseEntity.ok(dto);
     }

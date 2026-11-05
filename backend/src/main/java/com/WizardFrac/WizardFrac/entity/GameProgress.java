@@ -1,7 +1,6 @@
 package com.WizardFrac.WizardFrac.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -50,21 +49,6 @@ public class GameProgress {
 
     @Column(nullable = false)
     private Integer starCurrency = 0;
-
-    @Column(nullable = false)
-    private Integer currentStreak = 0;
-
-    @Column(nullable = true)
-    private LocalDate lastActiveDate;
-
-    @Column(nullable = false)
-    private Integer dailyQuestProgress = 0;
-
-    @Column(nullable = true)
-    private LocalDate dailyQuestDate;
-
-    @Column(nullable = false)
-    private Boolean dailyQuestClaimed = false;
 
     public GameProgress() {
         this.updatedAt = LocalDateTime.now();
@@ -188,45 +172,5 @@ public class GameProgress {
 
     public void setStarCurrency(Integer starCurrency) {
         this.starCurrency = starCurrency;
-    }
-
-    public Integer getCurrentStreak() {
-        return currentStreak;
-    }
-
-    public void setCurrentStreak(Integer currentStreak) {
-        this.currentStreak = currentStreak;
-    }
-
-    public LocalDate getLastActiveDate() {
-        return lastActiveDate;
-    }
-
-    public void setLastActiveDate(LocalDate lastActiveDate) {
-        this.lastActiveDate = lastActiveDate;
-    }
-
-    public Integer getDailyQuestProgress() {
-        return dailyQuestProgress;
-    }
-
-    public void setDailyQuestProgress(Integer dailyQuestProgress) {
-        this.dailyQuestProgress = dailyQuestProgress;
-    }
-
-    public LocalDate getDailyQuestDate() {
-        return dailyQuestDate;
-    }
-
-    public void setDailyQuestDate(LocalDate dailyQuestDate) {
-        this.dailyQuestDate = dailyQuestDate;
-    }
-
-    public Boolean getDailyQuestClaimed() {
-        return dailyQuestClaimed;
-    }
-
-    public void setDailyQuestClaimed(Boolean dailyQuestClaimed) {
-        this.dailyQuestClaimed = dailyQuestClaimed;
     }
 }

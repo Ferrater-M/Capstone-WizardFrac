@@ -250,47 +250,6 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
     .slice(0, currentRankIndex + 1)
     .find(t => !claimedBadges.includes(t.rank)) || null;
 
-  const TOTAL_ISLAND_STAGES = 18; // 3 islands x 6 stages
-  const completedStages = new Set(
-    (gameHistory || [])
-      .filter(entry => entry.status === 'COMPLETED')
-      .map(entry => `${entry.island}-${entry.level}`)
-  ).size;
-  const proficientCount = (competencies || []).filter(c => c.masteryLevel === 'Proficient').length;
-
-  const achievements = [
-    {
-      id: 'quest-champion',
-      icon: '/PlayerAssets/Icons/map.png',
-      heroImage: '/PlayerAssets/Icons/mapscroll.png',
-      title: 'Quest Champion',
-      description: 'Complete all the quests',
-      progress: Math.min(completedStages, TOTAL_ISLAND_STAGES),
-      goal: TOTAL_ISLAND_STAGES,
-      hint: 'Finish every stage (1-6) on all 3 islands — Similar, Dissimilar, and Hybrid Fractions.',
-    },
-    {
-      id: 'spell-master',
-      icon: '/PlayerAssets/Icons/spell.png',
-      heroImage: '/PlayerAssets/Icons/spellmaster.png',
-      title: 'Spell Master',
-      description: 'Cast 100 correct spells',
-      progress: Math.min(summary.totalCorrect, 100),
-      goal: 100,
-      hint: 'Answer fraction spells correctly during gameplay. Every correct answer counts toward this.',
-    },
-    {
-      id: 'mastery-mage',
-      icon: '/PlayerAssets/Icons/wizardhat.png',
-      heroImage: '/PlayerAssets/Icons/wizard1.png',
-      title: 'Mastery Mage',
-      description: 'Reach Proficient in every skill',
-      progress: proficientCount,
-      goal: competencies?.length || 3,
-      hint: 'Reach 80%+ accuracy in Similar Fractions, Dissimilar Fractions, and Mixed Numbers to mark each as Proficient.',
-    },
-  ];
-
   return (
     <div className="dashboard-container">
 
@@ -352,30 +311,6 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
               data-tooltip={`${tier.rank} — ${tier.hint}`}
             >
               <span className="badge-icon">{tier.icon}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Achievements */}
-      <div className="achievements-section">
-        <h3 className="section-title">Achievements</h3>
-        <div className="achievements-list">
-          {achievements.map(a => (
-            <div key={a.id} className="achievement-row" data-tooltip={a.hint}>
-              <div className="achievement-hero" style={{ backgroundImage: `url(${a.heroImage})` }} />
-              <span className="achievement-icon" style={{ backgroundImage: `url(${a.icon})` }} role="img" aria-hidden="true" />
-              <div className="achievement-body">
-                <p className="achievement-title">{a.title}</p>
-                <p className="achievement-desc">{a.description}</p>
-                <div className="achievement-bar-track">
-                  <div
-                    className="achievement-bar-fill"
-                    style={{ width: `${Math.min(100, (a.progress / a.goal) * 100)}%` }}
-                  />
-                </div>
-              </div>
-              <span className="achievement-count">{a.progress}/{a.goal}</span>
             </div>
           ))}
         </div>

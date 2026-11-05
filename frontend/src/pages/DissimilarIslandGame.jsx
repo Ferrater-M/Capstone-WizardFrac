@@ -10,6 +10,7 @@ import './game.css';
 import '../components/components.css';
 import { getDissimilarTier, TIMING, getFeedbackDuration } from '../utils/gameUtils';
 import ImproperToMixedGame from '../components/ImproperToMixedGame';
+import EdgeBurst, { triggerEdgeBurst } from '../components/EdgeBurst';
 import InputGuideCursor from '../components/InputGuideCursor';
 import GameStopwatches from '../components/GameStopwatches';
 import { API_BASE_URL } from '../config';
@@ -317,7 +318,7 @@ const DissimilarIslandGame = ({
     const dists = ['n1', 'n2', otherKey].map(tk => {
       const t = BASE_POS[tk];
       const dist = Math.hypot(myCx - (t.left + t.size/2), myCy - (t.top + t.size/2));
-      if (dist < MAGNET_THRESHOLD && !(confirmPressed && tk === otherKey)) {
+      if (dist < MAGNET_THRESHOLD && !((denominatorPhase || sdBlinking) && tk === otherKey)) {
         newMagnet[d.key] = true;
         if (RESTRICTED[d.key] !== tk) newMagnet[tk] = true;
         if (ALLOWED_TARGETS[d.key].includes(tk)) { newPulse[d.key] = true; newPulse[tk] = true; }
@@ -369,7 +370,7 @@ const DissimilarIslandGame = ({
       requestAnimationFrame(() => requestAnimationFrame(() => {
         setDragOffsets({ d1:{ dx:71, dy:44 }, d2:{ dx:-69, dy:44 } });
       }));
-    }, 400);
+    }, 250);
     // Square explosion + SD blink + immediate arc return
     setTimeout(() => {
       setDenExplosion(true);
@@ -381,7 +382,7 @@ const DissimilarIslandGame = ({
       const bezier = (t, p0, cp, p1) => (1-t)**2*p0 + 2*(1-t)*t*cp + t**2*p1;
       const ease   = t => 1 - Math.pow(1 - t, 3);
       const d1El = d1OverlayRef.current, d2El = d2OverlayRef.current;
-      const dur = 650, t0 = performance.now();
+      const dur = 500, t0 = performance.now();
       const frame = (now) => {
         const raw = Math.min((now - t0) / dur, 1);
         const t   = ease(raw);
@@ -400,7 +401,7 @@ const DissimilarIslandGame = ({
         }
       };
       requestAnimationFrame(frame);
-    }, 1220);
+    }, 820);
   };
 
   const triggerCrossProduct = (dragKey, startDx, startDy) => {
@@ -420,7 +421,7 @@ const DissimilarIslandGame = ({
     const cpY = Math.min(sy, ey) - 70;
     const bez = (t, p0, cp, p1) => (1-t)**2*p0 + 2*(1-t)*t*cp + t**2*p1;
     const ease = t => 1 - Math.pow(1-t, 3);
-    const dur = 600, t0 = performance.now();
+    const dur = 450, t0 = performance.now();
     const frame = now => {
       const raw = Math.min((now-t0)/dur, 1), t = ease(raw);
       if (el) { el.style.left = bez(t,sx,cpX,ex)+'px'; el.style.top = bez(t,sy,cpY,ey)+'px'; }
@@ -443,12 +444,12 @@ const DissimilarIslandGame = ({
     setCircleFailSequence('flashing');
     playSfx('/SoundEffects/initialDissimilarFail.wav');
 
-    // Step 2 (2s): start fade + hide interactable UI + bg shift simultaneously → player/enemy collapse
+    // Step 2 (1.3s): start fade + hide interactable UI + bg shift simultaneously → player/enemy collapse
     setTimeout(() => {
       setCircleFailSequence('fading');
       pendingBgShiftRef.current = 'left';
       setInteractableVisible(false);
-    }, 2000);
+    }, 1300);
 
     const last = mistakes[mistakes.length - 1];
     const formula = last.label === 'SD'     ? `${problem.denominator1} × ${problem.denominator2}`
@@ -462,7 +463,7 @@ const DissimilarIslandGame = ({
       : last.label === 'N2'   ? 'WRONG_CROSS_MULTIPLY_RIGHT'
       : /* CENTER */            'WRONG_CROSS_PRODUCT_COMBINATION';
 
-    // Step 3 (2.9s): popup + enemy attack + player hurt + bg shift.
+    // Step 3 (1.9s): popup + enemy attack + player hurt + bg shift.
     // The full reset (Step 4) now runs as handleWrongAnswer's own onResolved
     // callback, so it fires exactly when the popup closes (or is skipped),
     // instead of a fixed delay that could fall out of sync with the
@@ -493,7 +494,7 @@ const DissimilarIslandGame = ({
         setPulsatingWhite({ n1:false, n2:false, d1:false, d2:false });
         setProblem(generateProblem()); setCurrentStep(1); // new problem, never the one just failed
       });
-    }, 2900);
+    }, 1900);
   };
 
   // ── Enemy data ─────────────────────────────────────────────────────────────
@@ -695,14 +696,14 @@ const DissimilarIslandGame = ({
     const fc = isWitch ? { attack1: 10, attack2: 4, hurt: 3 } : { attack1: 7, attack2: 9, hurt: 4 };
     if (wizardAnimTimerRef.current) clearTimeout(wizardAnimTimerRef.current);
     setWizardAnim(anim);
-    wizardAnimTimerRef.current = setTimeout(() => setWizardAnim('idle'), (fc[anim] / 10) * 1000);
+    wizardAnimTimerRef.current = setTimeout(() => setWizardAnim('idle'), (fc[anim] / 14) * 1000);
   };
 
   const playEnemyAnim = (anim) => {
     if (enemyAnimTimerRef.current) clearTimeout(enemyAnimTimerRef.current);
     setEnemyAnim(anim);
     const frames = enemySpriteInfoRef.current[anim]?.frames || 4;
-    enemyAnimTimerRef.current = setTimeout(() => setEnemyAnim('idle'), (frames / 10) * 1000);
+    enemyAnimTimerRef.current = setTimeout(() => setEnemyAnim('idle'), (frames / 14) * 1000);
   };
 
   useEffect(() => { if (enemyAttacking) playEnemyAnim('attack'); }, [enemyAttacking]);
@@ -798,10 +799,10 @@ const DissimilarIslandGame = ({
           : prev
         );
         playSfx('/SoundEffects/sparkleSound.wav');
-      }, 500 + idx * 150);
+      }, 250 + idx * 100);
     });
 
-    // Fly one-by-one with 300 ms stagger
+    // Fly one-by-one with 100 ms stagger
     let arrived = 0;
 
     setTimeout(() => {
@@ -810,7 +811,7 @@ const DissimilarIslandGame = ({
           playSfx('/SoundEffects/numberMove.wav');
           const s = sources[key], d = dst[key], c = ctrl[key];
           const ref = bRefs[key];
-          const duration = 900, t0 = performance.now();
+          const duration = 650, t0 = performance.now();
 
           const frame = (now) => {
             const raw = Math.min((now - t0) / duration, 1);
@@ -832,18 +833,18 @@ const DissimilarIslandGame = ({
               setExplodeSparkles(prev => [...prev, { id: sid, left: pos.left + 20, top: pos.top + 20 }]);
               setTimeout(() => setExplodeSparkles(prev => prev.filter(s => s.id !== sid)), 800);
               arrived++;
-              if (arrived === order.length) setFlyBubbles(null);
+              if (arrived === order.length) { setFlyBubbles(null); triggerEdgeBurst('Infinity'); }
             }
           };
           requestAnimationFrame(frame);
-        }, idx * 150);
+        }, idx * 100);
       });
-    }, 2000);
+    }, 1000);
   };
 
   useEffect(() => {
     if (!circleDetected) return;
-    const t = setTimeout(triggerNumberFlyIn, 1200);
+    const t = setTimeout(triggerNumberFlyIn, 600);
     return () => clearTimeout(t);
   }, [circleDetected]);
 
@@ -852,7 +853,7 @@ const DissimilarIslandGame = ({
       const dir = lastBgShiftRef.current;
       setBgShift(`return-${dir}`);
       lastBgShiftRef.current = null;
-      setTimeout(() => setBgShift(null), 700);
+      setTimeout(() => setBgShift(null), 500);
     }
     if (!interactableVisible && pendingBgShiftRef.current) {
       const dir = pendingBgShiftRef.current;
@@ -864,6 +865,7 @@ const DissimilarIslandGame = ({
 
   useEffect(() => {
     if (sdCorrect && n1CrossCorrect && n2CrossCorrect && !centerPhase) {
+      triggerEdgeBurst('Butterfly');
       setCenterPhase('blinking');
       setCenterVal('');
       setCenterCorrect(false);
@@ -879,6 +881,10 @@ const DissimilarIslandGame = ({
   // Combining the denominators works in either direction.
   if (!denominatorPhase && !sdBlinking && !sdCorrect) guideActions.push({ from: 'd1', to: 'd2' }, { from: 'd2', to: 'd1' });
   const crossInputPending = (n1CrossPhase === 'blinking' && !n1CrossConfirmed) || (n2CrossPhase === 'blinking' && !n2CrossConfirmed);
+  // Denominators stay draggable while SD/N1/N2 answers are still unconfirmed, so the player can open
+  // several spots and confirm them all at once — only blocked while a combine/cross animation is playing.
+  const denCombining = ['glowing', 'to-sd', 'arc-returning'].includes(denominatorPhase);
+  const canDragDen = !denCombining && crossExplosion === null && !(sdCorrect && n1CrossCorrect && n2CrossCorrect);
   const guideEligible = circleDetected && interactableVisible && n1Visible && d1Visible && n2Visible && d2Visible
     && !showTutorial && !showSettings && !showHintConfirm && !feedback && !gameOver
     && !circleFailSequence && !carryPhase && !finalAnswerPhase && !centerPhase && !crossExplosion && !dragScreenPos
@@ -979,7 +985,7 @@ const DissimilarIslandGame = ({
         setFinalAnswerPhase(true);
         setFinalWholeInput(''); setFinalNumInput(''); setFinalDenInput('');
         setTimeout(() => finalNumRef.current?.focus(), 100);
-      }, 1200);
+      }, 700);
     }
   }, [centerCorrect]);
 
@@ -1005,8 +1011,8 @@ const DissimilarIslandGame = ({
     let elapsed = 0;
     const iv = setInterval(() => {
       elapsed += 80;
-      if (beforeDefeatRef.current) beforeDefeatRef.current.playbackRate = Math.min(1.0 + (elapsed / 5000) * 3.5, 4.5);
-      if (elapsed >= 5000) {
+      if (beforeDefeatRef.current) beforeDefeatRef.current.playbackRate = Math.min(1.0 + (elapsed / 3000) * 3.5, 4.5);
+      if (elapsed >= 3000) {
         clearInterval(iv);
         if (beforeDefeatRef.current) { beforeDefeatRef.current.pause(); beforeDefeatRef.current.src = ''; }
         setDefeatFading(true);
@@ -1022,7 +1028,7 @@ const DissimilarIslandGame = ({
           }));
           setTimeout(() => setDefeatParticles([]), 1400);
         }
-        setTimeout(onComplete, 1200);
+        setTimeout(onComplete, 900);
       }
     }, 80);
   };
@@ -1042,7 +1048,7 @@ const DissimilarIslandGame = ({
     setTimeout(() => {
       playSfx('/SoundEffects/spellThrow.wav');
       setFireball({ sx, sy, ex, ey, flying: true });
-    }, 800);
+    }, 400);
   };
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -1190,7 +1196,7 @@ const DissimilarIslandGame = ({
       doReset();
     } else {
       playWizardAnim(Math.random() < 0.5 ? 'attack1' : 'attack2');
-      setTimeout(() => launchFireball(doReset), 500);
+      setTimeout(() => launchFireball(doReset), 300);
     }
   };
 
@@ -1306,22 +1312,22 @@ const DissimilarIslandGame = ({
       }}
     >
       {/* Bobbing background */}
-      <div style={{ position: 'absolute', inset: '-20px', animation: 'bgBob 12s ease-in-out infinite', zIndex: 0, pointerEvents: 'none' }}>
+      <div data-edge-dim style={{ position: 'absolute', inset: '-20px', animation: 'bgBob 12s ease-in-out infinite', zIndex: 0, pointerEvents: 'none' }}>
         <div style={{
           position: 'absolute', inset: 0,
           backgroundImage: 'url(/InMatchUIElements/DissimilarIsland/AutumnCombatBackground.png)',
           backgroundSize: 'contain', backgroundPosition: 'center',
-          animation: bgShift === 'right'        ? 'bgShiftRight  0.6s ease-out forwards'
-                   : bgShift === 'left'         ? 'bgShiftLeft   0.6s ease-out forwards'
-                   : bgShift === 'return-right' ? 'bgReturnRight 0.7s ease-in-out forwards'
-                   : bgShift === 'return-left'  ? 'bgReturnLeft  0.7s ease-in-out forwards'
+          animation: bgShift === 'right'        ? 'bgShiftRight  0.45s ease-out forwards'
+                   : bgShift === 'left'         ? 'bgShiftLeft   0.45s ease-out forwards'
+                   : bgShift === 'return-right' ? 'bgReturnRight 0.5s ease-in-out forwards'
+                   : bgShift === 'return-left'  ? 'bgReturnLeft  0.5s ease-in-out forwards'
                    : 'none',
         }} />
       </div>
 
       {/* Stats bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '8px 0', gap: '10px', position: 'relative', zIndex: 1 }}>
-        <div style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div data-edge-dim style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
           {corners('#703737')}
           <span style={{ color: '#222', fontSize: '13px' }}>Streak: x{multiplier.toFixed(1)}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Score: {score}</span>
@@ -1341,7 +1347,7 @@ const DissimilarIslandGame = ({
             position:'relative', border:'4px solid #fff', background:'#000', color:'#fff',
             fontSize:'13px', fontWeight:700, fontFamily:'"Press Start 2P", monospace',
             display:'flex', alignItems:'center', padding:'0 8px', margin:'0 100px',
-            animation:'hintReveal 0.8s ease-out forwards', whiteSpace:'nowrap',
+            animation:'hintReveal 0.6s ease-out forwards', whiteSpace:'nowrap',
             flex:1, justifyContent:'center',
           }}>
             <div style={{ position:'absolute', inset:5, border:'1px solid #fff', pointerEvents:'none' }} />
@@ -1392,7 +1398,7 @@ const DissimilarIslandGame = ({
         }}>
 
           {/* ── Player ── */}
-          <div ref={playerRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginRight: circleDetected && interactableVisible ? '160px' : '36px', transition: 'margin 0.5s ease', zIndex: 2, flexShrink: 0, position: 'relative', willChange: 'margin-right' }}>
+          <div ref={playerRef} data-edge-dim style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginRight: circleDetected && interactableVisible ? '160px' : '36px', transition: 'margin 0.35s ease', zIndex: 2, flexShrink: 0, position: 'relative', willChange: 'margin-right' }}>
             <div ref={playerBoxRef} style={{ width: 320, height: 320, display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
               {(() => {
                 const isWitch = selectedCharacter?.name?.toLowerCase().includes('girl');
@@ -1400,7 +1406,7 @@ const DissimilarIslandGame = ({
                 const FRAMES  = isWitch ? { idle: 7, attack1: 10, attack2: 4, hurt: 3 } : { idle: 8, attack1: 7, attack2: 9, hurt: 4 };
                 const n = FRAMES[wizardAnim], DISP = 420;
                 const kf = `${charKey}_${wizardAnim}`;
-                const sprAnim = `${kf} ${(n/10).toFixed(2)}s steps(${n}) ${wizardAnim==='idle'?'infinite':'1 forwards'}`;
+                const sprAnim = `${kf} ${(n/(wizardAnim==='idle'?10:14)).toFixed(2)}s steps(${n}) ${wizardAnim==='idle'?'infinite':'1 forwards'}`;
                 const combined = defeatTarget==='player'&&!defeatFading
                   ? `${sprAnim}, defeatFlash 0.25s ease-in-out infinite`
                   : playerFlashing ? `${sprAnim}, enemyFlash 0.5s ease-out, damageShake 0.5s ease-out` : sprAnim;
@@ -1451,7 +1457,7 @@ const DissimilarIslandGame = ({
           </div>
 
           {/* ── Center: Problem + Butterfly panel ── */}
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'8px', paddingTop:'32px', minHeight:0, overflow:'hidden', zIndex:1, opacity: interactableVisible ? 1 : 0, transition:'opacity 0.4s ease' }}>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'8px', paddingTop:'32px', minHeight:0, overflow:'hidden', zIndex:1, opacity: interactableVisible ? 1 : 0, transition:'opacity 0.3s ease' }}>
 
             {/* Problem display */}
             <div ref={problemWrapRef} style={{
@@ -1531,7 +1537,7 @@ const DissimilarIslandGame = ({
                 display:'flex', justifyContent:'center',
                 opacity: interactableVisible ? 1 : 0,
                 pointerEvents: interactableVisible ? 'auto' : 'none',
-                transition:'opacity 0.4s ease', alignItems:'center',
+                transition:'opacity 0.3s ease', alignItems:'center',
                 position:'relative', marginBottom:'50px',
               }}>
                 {/* Rising particles */}
@@ -1592,7 +1598,7 @@ const DissimilarIslandGame = ({
                       position:'absolute', top:32, left:0, right:0, height:'300px',
                       animation: 'magicFloat 4s ease-in-out infinite',
                       opacity: circleFailSequence === 'fading' || finalAnswerPhase || carryPhase ? 0 : 1,
-                      transition: (circleFailSequence === 'fading' || finalAnswerPhase || carryPhase) ? 'opacity 0.6s ease-out' : undefined,
+                      transition: (circleFailSequence === 'fading' || finalAnswerPhase || carryPhase) ? 'opacity 0.4s ease-out' : undefined,
                     }}>
                       <img src="/InteractableUI/DissimilarMagicCircle.png" alt="magic circle" style={{
                         position:'absolute', top:0, left:0, right:0, width:'100%', height:'100%',
@@ -1623,20 +1629,20 @@ const DissimilarIslandGame = ({
                         const vibrating = inMagnetZone[key];
                         return (
                           <div key={key} ref={oRef}
-                            onPointerDown={visible && draggable && (!denominatorPhase || confirmPressed) && !(sdCorrect && n1CrossCorrect && n2CrossCorrect) && !((n1CrossPhase === 'blinking' && !n1CrossConfirmed) || (n2CrossPhase === 'blinking' && !n2CrossConfirmed)) ? (e) => handleNumPointerDown(e, key) : undefined}
+                            onPointerDown={visible && draggable && canDragDen ? (e) => handleNumPointerDown(e, key) : undefined}
                             onPointerMove={visible && draggable ? handleNumPointerMove : undefined}
                             onPointerUp={visible && draggable ? handleNumPointerUp : undefined}
                             style={{
                               position:'absolute', left: left + offset.dx, top: top + offset.dy,
-                              animation: 'numFadeIn 0.5s ease-out both',
+                              animation: 'numFadeIn 0.35s ease-out both',
                               animationPlayState: visible ? 'running' : 'paused',
-                              pointerEvents: visible && (!denominatorPhase || confirmPressed) && !(sdCorrect && n1CrossCorrect && n2CrossCorrect) && !((n1CrossPhase === 'blinking' && !n1CrossConfirmed) || (n2CrossPhase === 'blinking' && !n2CrossConfirmed)) ? 'auto' : 'none',
-                              cursor: visible && draggable && (!denominatorPhase || confirmPressed) && !(sdCorrect && n1CrossCorrect && n2CrossCorrect) && !((n1CrossPhase === 'blinking' && !n1CrossConfirmed) || (n2CrossPhase === 'blinking' && !n2CrossConfirmed)) ? 'grab' : 'default',
+                              pointerEvents: visible && canDragDen ? 'auto' : 'none',
+                              cursor: visible && draggable && canDragDen ? 'grab' : 'default',
                               userSelect: 'none', touchAction: 'none',
                               zIndex: dragRef.current?.key === key ? 10 : 3,
                               opacity: dragScreenPos?.key === key ? 0 : undefined,
                               transition: denominatorPhase === 'to-sd' && draggable
-                                ? 'left 0.8s ease-in-out, top 0.8s ease-in-out' : undefined,
+                                ? 'left 0.55s ease-in-out, top 0.55s ease-in-out' : undefined,
                             }}>
                             {(() => {
                               const crossPhase = key === 'n1' ? n1CrossPhase : key === 'n2' ? n2CrossPhase : null;
@@ -1762,7 +1768,7 @@ const DissimilarIslandGame = ({
                             border:'3px dashed #ffffff', borderRadius:0,
                             background:'transparent',
                             boxShadow:'0 0 8px 3px rgba(0,0,0,0.7)',
-                            animation:'numFadeIn 0.5s ease-out both',
+                            animation:'numFadeIn 0.35s ease-out both',
                             pointerEvents:'none', zIndex:3,
                           }} />
                         )
@@ -1850,7 +1856,7 @@ const DissimilarIslandGame = ({
                             border:'3px dashed #ffffff', borderRadius:0,
                             background:'transparent',
                             boxShadow:'0 0 8px 3px rgba(0,0,0,0.7)',
-                            animation:'numFadeIn 0.5s ease-out both',
+                            animation:'numFadeIn 0.35s ease-out both',
                             pointerEvents:'none', zIndex:3,
                           }} />
                         )
@@ -1868,7 +1874,7 @@ const DissimilarIslandGame = ({
                       const inputBase = { fontWeight:800, textAlign:'center', border:'3px dashed #e8d5b4', borderRadius:0, background:'#333333', color:'#ffffff', outline:'none', appearance:'none', fontFamily:'"Press Start 2P", monospace', WebkitAppearance:'none', MozAppearance:'none', boxShadow:'0 4px 16px rgba(0,0,0,0.7)', textShadow:'0 0 8px rgba(0,0,0,0.9)' };
                       const fieldStyle = { ...inputBase, width:90, height:64, fontSize:28 };
                       const mixedStyle = { ...inputBase, width:70, height:54, fontSize:20 };
-                      const unsimpStyle = { display:'flex', flexDirection:'column', alignItems:'center', gap:2, animation:'unsimpSlide 0.6s ease-out', color:'#000', fontWeight:800, fontSize:20, fontFamily:'"Press Start 2P", monospace', textShadow:'3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' };
+                      const unsimpStyle = { display:'flex', flexDirection:'column', alignItems:'center', gap:2, animation:'unsimpSlide 0.4s ease-out', color:'#000', fontWeight:800, fontSize:20, fontFamily:'"Press Start 2P", monospace', textShadow:'3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' };
                       const unsimpFraction = unsimplified && (
                         <div style={{ position:'absolute', left:'100%', top:'50%', marginLeft:14, transform:'translateY(-50%)' }}>
                           <div style={unsimpStyle}>
@@ -1890,7 +1896,7 @@ const DissimilarIslandGame = ({
                       );
                       return (
                         <div style={{ position:'absolute', top:'32px', left:0, right:0, height:'300px', display:'flex', alignItems:'center', justifyContent:'center', zIndex:10, opacity: hideFinal ? 0 : 1, pointerEvents: hideFinal ? 'none' : 'auto', transition:'opacity 0.3s ease' }}>
-                          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, position:'relative', animation:'numFadeIn 0.5s ease-out both' }}>
+                          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, position:'relative', animation:'numFadeIn 0.35s ease-out both' }}>
                             {resIsWhole ? (
                               <input ref={finalNumRef} data-final="whole" type="text" inputMode="numeric" value={finalNumInput}
                                 onChange={e => setFinalNumInput(e.target.value.replace(/[^0-9-]/g,''))}
@@ -1908,7 +1914,7 @@ const DissimilarIslandGame = ({
                                     color: unsimplified ? '#000000' : '#ffffff',
                                     boxShadow: unsimplified ? 'none' : '0 4px 16px rgba(0,0,0,0.7)',
                                     textShadow: unsimplified ? '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' : '0 0 8px rgba(0,0,0,0.9)',
-                                    transition: 'all 0.5s ease',
+                                    transition: 'all 0.35s ease',
                                   }} />
                                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
                                   {numOf(mixedStyle)}
@@ -1934,20 +1940,24 @@ const DissimilarIslandGame = ({
 
                     {/* ── Bottom buttons — appear once all 4 numbers have landed ── */}
                     {n1Visible && d1Visible && n2Visible && d2Visible && (
-                      <div style={{ position:'absolute', bottom:12, left:'50%', display:'flex', gap:10, zIndex:4, animation:'nAreaFadeIn 0.5s ease-out forwards' }}>
+                      <div style={{ position:'absolute', bottom:12, left:'50%', display:'flex', gap:10, zIndex:4, animation:'nAreaFadeIn 0.35s ease-out forwards' }}>
                         {/* Confirm button */}
                         {(() => {
                           const fSNum = resSNum, fSDen = resSDen, fIsWhole = resIsWhole;
-                          const sdActive    = denominatorPhase === 'sd-input' && !confirmPressed && !!sdInputVal && !circleFailSequence;
-                          const n1Active     = n1CrossPhase === 'blinking' && !n1CrossConfirmed && !!n1CrossVal && !circleFailSequence;
-                          const n2Active     = n2CrossPhase === 'blinking' && !n2CrossConfirmed && !!n2CrossVal && !circleFailSequence;
+                          // SD / N1 / N2 inputs that are open but not yet confirmed. Confirm checks all of them at
+                          // once, and only lights up once every open one has something typed in.
+                          const sdOpen       = denominatorPhase === 'sd-input' && !confirmPressed && !circleFailSequence;
+                          const n1Open       = n1CrossPhase === 'blinking' && !n1CrossConfirmed && !circleFailSequence;
+                          const n2Open       = n2CrossPhase === 'blinking' && !n2CrossConfirmed && !circleFailSequence;
+                          const butterflyActive = (sdOpen || n1Open || n2Open)
+                            && (!sdOpen || !!sdInputVal) && (!n1Open || !!n1CrossVal) && (!n2Open || !!n2CrossVal);
                           const centerActive = centerPhase === 'blinking' && !centerConfirmed && !!centerVal && !circleFailSequence;
                           const finalFilled  = fIsWhole ? !!finalNumInput
                             : resIsImproper ? !!(finalWholeInput && finalNumInput && finalDenInput)
                             : !!(finalNumInput && finalDenInput);
                           const finalActive  = finalAnswerPhase && !hideFinal && finalFilled;
                           const allSolved    = sdCorrect && n1CrossCorrect && n2CrossCorrect;
-                          const active = carryActive ? carryUi.canSubmit : (sdActive || n1Active || n2Active || centerActive || finalActive);
+                          const active = carryActive ? carryUi.canSubmit : (butterflyActive || centerActive || finalActive);
                           const spawnCrossParticles = (setFn, ivRef, slBase, stBase, txBase, tyBase) => {
                             const spawn = () => {
                               const spread=18, pid=Date.now(), ps=[];
@@ -1966,66 +1976,75 @@ const DissimilarIslandGame = ({
                           onClick={() => {
                             if (carryActive) { carryActionRef.current?.(); return; }
                             setCurrentHint('');
-                            const recordFail =(label, entered, correct, prevMistakes) => {
-                              const updated = [...prevMistakes, { label, entered: String(entered), correct: String(correct) }];
+                            // Checks every open SD/N1/N2 answer in one go. Correct ones lock in; each wrong one is its own strike
+                            // (same as confirming them separately), with one shake/sound for the whole batch.
+                            const recordFails = (misses) => {
+                              const updated = [...circleMistakes, ...misses.map(m => ({ label: m.label, entered: String(m.entered), correct: String(m.correct) }))];
                               setCircleMistakes(updated);
-                              const newCount = circleFailCount + 1;
+                              const newCount = circleFailCount + misses.length;
                               setCircleFailCount(newCount);
                               playSfx('/SoundEffects/dissimilarWrong.wav');
                               setCircleShaking(true);
                               setTimeout(() => setCircleShaking(false), 1000);
-                              if (newCount >= 3) {
-                                triggerCircleFailSequence(updated);
-                              } else {
-                                // Strikes 1-2 don't cost a life, but still log the misconception
-                                // immediately — otherwise these attempts vanish and never reach the DB.
+                              // Strikes 1-2 don't cost a life, but still log the misconception
+                              // immediately — otherwise these attempts vanish and never reach the DB.
+                              // The 3rd strike is logged by the fail sequence itself.
+                              misses.forEach((m, i) => {
+                                if (circleFailCount + i + 1 >= 3) return;
                                 const misconceptionType =
-                                  label === 'SD' ? 'WRONG_DENOMINATOR_PRODUCT'
-                                  : label === 'N1' ? 'WRONG_CROSS_MULTIPLY_LEFT'
-                                  : label === 'N2' ? 'WRONG_CROSS_MULTIPLY_RIGHT'
-                                  : 'WRONG_CROSS_PRODUCT_COMBINATION';
+                                  m.label === 'SD' ? 'WRONG_DENOMINATOR_PRODUCT'
+                                  : m.label === 'N1' ? 'WRONG_CROSS_MULTIPLY_LEFT'
+                                  : 'WRONG_CROSS_MULTIPLY_RIGHT';
                                 saveSpellAttempt({
                                   gameSessionId: gameSession.sessionId,
                                   mechanicType: 'ButterflyMethod',
                                   problemStatement: getProblemStatement(),
-                                  answerSubmitted: String(entered),
-                                  correctAnswer: String(correct),
+                                  answerSubmitted: String(m.entered),
+                                  correctAnswer: String(m.correct),
                                   isCorrect: false, errorType: misconceptionType,
                                   remainingLives: lives, streakCount: streak, multiplierValue: multiplier,
                                   enemyHealthBefore: enemyHealth, enemyHealthAfter: enemyHealth, pointsEarned: 0,
                                   solveTimeMs: Math.round(solveWatch.getMs()),
                                 });
-                              }
-                              return updated;
+                              });
+                              if (newCount >= 3) triggerCircleFailSequence(updated);
                             };
-                            if (sdActive) {
-                              const sdAns = problem.denominator1 * problem.denominator2;
-                              if (parseInt(sdInputVal) === sdAns) {
-                                setConfirmPressed(true);
-                                setSdCorrect(true);
+                            if (butterflyActive) {
+                              const misses = [];
+                              let anyCorrect = false;
+                              if (sdOpen) {
+                                const sdAns = problem.denominator1 * problem.denominator2;
+                                if (parseInt(sdInputVal) === sdAns) {
+                                  anyCorrect = true;
+                                  setConfirmPressed(true);
+                                  setSdCorrect(true);
+                                  const spawnBatch = () => { const spread=18,pid=Date.now(),ps=[]; for(let i=0;i<7;i++){ps.push({id:pid+i,sl:126+(Math.random()-.5)*spread,st:186+(Math.random()-.5)*spread,tx:71+(Math.random()-.5)*spread,ty:44+(Math.random()-.5)*spread,delay:Math.random()*.18,size:Math.floor(Math.random()*5+4)});ps.push({id:pid+i+20,sl:266+(Math.random()-.5)*spread,st:186+(Math.random()-.5)*spread,tx:-69+(Math.random()-.5)*spread,ty:44+(Math.random()-.5)*spread,delay:Math.random()*.18,size:Math.floor(Math.random()*5+4)});} setSdParticles(ps); };
+                                  spawnBatch(); if (sdParticleIvRef.current) clearInterval(sdParticleIvRef.current); sdParticleIvRef.current = setInterval(spawnBatch, 600);
+                                } else { misses.push({ label: 'SD', entered: sdInputVal, correct: sdAns }); }
+                              }
+                              if (n1Open) {
+                                const n1Ans = problem.denominator2 * problem.numerator1;
+                                if (parseInt(n1CrossVal) === n1Ans) {
+                                  anyCorrect = true;
+                                  setN1CrossConfirmed(true);
+                                  setN1CrossCorrect(true);
+                                  spawnCrossParticles(setN1CrossParticles, n1CrossParticleIvRef, 266, 186, -140, -86);
+                                } else { misses.push({ label: 'N1', entered: n1CrossVal, correct: n1Ans }); }
+                              }
+                              if (n2Open) {
+                                const n2Ans = problem.denominator1 * problem.numerator2;
+                                if (parseInt(n2CrossVal) === n2Ans) {
+                                  anyCorrect = true;
+                                  setN2CrossConfirmed(true);
+                                  setN2CrossCorrect(true);
+                                  spawnCrossParticles(setN2CrossParticles, n2CrossParticleIvRef, 126, 186, 142, -86);
+                                } else { misses.push({ label: 'N2', entered: n2CrossVal, correct: n2Ans }); }
+                              }
+                              if (anyCorrect) {
                                 setHintUsed(false); setCurrentHint('');
-                                playSfx('/SoundEffects/circleAppear.wav');
-                                const spawnBatch = () => { const spread=18,pid=Date.now(),ps=[]; for(let i=0;i<7;i++){ps.push({id:pid+i,sl:126+(Math.random()-.5)*spread,st:186+(Math.random()-.5)*spread,tx:71+(Math.random()-.5)*spread,ty:44+(Math.random()-.5)*spread,delay:Math.random()*.18,size:Math.floor(Math.random()*5+4)});ps.push({id:pid+i+20,sl:266+(Math.random()-.5)*spread,st:186+(Math.random()-.5)*spread,tx:-69+(Math.random()-.5)*spread,ty:44+(Math.random()-.5)*spread,delay:Math.random()*.18,size:Math.floor(Math.random()*5+4)});} setSdParticles(ps); };
-                                spawnBatch(); if (sdParticleIvRef.current) clearInterval(sdParticleIvRef.current); sdParticleIvRef.current = setInterval(spawnBatch, 600);
-                              } else { recordFail('SD', sdInputVal, sdAns, circleMistakes); }
-                            } else if (n1Active) {
-                              const n1Ans = problem.denominator2 * problem.numerator1;
-                              if (parseInt(n1CrossVal) === n1Ans) {
-                                setN1CrossConfirmed(true);
-                                setN1CrossCorrect(true);
-                                setHintUsed(false); setCurrentHint('');
-                                playSfx('/SoundEffects/circleAppear.wav');
-                                spawnCrossParticles(setN1CrossParticles, n1CrossParticleIvRef, 266, 186, -140, -86);
-                              } else { recordFail('N1', n1CrossVal, n1Ans, circleMistakes); }
-                            } else if (n2Active) {
-                              const n2Ans = problem.denominator1 * problem.numerator2;
-                              if (parseInt(n2CrossVal) === n2Ans) {
-                                setN2CrossConfirmed(true);
-                                setN2CrossCorrect(true);
-                                setHintUsed(false); setCurrentHint('');
-                                playSfx('/SoundEffects/circleAppear.wav');
-                                spawnCrossParticles(setN2CrossParticles, n2CrossParticleIvRef, 126, 186, 142, -86);
-                              } else { recordFail('N2', n2CrossVal, n2Ans, circleMistakes); }
+                                if (!misses.length) playSfx('/SoundEffects/circleAppear.wav');
+                              }
+                              if (misses.length) recordFails(misses);
                             } else if (centerActive) {
                               setCenterConfirmed(true);
                               const n1s = problem.denominator2 * problem.numerator1;
@@ -2033,6 +2052,7 @@ const DissimilarIslandGame = ({
                               const ans = problem.operator === '+' ? n1s + n2s : n1s - n2s;
                               if (parseInt(centerVal) === ans) {
                                 setCenterCorrect(true);
+                                triggerEdgeBurst('Combine');
                                 setHintUsed(false); setCurrentHint('');
                                 playSfx('/SoundEffects/circleAppear.wav');
                                 const spawn = () => {
@@ -2058,7 +2078,7 @@ const DissimilarIslandGame = ({
                               // don't fail yet, ask for the simplified form.
                               const equivalent = !fIsWhole && nv > 0 && dv > 0 && wv === targetWhole && nv * fSDen === targetNum * dv;
                               if (equivalent && !unsimplified && !(nv === targetNum && dv === fSDen)) {
-                                setUnsimplified({ n: nv, d: dv });
+                                setUnsimplified({ n: nv, d: dv }); triggerEdgeBurst('Simplify');
                                 setFinalNumInput(''); setFinalDenInput('');
                                 actionLocked.current = false;
                                 playSfx('/SoundEffects/starAppear.wav');
@@ -2070,7 +2090,7 @@ const DissimilarIslandGame = ({
                                 : wv === targetWhole && nv === targetNum && dv === fSDen;
                               if (correct && !fIsWhole && !unsimplified && (resIsImproper ? rawLeft > 0 && gcd(rawLeft, rawDen) > 1 : gcd(rawNum, rawDen) > 1)) {
                                 // Went straight to the simplified answer without the unsimplified step first.
-                                setPerfectPopup(true);
+                                setPerfectPopup(true); triggerEdgeBurst('Perfect');
                                 playSfx('/SoundEffects/perfectEffect.wav');
                                 if (perfectTimeoutRef.current) clearTimeout(perfectTimeoutRef.current);
                                 perfectTimeoutRef.current = setTimeout(() => setPerfectPopup(false), 2250);
@@ -2081,7 +2101,7 @@ const DissimilarIslandGame = ({
                               if (correct) {
                                 playSfx('/VoiceLines/castSuccess.wav');
                                 playWizardAnim(Math.random() < 0.5 ? 'attack1' : 'attack2');
-                                setTimeout(() => launchFireball(() => { actionLocked.current = false; handleAnswerSubmit({ numerator: String(fSNum), denominator: String(fSDen), skipAnim: true }); }), 500);
+                                setTimeout(() => launchFireball(() => { actionLocked.current = false; handleAnswerSubmit({ numerator: String(fSNum), denominator: String(fSDen), skipAnim: true }); }), 300);
                               } else {
                                 const finalMisconceptionType = equivalent ? 'FAILED_TO_SIMPLIFY' : 'INCORRECT_ANSWER';
                                 const correctText = fIsWhole ? `${fSNum}` : resIsImproper ? `${targetWhole} ${targetNum}/${fSDen}` : `${fSNum}/${fSDen}`;
@@ -2092,7 +2112,7 @@ const DissimilarIslandGame = ({
                                   // exactly when the popup closes (or is skipped) instead of a fixed
                                   // delay that can fall out of sync with the popup's dynamic duration.
                                   handleWrongAnswer(`The final answer is ${correctText}`, enteredText, finalMisconceptionType, resetForNewProblem);
-                                }, 500);
+                                }, 300);
                               }
                             }
                           }}
@@ -2150,7 +2170,7 @@ const DissimilarIslandGame = ({
                           // A wrong quotient fails the round right away, like a wrong final answer.
                           pendingBgShiftRef.current = 'left';
                           setInteractableVisible(false);
-                          setTimeout(() => handleWrongAnswer(`${rawNum} ÷ ${rawDen} = ${rawWhole}`, String(quotient), 'INCORRECT_ANSWER', resetForNewProblem), 500);
+                          setTimeout(() => handleWrongAnswer(`${rawNum} ÷ ${rawDen} = ${rawWhole}`, String(quotient), 'INCORRECT_ANSWER', resetForNewProblem), 300);
                         }}
                         onComplete={revealFinalAnswer}
                       />
@@ -2190,7 +2210,7 @@ const DissimilarIslandGame = ({
           </div>
 
           {/* ── Enemy ── */}
-          <div ref={enemyRef} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', marginLeft: circleDetected && interactableVisible ? '160px' : '36px', transition: 'margin 0.5s ease', zIndex:2, flexShrink:0, willChange:'margin-left' }}>
+          <div ref={enemyRef} data-edge-dim style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', marginLeft: circleDetected && interactableVisible ? '160px' : '36px', transition: 'margin 0.35s ease', zIndex:2, flexShrink:0, willChange:'margin-left' }}>
             <div ref={enemyBoxRef} style={{ width:320, height:320, display:'flex', justifyContent:'center', alignItems:'center', position:'relative' }}>
               {(() => {
                 const info = enemySpriteInfo[enemyAnim];
@@ -2198,7 +2218,7 @@ const DissimilarIslandGame = ({
                 const BOX = 420;
                 const safeName = (enemyData?.name||'unknown').replace(/\s+/g,'_');
                 const kf = `enemy_${safeName}_${enemyAnim}`;
-                const sprAnim = `${kf} ${(frames/10).toFixed(2)}s steps(${frames}) ${enemyAnim==='idle'?'infinite':'1 forwards'}`;
+                const sprAnim = `${kf} ${(frames/(enemyAnim==='idle'?10:14)).toFixed(2)}s steps(${frames}) ${enemyAnim==='idle'?'infinite':'1 forwards'}`;
                 const combined = defeatTarget==='enemy'&&!defeatFading
                   ? `${sprAnim}, defeatFlash 0.25s ease-in-out infinite`
                   : enemyFlashing ? `${sprAnim}, enemyFlash 0.5s ease-out, damageShake 0.5s ease-out` : sprAnim;
@@ -2250,7 +2270,7 @@ const DissimilarIslandGame = ({
             border:'6px solid #fff', background:'#000',
             color: feedbackType==='correct' ? '#4ade80' : '#f87171',
             fontSize:'22px', fontWeight:700, whiteSpace:'nowrap',
-            animation:'feedbackSlideToCenter 0.6s ease-out forwards',
+            animation:'feedbackSlideToCenter 0.4s ease-out forwards',
           }}>
             {corners('#fff')}
             <div style={{ paddingTop: '6px' }}>{feedback}</div>
@@ -2289,6 +2309,7 @@ const DissimilarIslandGame = ({
       ))}
 
       {/* Fireball */}
+      <EdgeBurst />
       {fireball && (
         <img
           key={fireball.flying ? 'flying' : 'idle'}
@@ -2300,11 +2321,11 @@ const DissimilarIslandGame = ({
             width:120, height:120, pointerEvents:'none', zIndex:9999,
             '--sx':`${fireball.sx}px`,'--sy':`${fireball.sy}px`,
             '--ex':`${fireball.ex}px`,'--ey':`${fireball.ey}px`,
-            animation: fireball.flying ? 'fireballArc 0.65s ease-in-out forwards' : 'none',
+            animation: fireball.flying ? 'fireballArc 0.5s ease-in-out forwards' : 'none',
             opacity: fireball.flying ? undefined : 1,
           }}
           onAnimationEnd={() => {
-            playSfx('/SoundEffects/spellHit.wav');
+            playSfx('/SoundEffects/spellHit.wav'); triggerEdgeBurst('Hit');
             setFireball(null);
             setEnemyFlashing(true);
             setTimeout(() => setEnemyFlashing(false), 500);

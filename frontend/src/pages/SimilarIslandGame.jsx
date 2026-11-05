@@ -5,6 +5,7 @@ import DrawingCanvas from '../components/DrawingCanvas';
 import FractionPattern from '../components/FractionPattern';
 import SimilarFractionTutorial from '../components/SimilarFractionTutorial';
 import ImproperToMixedGame from '../components/ImproperToMixedGame';
+import EdgeBurst, { triggerEdgeBurst } from '../components/EdgeBurst';
 import InputGuideCursor from '../components/InputGuideCursor';
 import SettingsPage from './SettingsPage';
 import GameStopwatches from '../components/GameStopwatches';
@@ -356,7 +357,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const triggerDefeat = (target, onComplete) => {
     setDefeatTarget(target);
 
-    // beforeDefeat.wav with escalating playback rate over 5 seconds
+    // beforeDefeat.wav with escalating playback rate over 3 seconds
     const audio = new Audio('/SoundEffects/beforeDefeat.wav');
     audio.loop = true;
     audio.volume = getSfxVolume();
@@ -367,9 +368,9 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     const rampInterval = setInterval(() => {
       elapsed += 80;
       if (beforeDefeatRef.current) {
-        beforeDefeatRef.current.playbackRate = Math.min(1.0 + (elapsed / 5000) * 3.5, 4.5);
+        beforeDefeatRef.current.playbackRate = Math.min(1.0 + (elapsed / 3000) * 3.5, 4.5);
       }
-      if (elapsed >= 5000) {
+      if (elapsed >= 3000) {
         clearInterval(rampInterval);
         if (beforeDefeatRef.current) { beforeDefeatRef.current.pause(); beforeDefeatRef.current.src = ''; }
 
@@ -400,7 +401,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
 
         setTimeout(() => {
           onComplete();
-        }, 1200);
+        }, 900);
       }
     }, 80);
   };
@@ -428,16 +429,16 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       // Show invisible bubbles at start positions
       setBubbles({ b1: { ...s1, opacity: 0 }, b2: { ...s2, opacity: 0 } });
 
-      // Appear at 0.5 s
+      // Appear at 0.25 s
       setTimeout(() => {
         setBubbles({ b1: { ...s1, opacity: 1 }, b2: { ...s2, opacity: 1 } });
         playSfx('/SoundEffects/sparkleSound.wav');
-      }, 500);
+      }, 250);
 
-      // Arc animation begins after 2 s
+      // Arc animation begins after 1 s
       setTimeout(() => {
         playSfx('/SoundEffects/numberMove.wav');
-        const duration = 900;
+        const duration = 650;
         const start = performance.now();
         const bezier = (t, p0, cp, p1) => (1-t)**2 * p0 + 2*(1-t)*t * cp + t**2 * p1;
         const easeInOut = t => t < 0.5 ? 2*t*t : 1 - (-2*t+2)**2/2;
@@ -467,16 +468,16 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             const explodeSound = new Audio('/SoundEffects/sparkleExplode.wav');
             explodeSound.volume = getSfxVolume();
             explodeSound.play().catch(() => {});
-            explodeSound.addEventListener('ended', () => {
-              setTimeout(() => {
-                setNVisible(true);
-                playSfx('/SoundEffects/circleAppear.wav');
-              }, 200);
-            });
+            // N appears partway into the explosion sound instead of after it ends
+            setTimeout(() => {
+              setNVisible(true);
+              playSfx('/SoundEffects/circleAppear.wav');
+              triggerEdgeBurst('Circle');
+            }, 650);
           }
         };
         arcAnimRef.current = requestAnimationFrame(frame);
-      }, 2000);
+      }, 1000);
     }
     setCircleDetected(true);
     setDenAnimating(true);
@@ -590,14 +591,14 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       : { attack1: 7,  attack2: 9, hurt: 4 };
     if (wizardAnimTimerRef.current) clearTimeout(wizardAnimTimerRef.current);
     setWizardAnim(anim);
-    wizardAnimTimerRef.current = setTimeout(() => setWizardAnim('idle'), (frameCount[anim] / 10) * 1000);
+    wizardAnimTimerRef.current = setTimeout(() => setWizardAnim('idle'), (frameCount[anim] / 14) * 1000);
   };
 
   const playEnemyAnim = (anim) => {
     if (enemyAnimTimerRef.current) clearTimeout(enemyAnimTimerRef.current);
     setEnemyAnim(anim);
     const frames = enemySpriteInfoRef.current[anim]?.frames || 4;
-    enemyAnimTimerRef.current = setTimeout(() => setEnemyAnim('idle'), (frames / 10) * 1000);
+    enemyAnimTimerRef.current = setTimeout(() => setEnemyAnim('idle'), (frames / 14) * 1000);
   };
 
   const launchFireball = (onHit) => {
@@ -617,13 +618,13 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     onHitRef.current = onHit;
     playSfx('/SoundEffects/spellCast.wav');
 
-    // Hold at player for 800ms, then fly via CSS animation
+    // Hold at player for 400ms, then fly via CSS animation
     setFireball({ sx, sy, ex, ey, flying: false });
 
     setTimeout(() => {
       playSfx('/SoundEffects/spellThrow.wav');
       setFireball({ sx, sy, ex, ey, flying: true });
-    }, 800);
+    }, 400);
   };
 
   const handleAnswerSubmit = async (submittedAnswer, incorrectText) => {
@@ -849,7 +850,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     if (lastBgShiftRef.current) {
       setBgShift(`return-${lastBgShiftRef.current}`);
       lastBgShiftRef.current = null;
-      setTimeout(() => setBgShift(null), 700);
+      setTimeout(() => setBgShift(null), 500);
     }
     setMagicN('');
     actionLocked.current = false;
@@ -868,13 +869,13 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     setFinalAnswerVisible(true);
     setFormulaVisible(false);
     // With the gem game, the final inputs (and Check) wait for handleFinalSettled instead.
-    if (!carryPhase) setTimeout(() => { setCheckButtonReady(true); actionLocked.current = false; }, 600);
+    if (!carryPhase) setTimeout(() => { setCheckButtonReady(true); actionLocked.current = false; }, 350);
   };
 
   const handleFinalSettled = () => {
     playSfx('/SoundEffects/circleAppear.wav');
     setFinalInputsShown(true);
-    setTimeout(() => { setCheckButtonReady(true); actionLocked.current = false; }, 600);
+    setTimeout(() => { setCheckButtonReady(true); actionLocked.current = false; }, 350);
   };
 
   const handleGameEnd = async (status, isWon) => {
@@ -987,7 +988,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       }}
     >
       {/* Bobbing background layer — outer div bobs (transform), inner div shifts position on answer */}
-      <div style={{ position: 'absolute', inset: '-20px', animation: 'bgBob 12s ease-in-out infinite', zIndex: 0, pointerEvents: 'none' }}>
+      <div data-edge-dim style={{ position: 'absolute', inset: '-20px', animation: 'bgBob 12s ease-in-out infinite', zIndex: 0, pointerEvents: 'none' }}>
         <div
           style={{
             position: 'absolute',
@@ -995,10 +996,10 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             backgroundImage: 'url(/InMatchUIElements/SimilarIsland/ForrestCombatBackground.png)',
             backgroundSize: 'contain',
             backgroundPosition: 'center',
-            animation: bgShift === 'right'        ? 'bgShiftRight  0.6s ease-out forwards'
-                     : bgShift === 'left'         ? 'bgShiftLeft   0.6s ease-out forwards'
-                     : bgShift === 'return-right' ? 'bgReturnRight 0.7s ease-in-out forwards'
-                     : bgShift === 'return-left'  ? 'bgReturnLeft  0.7s ease-in-out forwards'
+            animation: bgShift === 'right'        ? 'bgShiftRight  0.45s ease-out forwards'
+                     : bgShift === 'left'         ? 'bgShiftLeft   0.45s ease-out forwards'
+                     : bgShift === 'return-right' ? 'bgReturnRight 0.5s ease-in-out forwards'
+                     : bgShift === 'return-left'  ? 'bgReturnLeft  0.5s ease-in-out forwards'
                      : 'none',
           }}
         />
@@ -1006,7 +1007,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '8px 0', gap: '10px', position: 'relative', zIndex: 1 }}>
 
         {/* Stats — top left, same border as problem display */}
-        <div style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div data-edge-dim style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
           <div style={{ position: 'absolute', inset: 5, border: '1px solid #703737', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#703737' }} />
           <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#703737' }} />
@@ -1042,7 +1043,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               fontSize: '13px', fontWeight: 700,
               fontFamily: '"Press Start 2P", monospace',
               display: 'flex', alignItems: 'center', padding: '0 12px', margin: '0 88px',
-              animation: 'hintReveal 0.8s ease-out forwards',
+              animation: 'hintReveal 0.6s ease-out forwards',
               whiteSpace: 'nowrap',
               flex: 1,
               justifyContent: 'center',
@@ -1152,6 +1153,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         >
           <div
             ref={playerRef}
+            data-edge-dim
             className="wireframe-player"
             style={{
               display: 'flex',
@@ -1159,7 +1161,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               alignItems: 'center',
               gap: '6px',
               marginRight: circleDetected && interactableVisible ? '160px' : '36px',
-              transition: 'margin 0.5s ease',
+              transition: 'margin 0.35s ease',
               zIndex: 2,
               flexShrink: 0,
               position: 'relative',
@@ -1192,7 +1194,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 const n = FRAMES[wizardAnim];
                 const DISP = 420;
                 const kf = `${charKey}_${wizardAnim}`;
-                const sprAnim = `${kf} ${(n / 10).toFixed(2)}s steps(${n}) ${wizardAnim === 'idle' ? 'infinite' : '1 forwards'}`;
+                const sprAnim = `${kf} ${(n / (wizardAnim === 'idle' ? 10 : 14)).toFixed(2)}s steps(${n}) ${wizardAnim === 'idle' ? 'infinite' : '1 forwards'}`;
                 const combined = defeatTarget === 'player' && !defeatFading
                   ? `${sprAnim}, defeatFlash 0.25s ease-in-out infinite`
                   : playerFlashing
@@ -1323,7 +1325,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             {/* Fraction display — outer controls visibility, inner animates in */}
             <div style={{
               opacity: interactableVisible ? 1 : 0,
-              transition: 'opacity 0.4s ease',
+              transition: 'opacity 0.3s ease',
               animation: 'magicFloat 3s ease-in-out infinite',
               position: 'relative',
               filter: pulse > 0.15 ? `drop-shadow(0 0 ${(pulse * 32).toFixed(1)}px rgba(112,55,55,${Math.min(pulse * 1.2, 1).toFixed(2)}))` : 'none',
@@ -1431,7 +1433,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 justifyContent: 'center',
                 opacity: interactableVisible ? 1 : 0,
                 pointerEvents: interactableVisible ? 'auto' : 'none',
-                transition: 'opacity 0.4s ease',
+                transition: 'opacity 0.3s ease',
                 alignItems: 'center',
                 position: 'relative',
                 marginBottom: '50px',
@@ -1532,7 +1534,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   bottom: 12, left: '50%',
                   display: 'flex', gap: 10,
                   zIndex: 4,
-                  animation: 'nAreaFadeIn 0.5s ease-out forwards',
+                  animation: 'nAreaFadeIn 0.35s ease-out forwards',
                 }}>
                   {carryPhase && !carryFinal ? (
                   /* Improper → mixed game: Check (quotient) / Continue */
@@ -1611,6 +1613,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                               setCarryStart({ n: center(nEl), d: center(dEl) });
                             }
                             setCarryPhase(true);
+                            triggerEdgeBurst('Combine');
                             return;
                           }
                           // Animate D bubble up to N position
@@ -1623,7 +1626,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                             const ex = sx;
                             const ey = cRect.top + (32 + 129) * scale - SZ / 2;
                             setDBubble({ x: sx, y: sy });
-                            const dur = 800, t0 = performance.now();
+                            const dur = 560, t0 = performance.now();
                             const ease = t => t < 0.5 ? 2*t*t : 1-((-2*t+2)**2)/2;
                             const anim = (now) => {
                               const raw = Math.min((now - t0) / dur, 1);
@@ -1639,12 +1642,13 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 const explode = new Audio('/SoundEffects/sparkleExplode.wav');
                                 explode.volume = getSfxVolume();
                                 explode.play().catch(() => {});
-                                explode.addEventListener('ended', () => {
+                                setTimeout(() => {
                                   setDBubble(null);
                                   setFormulaVisible(false);
                                   playSfx('/SoundEffects/circleAppear.wav');
                                   revealFinalAnswer();
-                                });
+                                  triggerEdgeBurst('Combine');
+                                }, 650);
                               }
                             };
                             dBubbleAnimRef.current = requestAnimationFrame(anim);
@@ -1657,7 +1661,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       setMagicN('');
                       setInteractableVisible(false);
                       setBgShift('left'); lastBgShiftRef.current = 'left';
-                      setTimeout(() => handleAnswerSubmit(wrongAnswer), 500);
+                      setTimeout(() => handleAnswerSubmit(wrongAnswer), 300);
                     }}
                   >
                     <div style={{position:'absolute',top:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
@@ -1687,7 +1691,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       opacity: checkButtonReady ? (phase2InputsFilled ? 1 : 0.45) : undefined,
                       pointerEvents: checkButtonReady ? 'auto' : 'none',
                       backdropFilter: 'blur(6px)',
-                      animation: checkButtonReady ? 'none' : 'dimFadeIn 0.6s ease-out forwards',
+                      animation: checkButtonReady ? 'none' : 'dimFadeIn 0.4s ease-out forwards',
                       transition: checkButtonReady ? 'opacity 0.2s ease' : 'none',
                     }}
                     disabled={!checkButtonReady || !phase2InputsFilled}
@@ -1707,7 +1711,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                           const targetWhole = simplifiedResultIsImproper ? Math.floor(sn / sd) : 0;
                           const targetNum = simplifiedResultIsImproper ? sn % sd : sn;
                           if (wv === targetWhole && nv * sd === targetNum * dv && !(nv === targetNum && dv === sd)) {
-                            setUnsimplified({ n: nv, d: dv });
+                            setUnsimplified({ n: nv, d: dv }); triggerEdgeBurst('Simplify');
                             setSimplifiedInput('');
                             setSimplifiedDenInput('');
                             actionLocked.current = false;
@@ -1744,7 +1748,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                       }
                       if (correct && !simplifiedResultIsWhole && !unsimplified && (simplifiedResultIsImproper ? rawLeft > 0 && gcd(rawLeft, parseInt(displayDen1)) > 1 : gcd(rawNumerator, parseInt(displayDen1)) > 1)) {
                         // Went straight to the simplified fraction without the unsimplified step first.
-                        setPerfectPopup(true);
+                        setPerfectPopup(true); triggerEdgeBurst('Perfect');
                         playSfx('/SoundEffects/perfectEffect.wav');
                         if (perfectTimeoutRef.current) clearTimeout(perfectTimeoutRef.current);
                         perfectTimeoutRef.current = setTimeout(() => setPerfectPopup(false), 2250);
@@ -1756,9 +1760,9 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         playWizardAnim(Math.random() < 0.5 ? 'attack1' : 'attack2');
                         setTimeout(() => launchFireball(() => {
                           handleAnswerSubmit(answer);
-                        }), 500);
+                        }), 300);
                       } else {
-                        setTimeout(() => handleAnswerSubmit(answer), 500);
+                        setTimeout(() => handleAnswerSubmit(answer), 300);
                       }
                     }}
                   >
@@ -1789,7 +1793,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         color: '#e8d5b4',
                         cursor: 'pointer',
                         backdropFilter: 'blur(6px)',
-                        animation: 'problemFadeIn 0.4s ease-out',
+                        animation: 'problemFadeIn 0.3s ease-out',
                       }}
                     >
                       <div style={{position:'absolute',top:-6,left:-6,width:10,height:10,background:'#703737',pointerEvents:'none'}}/>
@@ -1868,9 +1872,9 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         width: '100%', height: '100%',
                         objectFit: 'contain',
                         pointerEvents: 'none',
-                        animation: 'problemFadeIn 0.5s ease-out',
+                        animation: 'problemFadeIn 0.35s ease-out',
                         opacity: checkPhase ? 0 : 1,
-                        transition: 'opacity 0.6s ease-out',
+                        transition: 'opacity 0.4s ease-out',
                       }}
                     />
                     {/* Numerator / Simplified fraction area — fades in, fades out when D moves */}
@@ -1884,7 +1888,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                     }}>
                     <div style={{
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-                      animation: 'nAreaFadeIn 0.5s ease-out forwards',
+                      animation: 'nAreaFadeIn 0.35s ease-out forwards',
                     }}>
                       <span style={{
                         fontSize: 18, fontWeight: 800, color: '#222',
@@ -1918,7 +1922,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         />
                       ) : (
                         /* Phase 2 — simplified fraction input */
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', animation: 'problemFadeIn 0.4s ease-out' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', animation: 'problemFadeIn 0.3s ease-out' }}>
                           {simplifiedResultIsWhole ? (
                             /* Whole number — single field */
                             <input
@@ -1964,7 +1968,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                   WebkitAppearance: 'none', MozAppearance: 'none',
                                   boxShadow: unsimplified ? 'none' : '0 4px 16px rgba(0,0,0,0.7)',
                                   textShadow: unsimplified ? '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)' : '0 0 8px rgba(0,0,0,0.9)',
-                                  transition: 'all 0.5s ease',
+                                  transition: 'all 0.35s ease',
                                 }}
                               />
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
@@ -2011,7 +2015,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 <div style={{ position: 'absolute', left: '100%', top: '50%', marginLeft: 14, transform: 'translateY(-50%)' }}>
                                   <div style={{
                                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                                    animation: 'unsimpSlide 0.6s ease-out', color: '#000', fontWeight: 800, fontSize: 20,
+                                    animation: 'unsimpSlide 0.4s ease-out', color: '#000', fontWeight: 800, fontSize: 20,
                                     fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)',
                                   }}>
                                     <span>{unsimplified.n}</span>
@@ -2067,7 +2071,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                                 <div style={{ position: 'absolute', left: '100%', top: '50%', marginLeft: 14, transform: 'translateY(-50%)' }}>
                                   <div style={{
                                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                                    animation: 'unsimpSlide 0.6s ease-out', color: '#000', fontWeight: 800, fontSize: 20,
+                                    animation: 'unsimpSlide 0.4s ease-out', color: '#000', fontWeight: 800, fontSize: 20,
                                     fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 rgba(0,0,0,0.3), 0 0 8px rgba(0,0,0,0.35)',
                                   }}>
                                     <span>{unsimplified.n}</span>
@@ -2141,7 +2145,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                         setTimeout(() => handleAnswerSubmit(
                           quotient,
                           `Incorrect. ${rawNumerator} ÷ ${displayDen1} = ${rawWhole}`
-                        ), 500);
+                        ), 300);
                       }}
                       onComplete={revealFinalAnswer}
                     />
@@ -2154,6 +2158,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
 
           <div
             ref={enemyRef}
+            data-edge-dim
             className="wireframe-enemy"
             style={{
               display: 'flex',
@@ -2161,7 +2166,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               alignItems: 'center',
               gap: '6px',
               marginLeft: circleDetected && interactableVisible ? '160px' : '36px',
-              transition: 'margin 0.5s ease',
+              transition: 'margin 0.35s ease',
               zIndex: 2,
               flexShrink: 0,
             }}
@@ -2198,7 +2203,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 const BOX = 420;
                 const safeName = (enemyData?.name || 'unknown').replace(/\s+/g, '_');
                 const kf = `enemy_${safeName}_${enemyAnim}`;
-                const sprAnim = `${kf} ${(frames / 10).toFixed(2)}s steps(${frames}) ${enemyAnim === 'idle' ? 'infinite' : '1 forwards'}`;
+                const sprAnim = `${kf} ${(frames / (enemyAnim === 'idle' ? 10 : 14)).toFixed(2)}s steps(${frames}) ${enemyAnim === 'idle' ? 'infinite' : '1 forwards'}`;
                 const combined = defeatTarget === 'enemy' && !defeatFading
                   ? `${sprAnim}, defeatFlash 0.25s ease-in-out infinite`
                   : enemyFlashing
@@ -2299,7 +2304,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             color: feedbackType === 'correct' ? '#4ade80' : '#f87171',
             fontSize: '22px', fontWeight: 700,
             whiteSpace: 'nowrap',
-            animation: 'feedbackSlideToCenter 0.6s ease-out forwards',
+            animation: 'feedbackSlideToCenter 0.4s ease-out forwards',
           }}>
             {/* Inner thin border */}
             <div style={{ position: 'absolute', inset: 7, border: '1px solid #fff', pointerEvents: 'none' }} />
@@ -2446,6 +2451,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         </>
       )}
 
+      <EdgeBurst />
       {fireball && (
         <img
           key={fireball.flying ? 'flying' : 'idle'}
@@ -2461,12 +2467,12 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             '--sx': `${fireball.sx}px`, '--sy': `${fireball.sy}px`,
             '--ex': `${fireball.ex}px`, '--ey': `${fireball.ey}px`,
             animation: fireball.flying
-              ? 'fireballArc 0.65s ease-in-out forwards'
+              ? 'fireballArc 0.5s ease-in-out forwards'
               : 'none',
             opacity: fireball.flying ? undefined : 1,
           }}
           onAnimationEnd={() => {
-            playSfx('/SoundEffects/spellHit.wav');
+            playSfx('/SoundEffects/spellHit.wav'); triggerEdgeBurst('Hit');
             setFireball(null);
             setEnemyFlashing(true);
             setTimeout(() => setEnemyFlashing(false), 500);

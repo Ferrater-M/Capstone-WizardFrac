@@ -6,18 +6,15 @@ import java.util.Map;
 public class DiagnosticsDTO {
     private List<CompetencyMasteryDTO> competencies;
     private SummaryDTO summary;
-    private List<StreakHistoryDTO> streakHistory;
     private List<GameplayHistoryDTO> gameHistory;
     private List<MisconceptionDTO> dissimilarMisconceptions;
 
     public DiagnosticsDTO() {}
 
     public DiagnosticsDTO(List<CompetencyMasteryDTO> competencies, SummaryDTO summary,
-                          List<StreakHistoryDTO> streakHistory, List<GameplayHistoryDTO> gameHistory,
-                          List<MisconceptionDTO> dissimilarMisconceptions) {
+                          List<GameplayHistoryDTO> gameHistory, List<MisconceptionDTO> dissimilarMisconceptions) {
         this.competencies = competencies;
         this.summary = summary;
-        this.streakHistory = streakHistory;
         this.gameHistory = gameHistory;
         this.dissimilarMisconceptions = dissimilarMisconceptions;
     }
@@ -44,14 +41,6 @@ public class DiagnosticsDTO {
 
     public void setSummary(SummaryDTO summary) {
         this.summary = summary;
-    }
-
-    public List<StreakHistoryDTO> getStreakHistory() {
-        return streakHistory;
-    }
-
-    public void setStreakHistory(List<StreakHistoryDTO> streakHistory) {
-        this.streakHistory = streakHistory;
     }
 
     public List<GameplayHistoryDTO> getGameHistory() {
@@ -186,34 +175,6 @@ public class DiagnosticsDTO {
 
         public void setAverageMultiplier(Double averageMultiplier) {
             this.averageMultiplier = averageMultiplier;
-        }
-    }
-
-    public static class StreakHistoryDTO {
-        private String sessionDate;
-        private Integer peakStreak;
-
-        public StreakHistoryDTO() {}
-
-        public StreakHistoryDTO(String sessionDate, Integer peakStreak) {
-            this.sessionDate = sessionDate;
-            this.peakStreak = peakStreak;
-        }
-
-        public String getSessionDate() {
-            return sessionDate;
-        }
-
-        public void setSessionDate(String sessionDate) {
-            this.sessionDate = sessionDate;
-        }
-
-        public Integer getPeakStreak() {
-            return peakStreak;
-        }
-
-        public void setPeakStreak(Integer peakStreak) {
-            this.peakStreak = peakStreak;
         }
     }
 

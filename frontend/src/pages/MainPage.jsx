@@ -5,7 +5,7 @@ const ABOUT_SECTIONS = [
   {
     icon: '/PlayerAssets/hat.png',
     title: 'What is WizardFrac?',
-    body: 'WizardFrac is an exciting educational adventure that helps Grade 4 students learn and master fractions through fun games, magical challenges, and rewarding quests!',
+    body: 'WizardFrac is an exciting educational adventure that helps Grade 4 students learn and master fractions through fun games, magical challenges, and rewarding island adventures!',
   },
   {
     icon: '/PlayerAssets/Book.png',
@@ -17,7 +17,7 @@ const ABOUT_SECTIONS = [
 const WHY_WIZARDFRAC = [
   'Aligned with the MATATAG Curriculum',
   'Game-based learning that keeps students motivated',
-  'Tracks progress and celebrates achievements',
+  'Tracks progress and rewards rank badges',
   'Safe, fun, and student-friendly environment',
 ];
 
