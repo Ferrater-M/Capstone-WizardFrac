@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 
 const EVENT = 'wf-edge-burst';
 const SHOW_MS = 1800;        // every cube/word has faded out by then
-const DIM_MS = 1000;         // how long the body keeps the wf-edge-dim class (fade in/out is in game.css)
+const DIM_MS = 120;          // = the 0.12s darken in game.css; removing the class then starts the smooth 1.6s return right away
 const CUBES_PER_SIDE = 75;
 const WORDS_PER_SIDE = 14;
 

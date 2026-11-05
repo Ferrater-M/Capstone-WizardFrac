@@ -8,6 +8,7 @@ import ImproperToMixedGame, {
   SETTLE_STAGGER, SETTLE_MOVE, SETTLE_GLOW_MS,
 } from '../components/ImproperToMixedGame';
 import EdgeBurst, { triggerEdgeBurst } from '../components/EdgeBurst';
+import { triggerScreenShake } from '../utils/screenShake';
 import HybridFractionTutorial from '../components/HybridFractionTutorial';
 import GameMenuModal from '../components/GameMenuModal';
 import SettingsPage from './SettingsPage';
@@ -4051,8 +4052,8 @@ const HybridIslandGame = ({
   }, [enemyData?.name]);
 
   useEffect(() => { if (enemyAttacking) playEnemyAnim('attack'); }, [enemyAttacking]);
-  useEffect(() => { if (enemyFlashing)  playEnemyAnim('hit');    }, [enemyFlashing]);
-  useEffect(() => { if (playerFlashing) playWizardAnim('hurt');  }, [playerFlashing]);
+  useEffect(() => { if (enemyFlashing)  { playEnemyAnim('hit');   triggerScreenShake(); } }, [enemyFlashing]);
+  useEffect(() => { if (playerFlashing) { playWizardAnim('hurt'); triggerScreenShake(); } }, [playerFlashing]);
 
   // Crystal & mysticflower environmental particles — rain from top-right to bottom-left
   useEffect(() => {

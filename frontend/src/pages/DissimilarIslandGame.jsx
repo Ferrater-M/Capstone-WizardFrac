@@ -11,6 +11,7 @@ import '../components/components.css';
 import { getDissimilarTier, TIMING, getFeedbackDuration } from '../utils/gameUtils';
 import ImproperToMixedGame from '../components/ImproperToMixedGame';
 import EdgeBurst, { triggerEdgeBurst } from '../components/EdgeBurst';
+import { triggerScreenShake } from '../utils/screenShake';
 import InputGuideCursor from '../components/InputGuideCursor';
 import GameStopwatches from '../components/GameStopwatches';
 import { API_BASE_URL } from '../config';
@@ -707,8 +708,8 @@ const DissimilarIslandGame = ({
   };
 
   useEffect(() => { if (enemyAttacking) playEnemyAnim('attack'); }, [enemyAttacking]);
-  useEffect(() => { if (enemyFlashing)  playEnemyAnim('hit');    }, [enemyFlashing]);
-  useEffect(() => { if (playerFlashing) playWizardAnim('hurt');  }, [playerFlashing]);
+  useEffect(() => { if (enemyFlashing)  { playEnemyAnim('hit');   triggerScreenShake(); } }, [enemyFlashing]);
+  useEffect(() => { if (playerFlashing) { playWizardAnim('hurt'); triggerScreenShake(); } }, [playerFlashing]);
 
   // ── Interactable box resize observer (same scale logic as Similar Island) ──
   useEffect(() => {

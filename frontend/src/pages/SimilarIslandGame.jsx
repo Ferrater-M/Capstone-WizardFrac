@@ -6,6 +6,7 @@ import FractionPattern from '../components/FractionPattern';
 import SimilarFractionTutorial from '../components/SimilarFractionTutorial';
 import ImproperToMixedGame from '../components/ImproperToMixedGame';
 import EdgeBurst, { triggerEdgeBurst } from '../components/EdgeBurst';
+import { triggerScreenShake } from '../utils/screenShake';
 import InputGuideCursor from '../components/InputGuideCursor';
 import SettingsPage from './SettingsPage';
 import GameStopwatches from '../components/GameStopwatches';
@@ -351,8 +352,13 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   }, [enemyAttacking]);
 
   useEffect(() => {
-    if (enemyFlashing) playEnemyAnim('hit');
+    if (enemyFlashing) { playEnemyAnim('hit'); triggerScreenShake(); }
   }, [enemyFlashing]);
+
+  // Player hurt (the hurt sprite itself is started where playerFlashing is set).
+  useEffect(() => {
+    if (playerFlashing) triggerScreenShake();
+  }, [playerFlashing]);
 
   const triggerDefeat = (target, onComplete) => {
     setDefeatTarget(target);

@@ -631,8 +631,11 @@
 }
 
 /* EdgeBurst (components/EdgeBurst.jsx): background/characters/HUD dim (data-edge-dim), then white cubes + phase words shoot from the screen edges */
-[data-edge-dim] { transition: filter 0.12s ease-out; }
-body.wf-edge-dim [data-edge-dim] { filter: brightness(0.35); }
+/* Base transition = the return to normal (slow, smooth); the wf-edge-dim rule's transition = the quick darken.
+   !important because the player/enemy columns set an inline `transition: margin 0.35s ease`, which would otherwise
+   replace the filter transition and make them snap bright — so the margin slide is re-listed here to keep it. */
+[data-edge-dim] { transition: filter 1.6s ease-in-out, margin 0.35s ease !important; }
+body.wf-edge-dim [data-edge-dim] { filter: brightness(0.35); transition: filter 0.12s ease-out, margin 0.35s ease !important; }
 @keyframes edgeCube {
   0%   { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
   100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--r)) scale(0.2); }

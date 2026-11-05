@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { playSfx } from '../utils/audio';
 import { useReportBusy } from '../utils/stopwatch';
 import { triggerEdgeBurst } from './EdgeBurst';
+import { triggerScreenShake } from '../utils/screenShake';
 
 const FONT = '"Press Start 2P", monospace';
 const BROWN = '#703737';
@@ -288,7 +289,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
     for (let j = 0; j < wholes; j++) later(j * JAR_STAGGER, () => playSfx('/SoundEffects/spellThrow.wav'));
     const base = (wholes - 1) * JAR_STAGGER;
     later(600 + base, () => { setDSplit(true); playSfx('/SoundEffects/sparkleSound.wav'); });
-    later(1200 + base, () => { setDLanded(true); triggerEdgeBurst('Divide'); });
+    later(1200 + base, () => setDLanded(true));
     later(1250 + base, () => setPhase('charge'));
     later(2000 + base, () => { setPhase('gem'); setBurstKey(1); playSfx('/SoundEffects/sparkleExplode.wav'); });
     later(2700 + base, () => {
@@ -300,6 +301,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
     later(3400 + base, () => {
       setPhase('shatter');
       triggerEdgeBurst('Shatter');
+      triggerScreenShake({ sound: false });
       setBurstKey(2);
       shakeAudioRef.current?.pause();
       shakeAudioRef.current = null;
