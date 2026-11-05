@@ -2723,7 +2723,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
               setExplodeSparkles(prev => [...prev, { id: sid, left: pos.left + pos.size / 2, top: pos.top + pos.size / 2 }]);
               setTimeout(() => setExplodeSparkles(prev => prev.filter(s => s.id !== sid)), 800);
               arrived++;
-              if (arrived === order.length) { setFlyBubbles(null); triggerEdgeBurst('Infinity'); }
+              if (arrived === order.length) { setFlyBubbles(null); triggerEdgeBurst('Cross'); }
             }
           };
           requestAnimationFrame(frame);
@@ -2931,7 +2931,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
   // ── CENTER unlock ──
   useEffect(() => {
     if (sdCorrect && n1CrossCorrect && n2CrossCorrect && !centerPhase) {
-      triggerEdgeBurst('Butterfly');
+      triggerEdgeBurst('Combine');
       setCenterPhase('blinking');
       setCenterVal('');
       setCenterCorrect(false);

@@ -833,7 +833,7 @@ const DissimilarIslandGame = ({
               setExplodeSparkles(prev => [...prev, { id: sid, left: pos.left + 20, top: pos.top + 20 }]);
               setTimeout(() => setExplodeSparkles(prev => prev.filter(s => s.id !== sid)), 800);
               arrived++;
-              if (arrived === order.length) { setFlyBubbles(null); triggerEdgeBurst('Infinity'); }
+              if (arrived === order.length) { setFlyBubbles(null); triggerEdgeBurst('Cross'); }
             }
           };
           requestAnimationFrame(frame);
@@ -865,7 +865,7 @@ const DissimilarIslandGame = ({
 
   useEffect(() => {
     if (sdCorrect && n1CrossCorrect && n2CrossCorrect && !centerPhase) {
-      triggerEdgeBurst('Butterfly');
+      triggerEdgeBurst('Combine');
       setCenterPhase('blinking');
       setCenterVal('');
       setCenterCorrect(false);
