@@ -15,7 +15,7 @@ import './game.css';
 import { getFeedbackDuration, getDifficultyParamsHybrid } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
 import GameStopwatches from '../components/GameStopwatches';
-import { useStopwatch, useAnimationHold, useReportBusy } from '../utils/stopwatch';
+import { useStopwatch, useHalfWidth, useAnimationHold, useReportBusy } from '../utils/stopwatch';
 
 // Debug/compliance toggle — false (default) makes generateProblem() order same-
 // denominator subtraction's W and N independently so neither ever goes negative,
@@ -4477,6 +4477,9 @@ const HybridIslandGame = ({
   const solveRunning = sessionRunning && answeredRound !== roundKey;
   // getMs() on these gives the exact time for saving.
   const sessionWatch = useStopwatch(sessionRunning);
+  // Help / Menu group + Session clock are sized to match the Solve clock (half the stats box).
+  const statsBoxRef = useRef(null);
+  const hudHalfW = useHalfWidth(statsBoxRef);
   const solveWatch = useStopwatch(solveRunning);
 
   // Every new problem starts its Solve Time from 0.
@@ -4521,14 +4524,15 @@ const HybridIslandGame = ({
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '8px 0', gap: '10px', position: 'relative', zIndex: 1 }}>
-        <div data-edge-dim style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div ref={statsBoxRef} data-edge-dim style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
           {corners('#703737')}
           <span style={{ color: '#222', fontSize: '13px' }}>Streak: x{multiplier.toFixed(1)}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Score: {score}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Level: {gameSession.level || 1}/7</span>
-          {/* Stopwatches — hang under the stats box at half its width, without pushing the battle area down */}
+          {/* Solve stopwatch — hangs under the stats box at half its width, without pushing the battle area down */}
           <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: -4, width: 'calc(50% + 4px)', zIndex: 5 }}>
             <GameStopwatches
+              which="solve"
               sessionMs={sessionWatch.ms}
               solveMs={solveWatch.ms}
               sessionRunning={sessionRunning}
@@ -4552,13 +4556,23 @@ const HybridIslandGame = ({
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, position: 'relative', width: hudHalfW ?? undefined, boxSizing: 'border-box' }}>
+          {/* Session stopwatch — hangs under the Help / Menu buttons, spanning both */}
+          <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: 0, right: 0, zIndex: 5 }}>
+            <GameStopwatches
+              which="session"
+              sessionMs={sessionWatch.ms}
+              solveMs={solveWatch.ms}
+              sessionRunning={sessionRunning}
+              solveRunning={solveRunning}
+            />
+          </div>
           <button
             onClick={() => { setShowTutorial(true); setHasSeenMixedTutorial(false); }}
             style={{
               position: 'relative', padding: '8px 16px', fontSize: 13, fontWeight: 700,
               fontFamily: '"Press Start 2P", monospace', background: '#e8d5b4', border: '4px solid #703737',
-              borderRadius: 0, color: '#222', cursor: 'pointer',
+              borderRadius: 0, color: '#222', cursor: 'pointer', flex: 1,
             }}
           >
             {corners('#703737')}
@@ -4569,7 +4583,7 @@ const HybridIslandGame = ({
             style={{
               position: 'relative', padding: '8px 16px', fontSize: 13, fontWeight: 700,
               fontFamily: '"Press Start 2P", monospace', background: '#e8d5b4', border: '4px solid #703737',
-              borderRadius: 0, color: '#222', cursor: 'pointer',
+              borderRadius: 0, color: '#222', cursor: 'pointer', flex: 1,
             }}
           >
             {corners('#703737')}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 
 // A stopwatch that only counts while `running` is true. Pausing keeps the time
 // counted so far; reset() puts it back to 0 (it keeps counting if still running).
@@ -64,4 +64,20 @@ export const formatStopwatch = (ms) => {
   const s = total % 60;
   const pad = (n) => String(n).padStart(2, '0');
   return `${h}:${pad(m)}:${pad(s)}`;
+};
+
+// Half the border-box width of the element in `ref` (= the Solve clock's width under the
+// stats box). Used to size the Help / Menu group so it and the Session clock match Solve.
+export const useHalfWidth = (ref) => {
+  const [w, setW] = useState(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const update = () => setW(el.offsetWidth / 2);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return w;
 };

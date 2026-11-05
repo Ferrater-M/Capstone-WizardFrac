@@ -22,20 +22,17 @@ const Frame = ({ children, dim }) => (
   </div>
 );
 
-// Session time + Solve Time (time spent on the current problem), stacked (Solve under Session).
-// Fills its parent's width, each clock as wide as it.
-// `sessionRunning` / `solveRunning` only dim the clock while it is paused or stopped.
-const GameStopwatches = ({ sessionMs, solveMs, sessionRunning, solveRunning }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
-    <Frame dim={!sessionRunning}>
-      <span>Session</span>
-      <span>{formatStopwatch(sessionMs)}</span>
+// One stopwatch clock. `which` = 'solve' (time spent on the current problem, hangs under
+// the stats box) or 'session' (whole-session time, hangs under the Help / Menu buttons).
+// Fills its parent's width. `running` only dims the clock while it is paused or stopped.
+const GameStopwatches = ({ which, sessionMs, solveMs, sessionRunning, solveRunning }) => {
+  const isSession = which === 'session';
+  return (
+    <Frame dim={!(isSession ? sessionRunning : solveRunning)}>
+      <span>{isSession ? 'Session' : 'Solve'}</span>
+      <span>{formatStopwatch(isSession ? sessionMs : solveMs)}</span>
     </Frame>
-    <Frame dim={!solveRunning}>
-      <span>Solve</span>
-      <span>{formatStopwatch(solveMs)}</span>
-    </Frame>
-  </div>
-);
+  );
+};
 
 export default GameStopwatches;

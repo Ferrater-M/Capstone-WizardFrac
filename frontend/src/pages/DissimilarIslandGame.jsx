@@ -14,7 +14,7 @@ import EdgeBurst, { triggerEdgeBurst } from '../components/EdgeBurst';
 import InputGuideCursor from '../components/InputGuideCursor';
 import GameStopwatches from '../components/GameStopwatches';
 import { API_BASE_URL } from '../config';
-import { useStopwatch, useAnimationHold } from '../utils/stopwatch';
+import { useStopwatch, useHalfWidth, useAnimationHold } from '../utils/stopwatch';
 
 // Falling square particles along the bottom of a box — same set/timing as the
 // problem-statement banner's own particles, just grey instead of brown so they
@@ -1268,6 +1268,9 @@ const DissimilarIslandGame = ({
   const solveRunning = sessionRunning && answeredProblem !== problem;
   // getMs() on these gives the exact time for saving.
   const sessionWatch = useStopwatch(sessionRunning);
+  // Help / Menu group + Session clock are sized to match the Solve clock (half the stats box).
+  const statsBoxRef = useRef(null);
+  const hudHalfW = useHalfWidth(statsBoxRef);
   const solveWatch = useStopwatch(solveRunning);
 
   // Every new problem starts its Solve Time from 0.
@@ -1327,14 +1330,15 @@ const DissimilarIslandGame = ({
 
       {/* Stats bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '8px 0', gap: '10px', position: 'relative', zIndex: 1 }}>
-        <div data-edge-dim style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div ref={statsBoxRef} data-edge-dim style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
           {corners('#703737')}
           <span style={{ color: '#222', fontSize: '13px' }}>Streak: x{multiplier.toFixed(1)}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Score: {score}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Level: {gameSession.level}/{totalLevels ?? '...'}</span>
-          {/* Stopwatches — hang under the stats box at half its width, without pushing the battle area down */}
+          {/* Solve stopwatch — hangs under the stats box at half its width, without pushing the battle area down */}
           <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: -4, width: 'calc(50% + 4px)', zIndex: 5 }}>
             <GameStopwatches
+              which="solve"
               sessionMs={sessionWatch.ms}
               solveMs={solveWatch.ms}
               sessionRunning={sessionRunning}
@@ -1362,14 +1366,24 @@ const DissimilarIslandGame = ({
             {headerHint}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, position: 'relative', width: hudHalfW ?? undefined, boxSizing: 'border-box' }}>
+          {/* Session stopwatch — hangs under the Help / Menu buttons, spanning both */}
+          <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: 0, right: 0, zIndex: 5 }}>
+            <GameStopwatches
+              which="session"
+              sessionMs={sessionWatch.ms}
+              solveMs={solveWatch.ms}
+              sessionRunning={sessionRunning}
+              solveRunning={solveRunning}
+            />
+          </div>
           <button
             onClick={() => setShowTutorial(true)}
             style={{
               padding: '8px 16px', fontSize: 13, fontWeight: 700,
               fontFamily: '"Press Start 2P", monospace',
               background: '#e8d5b4', border: '4px solid #703737',
-              borderRadius: 0, color: '#222', cursor: 'pointer', position: 'relative',
+              borderRadius: 0, color: '#222', cursor: 'pointer', flex: 1, position: 'relative',
             }}
           >
             {corners('#703737')}
@@ -1381,7 +1395,7 @@ const DissimilarIslandGame = ({
               padding: '8px 16px', fontSize: 13, fontWeight: 700,
               fontFamily: '"Press Start 2P", monospace',
               background: '#e8d5b4', border: '4px solid #703737',
-              borderRadius: 0, color: '#222', cursor: 'pointer', position: 'relative',
+              borderRadius: 0, color: '#222', cursor: 'pointer', flex: 1, position: 'relative',
             }}
           >
             {corners('#703737')}

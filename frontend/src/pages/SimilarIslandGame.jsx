@@ -10,7 +10,7 @@ import InputGuideCursor from '../components/InputGuideCursor';
 import SettingsPage from './SettingsPage';
 import GameStopwatches from '../components/GameStopwatches';
 import '../components/components.css';
-import { useStopwatch, useAnimationHold } from '../utils/stopwatch';
+import { useStopwatch, useHalfWidth, useAnimationHold } from '../utils/stopwatch';
 
 import { buildProblem, buildProblemDissimilar, buildProblemHybrid, getDifficultyParams, TIMING, getFeedbackDuration } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
@@ -944,6 +944,9 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const solveRunning = sessionRunning && !problemAnswered;
   // getMs() on these gives the exact time for saving.
   const sessionWatch = useStopwatch(sessionRunning);
+  // Help / Menu group + Session clock are sized to match the Solve clock (half the stats box).
+  const statsBoxRef = useRef(null);
+  const hudHalfW = useHalfWidth(statsBoxRef);
   const solveWatch = useStopwatch(solveRunning);
 
   const renderHearts = (count, max) => {
@@ -1007,7 +1010,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '8px 0', gap: '10px', position: 'relative', zIndex: 1 }}>
 
         {/* Stats — top left, same border as problem display */}
-        <div data-edge-dim style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div ref={statsBoxRef} data-edge-dim style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
           <div style={{ position: 'absolute', inset: 5, border: '1px solid #703737', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#703737' }} />
           <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#703737' }} />
@@ -1020,9 +1023,10 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
           <span style={{ color: '#222', fontSize: '13px' }}>Streak: x{multiplier.toFixed(1)}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Score: {score}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Level: {gameSession.level}/{totalLevels ?? '...'}</span>
-          {/* Stopwatches — hang under the stats box at half its width, without pushing the battle area down */}
+          {/* Solve stopwatch — hangs under the stats box at half its width, without pushing the battle area down */}
           <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: -4, width: 'calc(50% + 4px)', zIndex: 5 }}>
             <GameStopwatches
+              which="solve"
               sessionMs={sessionWatch.ms}
               solveMs={solveWatch.ms}
               sessionRunning={sessionRunning}
@@ -1068,7 +1072,17 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, position: 'relative', width: hudHalfW ?? undefined, boxSizing: 'border-box' }}>
+          {/* Session stopwatch — hangs under the Help / Menu buttons, spanning both */}
+          <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: 0, right: 0, zIndex: 5 }}>
+            <GameStopwatches
+              which="session"
+              sessionMs={sessionWatch.ms}
+              solveMs={solveWatch.ms}
+              sessionRunning={sessionRunning}
+              solveRunning={solveRunning}
+            />
+          </div>
         {/* Help button — reopens the tutorial */}
         <button
           onClick={() => setShowTutorial(true)}
@@ -1081,7 +1095,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             borderRadius: 0,
             boxShadow: 'none',
             color: '#222',
-            cursor: 'pointer',
+            cursor: 'pointer', flex: 1,
             position: 'relative',
           }}
         >
@@ -1108,7 +1122,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             borderRadius: 0,
             boxShadow: 'none',
             color: '#222',
-            cursor: 'pointer',
+            cursor: 'pointer', flex: 1,
             position: 'relative',
           }}
         >
