@@ -127,7 +127,11 @@ public class EmailService {
     }
 
     private boolean gmailApiConfigured() {
-        return !gmailClientId.isBlank() && !gmailClientSecret.isBlank() && !gmailRefreshToken.isBlank();
+        // Pasted values often carry a stray space or line break, which Google rejects as an invalid token.
+        gmailClientId = gmailClientId.trim();
+        gmailClientSecret = gmailClientSecret.trim();
+        gmailRefreshToken = gmailRefreshToken.trim();
+        return !gmailClientId.isEmpty() && !gmailClientSecret.isEmpty() && !gmailRefreshToken.isEmpty();
     }
 
     private synchronized String getAccessToken() throws IOException {
