@@ -45,6 +45,8 @@ const BigSprite = ({ src, size }) => {
           backgroundImage: `url(${src})`,
           backgroundSize: `${frames * size}px ${size}px`,
           animation: `${kf} ${(frames / 9).toFixed(2)}s steps(${frames}) infinite`,
+          // Only the sprite rises, well above the band; the names stay centred
+          transform: `translateY(-${Math.round(size * 0.3)}px)`,
         }}
       />
     </>
@@ -85,7 +87,7 @@ const IntroPhase = ({ playerName, playerSprite, enemyName, enemySprite, onDone }
   const showVersus = stage === 'versus' || stage === 'enemy-in';
   const showEnemy = stage === 'enemy-in';
   const showFight = stage === 'fight' || stage === 'fade';
-  const rowStyle = { top: `calc(50% - ${size * 0.62}px)` };   // a bit above centre
+  const rowStyle = { top: `calc(50% - ${size / 2}px)` };   // names centred on the band
 
   return (
     <div className={`ip-overlay${stage === 'fade' ? ' is-fading' : ''}`} onClick={finish} role="presentation">

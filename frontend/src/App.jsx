@@ -186,11 +186,11 @@ function App() {
     navigate('/game');
   };
 
+  // End of a battle: the result pop-up opens on top of the battle (see the /game route).
   const handleGameEnd = (result) => {
     endActionLocked.current = false;
     setEndError('');
-    flushSync(() => setGameResult(result));
-    navigate('/game-end');
+    setGameResult(result);
   };
 
   const handleExitToLobby = () => {
@@ -218,10 +218,8 @@ function App() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const newSession = await res.json();
-      flushSync(() => setGameSession({ ...newSession, level: nextLevel, isBoss: nextLevel === total }));
-      navigate('/game');
-      // Cleared only after leaving /game-end: that route sends you to the lobby when there is no result,
-      // and clearing it first made Next Level land on the lobby instead of the next fight.
+      // Already on /game: the new session swaps in the next battle (fresh instance, Intro Phase again)
+      setGameSession({ ...newSession, level: nextLevel, isBoss: nextLevel === total });
       setGameResult(null);
     } catch (err) {
       console.error('Error starting next level:', err);
@@ -255,6 +253,7 @@ function App() {
       case 'Similar':
         return (
           <SimilarIslandGame
+            key={gameSession.sessionId}
             studentId={studentId}
             studentNickname={studentNickname}
             selectedCharacter={selectedCharacter}
@@ -266,6 +265,7 @@ function App() {
       case 'Dissimilar':
         return (
           <DissimilarIslandGame
+            key={gameSession.sessionId}
             studentId={studentId}
             studentNickname={studentNickname}
             selectedCharacter={selectedCharacter}
@@ -277,6 +277,7 @@ function App() {
       case 'Hybrid':
         return (
           <HybridIslandGame
+            key={gameSession.sessionId}
             studentId={studentId}
             studentNickname={studentNickname}
             selectedCharacter={selectedCharacter}
@@ -335,26 +336,29 @@ function App() {
 
         <Route path="/game" element={
           studentId && gameSession
-            ? renderGame()
-            : <Navigate to={studentId ? '/game-lobby' : '/login'} replace />
-        } />
-
-        <Route path="/game-end" element={
-          studentId && gameResult
             ? (
-              <GameEndPopup
-                isWon={gameResult.isWon}
-                score={gameResult.score}
-                bonus={gameSession?.isBoss ? 500 : 0}
-                hasNextLevel={!!(gameResult.isWon && gameSession && stageCounts[gameSession.islandType] > (gameSession.level || 1))}
-                error={endError}
-                onNextLevel={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleNextLevel(); }}
-                onLobby={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleReturnToLobby(); }}
-                onLogin={() => { if (endActionLocked.current) return; handleReturnToLogin(); }}
-              />
+              <>
+                {renderGame()}
+                {/* Result pop-up, inside the battle (the battle stays behind it, darkened) */}
+                {gameResult && (
+                  <GameEndPopup
+                    isWon={gameResult.isWon}
+                    score={gameResult.score}
+                    bonus={gameSession.isBoss ? 500 : 0}
+                    hasNextLevel={!!(gameResult.isWon && stageCounts[gameSession.islandType] > (gameSession.level || 1))}
+                    error={endError}
+                    onNextLevel={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleNextLevel(); }}
+                    onLobby={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleReturnToLobby(); }}
+                    onLogin={() => { if (endActionLocked.current) return; handleReturnToLogin(); }}
+                  />
+                )}
+              </>
             )
             : <Navigate to={studentId ? '/game-lobby' : '/login'} replace />
         } />
+
+        {/* Old separate results page — the pop-up now lives inside the battle */}
+        <Route path="/game-end" element={<Navigate to={studentId && gameSession ? '/game' : '/game-lobby'} replace />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
