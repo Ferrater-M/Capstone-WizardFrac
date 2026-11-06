@@ -74,18 +74,27 @@
 }
 
 .ip-role {
-  font-size: 13px;
+  font-size: clamp(14px, 1.6vw, 22px);
   letter-spacing: 3px;
   text-transform: uppercase;
   opacity: 0.75;
 }
 
 .ip-name {
-  font-size: clamp(20px, 3vw, 36px);
+  font-size: clamp(26px, 3.8vw, 54px);
   letter-spacing: 2px;
   text-transform: uppercase;
   white-space: nowrap;
 }
+
+/* Each side keeps to its own edge, with breathing room so the sprite never touches the screen border:
+   player on the left (sprite, then name), enemy on the right (name, then sprite). */
+.ip-player { justify-content: flex-start; padding-left: 5vw; }
+.ip-enemy { justify-content: flex-end; padding-right: 5vw; }
+
+/* The sprite frames have empty space beside the character, so the (bigger) names can sit in it */
+.ip-player .ip-name-box { margin-left: -6vw; }
+.ip-enemy .ip-name-box { margin-right: -6vw; }
 
 /* Player: in from the right, out to the left. Enemy: in from the left. */
 .ip-player.is-entering { animation: ipInFromRight 0.55s cubic-bezier(.2, .9, .3, 1) both; }
@@ -154,7 +163,7 @@
   bottom: 24px;
   right: 24px;
   color: rgba(255, 255, 255, 0.6);
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 1px;
 }
 

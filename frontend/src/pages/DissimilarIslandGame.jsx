@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
@@ -1275,6 +1276,8 @@ const DissimilarIslandGame = ({
     || fireball !== null || defeatTarget !== null
     || animHeld;                                                                 // header hint sliding in
   const sessionEnded = defeatTarget !== null || gameOver;
+  // Enter = the main action button (Cast Spell / Confirm / Check …), when nothing else is in the way
+  useEnterToConfirm(introDone && !showTutorial && !showSettings && !showHintConfirm && !feedback && !gameOver);
   const sessionRunning = introDone && !showTutorial && !showSettings && !sessionEnded && !animating;
   const solveRunning = sessionRunning && answeredProblem !== problem;
   // getMs() on these gives the exact time for saving.
@@ -1996,7 +1999,7 @@ const DissimilarIslandGame = ({
                             ivRef.current = setInterval(spawn, 600);
                           };
                           return (
-                        <button
+                        <button data-enter-action
                           disabled={!active}
                           onClick={() => {
                             if (carryActive) { carryActionRef.current?.(); return; }

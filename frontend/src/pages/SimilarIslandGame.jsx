@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import './game.css';
@@ -949,6 +950,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     || fireball !== null || defeatTarget !== null
     || animHeld;                                                       // short one-offs (hint reveal)
   const sessionEnded = defeatTarget !== null || gameOver;
+  // Enter = the main action button (Cast Spell / Confirm / Check …), when nothing else is in the way
+  useEnterToConfirm(introDone && !showTutorial && !showSettings && !showHintConfirm && !feedback && !gameOver);
   const sessionRunning = introDone && !showTutorial && !showSettings && !sessionEnded && !animating;
   const solveRunning = sessionRunning && !problemAnswered;
   // getMs() on these gives the exact time for saving.
@@ -1562,7 +1565,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   {carryPhase && !carryFinal ? (
                   /* Improper → mixed game: Check (quotient) / Continue */
                   (
-                  <button
+                  <button data-enter-action
                     style={{
                       padding: '4px 56px',
                       background: '#703737',
@@ -1594,7 +1597,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   )
                   ) : !checkPhase ? (
                   /* Phase 1 — Cast Spell */
-                  <button
+                  <button data-enter-action
                     style={{
                       padding: '4px 56px',
                       background: '#703737',
@@ -1699,7 +1702,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   </button>
                   ) : finalAnswerVisible && !hideFinal ? (
                   /* Phase 2 — Check (validates simplified fraction) */
-                  <button
+                  <button data-enter-action
                     style={{
                       padding: '4px 56px',
                       background: '#703737',

@@ -792,7 +792,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
           inputMode="numeric"
           value={qInput}
           onChange={e => setQInput(e.target.value.replace(/[^0-9]/g, ''))}
-          onKeyDown={e => { if (e.key === 'Enter') submitQuotient(); }}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submitQuotient(); } }}
           placeholder="?"
           style={{
             width: 80, height: 56, fontSize: 26, fontWeight: 800, textAlign: 'center',

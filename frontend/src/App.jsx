@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import GameEndPopup from './components/GameEndPopup';
+import SparkleTrails from './components/SparkleTrails';
 import { countEnemiesPerIsland } from './utils/islandStages';
 import { flushSync } from 'react-dom';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
@@ -293,6 +294,8 @@ function App() {
 
   return (
     <div className="app">
+      {/* Trails behind every moving blue sparkle, on every screen */}
+      <SparkleTrails />
       <Routes>
         <Route path="/" element={<MainPage onStart={() => navigate('/login')} />} />
 

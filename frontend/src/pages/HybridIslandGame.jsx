@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
 import { createPortal } from 'react-dom';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
@@ -70,7 +71,7 @@ const buttonCorners = (color) => (
 // ─────────────────────────────────────────────────────────────────────────────
 const SolveButtonRow = ({ label, onConfirm, confirmEnabled, onHint }) => (
   <div style={{ position: 'absolute', bottom: 12, left: '50%', display: 'flex', gap: 10, zIndex: 4, pointerEvents: 'auto', animation: 'nAreaFadeIn 0.35s ease-out forwards' }}>
-    <button
+    <button data-enter-action
       onClick={onConfirm}
       disabled={!confirmEnabled}
       style={{
@@ -386,6 +387,7 @@ const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestH
 
   const handleKeyDown = (e) => {
     if (e.key !== 'Enter') return;
+    e.preventDefault();   // handled here, so the Enter-to-confirm shortcut doesn't fire as well
     if (!finalAnswerVisible) checkCombine();
     else checkSimplify();
   };
@@ -877,8 +879,8 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
     return () => clearTimeout(t);
   }, [circleDetected]);
 
-  const handleCombineKeyDown = (e) => { if (e.key === 'Enter') checkCombine(); };
-  const handleFinalKeyDown = (e) => { if (e.key === 'Enter') checkFinal(); };
+  const handleCombineKeyDown = (e) => { if (e.key === 'Enter') { e.preventDefault(); checkCombine(); } };
+  const handleFinalKeyDown = (e) => { if (e.key === 'Enter') { e.preventDefault(); checkFinal(); } };
 
   // Reports exactly which part(s) were wrong (and what they should've been) —
   // e.g. "Numerator is 3" / "Whole number is 5" / "Numerator is 3 and Whole
@@ -2004,6 +2006,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHi
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
+      e.preventDefault();
       if (frac.step === 'ask_product') checkProduct();
       else if (frac.step === 'ask_sum_input') checkSum();
     }
@@ -3913,6 +3916,13 @@ const HybridIslandGame = ({
   const [enemyName,       setEnemyName]        = useState('Enemy');
   const [playerFlashing,  setPlayerFlashing]   = useState(false);
   const [enemyFlashing,   setEnemyFlashing]    = useState(false);
+  // Enemy defeat animation (same as Similar/Dissimilar Island): flash + speeding-up beforeDefeat.wav,
+  // then fade + defeat.wav + white particle burst, then the battle ends.
+  const [defeatTarget,    setDefeatTarget]     = useState(null);
+  const [defeatFading,    setDefeatFading]     = useState(false);
+  const [defeatParticles, setDefeatParticles]  = useState([]);
+  const beforeDefeatRef = useRef(null);
+  const defeatPidRef    = useRef(0);
   const [fireball,        setFireball]         = useState(null);
   const [enemySpriteInfo, setEnemySpriteInfo]  = useState({
     idle:   { frames: 4, frameW: 420, frameH: 420, missing: false },
@@ -4263,6 +4273,48 @@ const HybridIslandGame = ({
     wizardAnimTimerRef.current = setTimeout(() => setWizardAnim('idle'), (frameCount[anim] / 14) * 1000);
   };
 
+  const triggerDefeat = (onComplete) => {
+    setDefeatTarget('enemy');
+
+    // beforeDefeat.wav with escalating playback rate over 3 seconds
+    const audio = new Audio('/SoundEffects/beforeDefeat.wav');
+    audio.loop = true;
+    audio.volume = getSfxVolume();
+    audio.play().catch(() => {});
+    beforeDefeatRef.current = audio;
+
+    let elapsed = 0;
+    const rampInterval = setInterval(() => {
+      elapsed += 80;
+      if (beforeDefeatRef.current) {
+        beforeDefeatRef.current.playbackRate = Math.min(1.0 + (elapsed / 3000) * 3.5, 4.5);
+      }
+      if (elapsed < 3000) return;
+      clearInterval(rampInterval);
+      if (beforeDefeatRef.current) { beforeDefeatRef.current.pause(); beforeDefeatRef.current.src = ''; beforeDefeatRef.current = null; }
+
+      // Phase 2: fade + defeat sound + white particle burst
+      setDefeatFading(true);
+      playSfx('/SoundEffects/defeat.wav');
+      const el = enemyBoxRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        setDefeatParticles(Array.from({ length: 24 }, (_, i) => {
+          const angle = (i / 24) * Math.PI * 2;
+          const dist = 60 + Math.random() * 80;
+          return { id: defeatPidRef.current++, x: cx, y: cy, px: `${Math.cos(angle) * dist}px`, py: `${Math.sin(angle) * dist}px`, size: 4 + Math.random() * 8 };
+        }));
+        setTimeout(() => setDefeatParticles([]), 1400);
+      }
+      setTimeout(onComplete, 900);
+    }, 80);
+  };
+
+  // Stop the rising sound if the battle closes mid-sequence
+  useEffect(() => () => { if (beforeDefeatRef.current) { beforeDefeatRef.current.pause(); beforeDefeatRef.current.src = ''; } }, []);
+
   const playEnemyAnim = (anim) => {
     if (enemyAnimTimerRef.current) clearTimeout(enemyAnimTimerRef.current);
     setEnemyAnim(anim);
@@ -4350,7 +4402,7 @@ const HybridIslandGame = ({
 
     if (newEnemyLives <= 0) {
       await saveGameEnd('COMPLETED', true);
-      setTimeout(() => onGameEnd({ isWon: true, score: newScore }), 1000);
+      triggerDefeat(() => onGameEnd({ isWon: true, score: newScore }));
       return;
     }
 
@@ -4479,9 +4531,11 @@ const HybridIslandGame = ({
   const animating =
     stageBusy                                        // the stage's own animations (fly-ins, bursts, jar game...)
     || !uiVisible || !!feedback || bgShift !== null  // answer submitted: attack, feedback, next problem sliding in
-    || fireball !== null
+    || fireball !== null || defeatTarget !== null
     || animHeld;                                     // header hint sliding in
   const sessionEnded = gameOver || enemyLives <= 0 || playerHealth <= 0;
+  // Enter = the main action button (Cast Spell / Confirm / Check …), when nothing else is in the way
+  useEnterToConfirm(introDone && !showTutorial && !showSettings && !feedback && !gameOver);
   const sessionRunning = introDone && !showTutorial && !showSettings && !sessionEnded && !animating;
   const solveRunning = sessionRunning && answeredRound !== roundKey;
   // getMs() on these gives the exact time for saving.
@@ -4577,7 +4631,7 @@ const HybridIslandGame = ({
             />
           </div>
           <button
-            onClick={() => { setShowTutorial(true); setHasSeenMixedTutorial(false); }}
+            onClick={() => setShowTutorial(true)}
             style={{
               position: 'relative', padding: '8px 16px', fontSize: 13, fontWeight: 700,
               fontFamily: '"Press Start 2P", monospace', background: '#e8d5b4', border: '4px solid #703737',
@@ -4815,7 +4869,9 @@ const HybridIslandGame = ({
                 const safeName = (enemyData?.name || 'unknown').replace(/\s+/g, '_');
                 const kf = `enemy_${safeName}_${enemyAnim}`;
                 const sprAnim = `${kf} ${(frames / (enemyAnim === 'idle' ? 10 : 14)).toFixed(2)}s steps(${frames}) ${enemyAnim === 'idle' ? 'infinite' : '1 forwards'}`;
-                const combined = enemyFlashing
+                const combined = defeatTarget === 'enemy' && !defeatFading
+                  ? `${sprAnim}, defeatFlash 0.25s ease-in-out infinite`
+                  : enemyFlashing
                   ? `${sprAnim}, enemyFlash 0.5s ease-out, damageShake 0.5s ease-out`
                   : sprAnim;
                 if (info.missing) return (
@@ -4846,6 +4902,8 @@ const HybridIslandGame = ({
                       backgroundPosition: '0px 0px',
                       animation: combined,
                       imageRendering: 'pixelated',
+                      opacity: defeatTarget === 'enemy' && defeatFading ? 0 : 1,
+                      transition: defeatTarget === 'enemy' && defeatFading ? 'opacity 1.1s ease-out' : 'none',
                     }} />
                   </>
                 );
@@ -4907,6 +4965,18 @@ const HybridIslandGame = ({
       )}
 
       {/* Feedback */}
+      {/* Defeat burst particles */}
+      {defeatParticles.map(p => (
+        <div key={p.id} style={{
+          position: 'fixed', left: p.x - p.size / 2, top: p.y - p.size / 2,
+          width: p.size, height: p.size,
+          background: '#fff',
+          pointerEvents: 'none', zIndex: 10000,
+          '--px': p.px, '--py': p.py,
+          animation: 'defeatParticleBurst 1.4s ease-out forwards',
+        }} />
+      ))}
+
       {feedback && (
         <div onClick={skipFeedback} style={{ position: 'fixed', inset: 0, zIndex: 4999, cursor: feedbackClickable ? 'pointer' : 'default' }}>
           <div style={{
