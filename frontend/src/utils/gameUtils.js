@@ -128,3 +128,48 @@ export const getFeedbackDuration = (text = '') => {
   const extraChars = Math.max(0, text.length - FEEDBACK_BASELINE_CHARS);
   return FEEDBACK_BASE_DURATION + extraChars * FEEDBACK_MS_PER_CHAR;
 };
+
+// ── Scoring ────────────────────────────────────────────────────────────────
+// A problem is worth STEP_POINTS for every step it takes to reach the final answer (times the streak
+// multiplier), so longer problems are worth more. A hint only costs the step it helped with — that step
+// keeps HINTED_STEP_VALUE of its points — so each island's hint penalty follows its own step count:
+// one hint is a big share of a 2-step Similar problem and a small share of a 10-step Hybrid one.
+export const STEP_POINTS = 10;
+export const HINTED_STEP_VALUE = 0.25;
+
+export const scoreProblem = ({ steps, hintedSteps = 0, multiplier = 1 }) => {
+  const total = Math.max(1, steps);
+  const hinted = Math.min(total, Math.max(0, hintedSteps));
+  const full = Math.round(STEP_POINTS * total * multiplier);
+  const points = Math.round(STEP_POINTS * (total - hinted + hinted * HINTED_STEP_VALUE) * multiplier);
+  return { points, lost: full - points };
+};
+
+// Similar Island: add the numerators, write the simplified answer, plus the gem/jar conversion when the
+// result is improper. Problem string: "a/d + b/d = ?".
+export const similarSteps = (problem) => {
+  const m = problem.match(/(\d+)\/(\d+)\s*([+-])\s*(\d+)\/(\d+)/);
+  if (!m) return 2;
+  const sum = m[3] === '+' ? +m[1] + +m[4] : +m[1] - +m[4];
+  return 2 + (sum >= +m[2] ? 1 : 0);
+};
+
+// Dissimilar Island: the butterfly circle (multiply the denominators, two cross-multiplications,
+// combine), the final simplified answer, plus the gem/jar conversion when the result is improper.
+export const dissimilarSteps = (needsCarry) => 4 + 1 + (needsCarry ? 1 : 0);
+
+// Hybrid Island, problem object { whole1, numerator1, denominator1, whole2, numerator2, denominator2, operator }.
+//   Same denominators: combine wholes + numerators, simplify, plus gem/jar conversion if the fraction part is improper.
+//   Different: forge each mixed number to improper (2 steps each), the 4 butterfly steps, simplify,
+//   plus gem/jar conversion if the result is improper.
+export const hybridSteps = (p) => {
+  if (p.denominator1 === p.denominator2) {
+    const n = p.operator === '+' ? p.numerator1 + p.numerator2 : p.numerator1 - p.numerator2;
+    return 1 + 1 + (n >= p.denominator1 ? 1 : 0);
+  }
+  const forged = [p.whole1, p.whole2].filter(w => w > 0).length * 2;
+  const i1 = p.whole1 * p.denominator1 + p.numerator1;
+  const i2 = p.whole2 * p.denominator2 + p.numerator2;
+  const rawNum = p.operator === '+' ? p.denominator2 * i1 + p.denominator1 * i2 : p.denominator2 * i1 - p.denominator1 * i2;
+  return forged + 4 + 1 + (rawNum >= p.denominator1 * p.denominator2 ? 1 : 0);
+};

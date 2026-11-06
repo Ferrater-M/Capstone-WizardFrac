@@ -13,7 +13,7 @@ import GameStopwatches from '../components/GameStopwatches';
 import '../components/components.css';
 import { useStopwatch, useHalfWidth, useAnimationHold } from '../utils/stopwatch';
 
-import { buildProblem, buildProblemDissimilar, buildProblemHybrid, getDifficultyParams, TIMING, getFeedbackDuration } from '../utils/gameUtils';
+import { buildProblem, buildProblemDissimilar, buildProblemHybrid, getDifficultyParams, TIMING, getFeedbackDuration, scoreProblem, similarSteps } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
 
 // Falling square particles along the bottom of a box — same set/timing as the
@@ -679,10 +679,9 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     const hintWasUsed = hintCount > 0;
     const newStreak = isCorrect && !hintWasUsed ? streak + 1 : 0;
     const newMultiplier = Math.min(2.0, 1.0 + newStreak * 0.2);
-    const rawPoints = isCorrect ? Math.floor(10 * newMultiplier) : 0;
-    const pointsEarned = hintCount >= 2 ? 0
-      : hintCount === 1 ? Math.floor(rawPoints / 2)
-      : rawPoints;
+    // Points follow this problem's step count; each hinted step costs most of its share (see scoreProblem).
+    const scored = scoreProblem({ steps: similarSteps(currentProblem), hintedSteps: hintCount, multiplier: newMultiplier });
+    const pointsEarned = isCorrect ? scored.points : 0;
     const newScore = score + pointsEarned;
     const newLives = isCorrect ? lives : lives - 1;
 
@@ -713,7 +712,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     setLives(newLives);
     setProblemCount(problemCount + 1);
     const feedbackMessage = isCorrect
-      ? `Correct! +${pointsEarned} points${hintWasUsed ? ' | Hint used!' : ''}`
+      ? `Correct! +${pointsEarned} points${hintWasUsed ? ` | Hint used! (-${scored.lost})` : ''}`
       : (incorrectText ?? `Incorrect. The answer is ${correctAnswerStr}`);
     setFeedbackType(isCorrect ? 'correct' : 'incorrect');
     setFeedback(feedbackMessage);

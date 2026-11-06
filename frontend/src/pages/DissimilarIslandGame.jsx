@@ -8,7 +8,7 @@ import ButterflyTutorial from '../components/ButterflyTutorial';
 import SettingsPage from './SettingsPage';
 import './game.css';
 import '../components/components.css';
-import { getDissimilarTier, TIMING, getFeedbackDuration } from '../utils/gameUtils';
+import { getDissimilarTier, TIMING, getFeedbackDuration, scoreProblem, dissimilarSteps } from '../utils/gameUtils';
 import ImproperToMixedGame from '../components/ImproperToMixedGame';
 import EdgeBurst, { triggerEdgeBurst } from '../components/EdgeBurst';
 import { triggerScreenShake } from '../utils/screenShake';
@@ -159,6 +159,9 @@ const DissimilarIslandGame = ({
   const feedbackClickableTimeoutRef = useRef(null);
   const [currentHint, setCurrentHint] = useState('');
   const [hintUsed, setHintUsed] = useState(false);
+  // Hints taken on the current problem. hintUsed resets after each solved circle step so the Hint button
+  // comes back, so it can't be used for scoring — this counts every one.
+  const problemHintsRef = useRef(0);
   const sessionHintsUsed = useRef(0); // hints used this session; saved with the session when it ends
   const [showHintConfirm, setShowHintConfirm] = useState(false);
   const [enemyAttacking, setEnemyAttacking] = useState(false);
@@ -1135,6 +1138,7 @@ const DissimilarIslandGame = ({
     setCarryUi({ stage: 'none', canSubmit: false, prompt: '' });
     setUnsimplified(null);
     setHintUsed(false); setCurrentHint(''); setShowHintConfirm(false);
+    problemHintsRef.current = 0;
     setFlyBubbles(null); if (flyArcRef.current) cancelAnimationFrame(flyArcRef.current);
     actionLocked.current = false;
   };
@@ -1154,11 +1158,13 @@ const DissimilarIslandGame = ({
     const newEHp    = Math.max(0, enemyHealth - hpPerHit);
     const newStreak = streak + 1;
     const newMult   = Math.min(2.0, 1.0 + newStreak * 0.2);
-    const rawPts    = Math.floor(10 * newMult);
-    const pts       = hintUsed ? Math.round(rawPts * 0.4) : rawPts;
+    // Points follow this problem's step count; each hinted step costs most of its share (see scoreProblem).
+    const hinted    = problemHintsRef.current;
+    const scored    = scoreProblem({ steps: dissimilarSteps(needsCarry), hintedSteps: hinted, multiplier: newMult });
+    const pts       = scored.points;
     const newScore  = score + pts;
 
-    const feedbackMessage = `Correct! +${pts} points${hintUsed ? ' | Hint used!' : ''}`;
+    const feedbackMessage = `Correct! +${pts} points${hinted ? ` | Hint used! (-${scored.lost})` : ''}`;
     setEnemyHealth(newEHp); setEnemyLives(newELives);
     setStreak(newStreak); setMultiplier(newMult); setScore(newScore);
     setFeedback(feedbackMessage); setFeedbackType('correct');
@@ -2428,6 +2434,7 @@ const DissimilarIslandGame = ({
                 setShowHintConfirm(false);
                 setHintUsed(true);
                 sessionHintsUsed.current += 1;
+                problemHintsRef.current += 1;
                 // Gem game: the header then shows the current prompt. Final answer: show the conversion result to simplify.
                 if (carryActive) { setCarryHintUsed(true); return; }
                 if (finalAnswerPhase) { setPhase2HintUsed(true); setCurrentHint(simplifyHintText); return; }

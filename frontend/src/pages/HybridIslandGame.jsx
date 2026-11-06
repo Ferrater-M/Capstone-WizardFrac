@@ -13,7 +13,7 @@ import HybridFractionTutorial from '../components/HybridFractionTutorial';
 import GameMenuModal from '../components/GameMenuModal';
 import SettingsPage from './SettingsPage';
 import './game.css';
-import { getFeedbackDuration, getDifficultyParamsHybrid } from '../utils/gameUtils';
+import { getFeedbackDuration, getDifficultyParamsHybrid, scoreProblem, hybridSteps } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
 import GameStopwatches from '../components/GameStopwatches';
 import { useStopwatch, useHalfWidth, useAnimationHold, useReportBusy } from '../utils/stopwatch';
@@ -4311,7 +4311,11 @@ const HybridIslandGame = ({
   const resolveCorrectAnswer = async ({ whole, numerator, denominator }) => {
     const newStreak     = streak + 1;
     const newMultiplier = Math.min(2.0, 1.0 + Math.max(0, newStreak - 3) * 0.2);
-    const pointsEarned  = Math.floor(100 * newMultiplier);
+    // Points follow this problem's step count (Forge + Butterfly, or the same-denominator path); each
+    // distinct hint seen this round costs most of that step's share (see scoreProblem).
+    const hinted        = roundHintsSeen.current.size;
+    const scored        = scoreProblem({ steps: hybridSteps(problem), hintedSteps: hinted, multiplier: newMultiplier });
+    const pointsEarned  = scored.points;
     const newScore      = score + pointsEarned;
     const newEnemyLives = Math.max(0, enemyLives - 1);
 
@@ -4320,7 +4324,7 @@ const HybridIslandGame = ({
     setScore(newScore);
     setEnemyLives(newEnemyLives);
     setCurrentHint('');
-    const feedbackMessage = `✓ Correct! +${pointsEarned} points`;
+    const feedbackMessage = `✓ Correct! +${pointsEarned} points${hinted ? ` | Hint used! (-${scored.lost})` : ''}`;
     setFeedback(feedbackMessage);
     setFeedbackType('correct');
     setFeedbackClickable(false);

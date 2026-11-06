@@ -637,7 +637,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
           <nav className="lobby-sidebar">
             {pixelCorners('var(--gl-border)')}
             <button className="sidebar-item active" onClick={onOpenDashboard}><span>🏠</span>Dashboard</button>
-            <button className="sidebar-item" onClick={onOpenDashboard}><span>📊</span>Progress</button>
             {SHOW_LEADERBOARD && (
               <button className="sidebar-item" onClick={() => setShowLeaderboard(true)}><span>👑</span>Leaderboard</button>
             )}
