@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
@@ -15,7 +16,7 @@ import GameStopwatches from '../components/GameStopwatches';
 import '../components/components.css';
 import { useStopwatch, useHalfWidth, useAnimationHold } from '../utils/stopwatch';
 
-import { buildProblem, buildProblemDissimilar, buildProblemHybrid, getDifficultyParams, TIMING, getFeedbackDuration, scoreProblem, similarSteps } from '../utils/gameUtils';
+import { buildProblem, buildProblemDissimilar, buildProblemHybrid, getDifficultyParams, TIMING, getFeedbackDuration, scoreProblem, similarSteps, MAX_HEARTS, HEART_LOSS, healHearts, heartsToSave } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
 
 // Falling square particles along the bottom of a box — same set/timing as the
@@ -495,7 +496,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   };
 
   const handleWrongAnswer = async (hint, submittedValue) => {
-    const newLives = lives - 1;
+    const newLives = lives - HEART_LOSS;
     setLives(newLives);
     setEnemyAttacking(true);
     setFeedback(hint ? `Wrong! ${hint}` : 'Wrong answer! You lost a heart.');
@@ -524,7 +525,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       correctAnswer: correctAnswerStr,
       isCorrect: false,
       errorType: 'INCORRECT_ANSWER',
-      remainingLives: newLives,
+      remainingLives: heartsToSave(newLives),
       streakCount: 0,
       multiplierValue: 1.0,
       enemyHealthBefore: enemyHealth,
@@ -688,7 +689,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     const scored = scoreProblem({ steps: similarSteps(currentProblem), hintedSteps: hintCount, multiplier: newMultiplier });
     const pointsEarned = isCorrect ? scored.points : 0;
     const newScore = score + pointsEarned;
-    const newLives = isCorrect ? lives : lives - 1;
+    // Half a heart lost on a wrong answer, half a heart back for a correct final answer
+    const newLives = isCorrect ? healHearts(lives) : lives - HEART_LOSS;
 
     const attempt = {
       gameSessionId: gameSession.sessionId,
@@ -698,7 +700,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       correctAnswer: correctAnswerStr,
       isCorrect: isCorrect,
       errorType: isCorrect ? null : 'INCORRECT_ANSWER',
-      remainingLives: newLives,
+      remainingLives: heartsToSave(newLives),
       streakCount: newStreak,
       multiplierValue: newMultiplier,
       enemyHealthBefore: enemyHealth,
@@ -961,28 +963,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const hudHalfW = useHalfWidth(statsBoxRef);
   const solveWatch = useStopwatch(solveRunning);
 
-  const renderHearts = (count, max) => {
-    const hearts = [];
-    for (let i = 0; i < max; i++) {
-      hearts.push(
-        <div
-          key={i}
-          role="img"
-          aria-label="heart"
-          style={{
-            width: 28, height: 28,
-            backgroundImage: 'url(/InteractableUI/HeartSprite.png)',
-            backgroundSize: 'contain',
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center',
-            opacity: i < count ? 1 : 0.25,
-            filter: i < count ? 'none' : 'grayscale(1)',
-          }}
-        />
-      );
-    }
-    return hearts;
-  };
+  const renderHearts = (count, max) => <Hearts count={count} max={max} size={28} />;
 
 
 
@@ -1330,7 +1311,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                 <div style={{ position: 'absolute', top: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
                 <div style={{ position: 'absolute', bottom: 3, left: 3, width: 5, height: 5, background: '#fff' }} />
                 <div style={{ position: 'absolute', bottom: 3, right: 3, width: 5, height: 5, background: '#fff' }} />
-                {renderHearts(lives, 3)}
+                {renderHearts(lives, MAX_HEARTS)}
               </div>
             </div>
           </div>

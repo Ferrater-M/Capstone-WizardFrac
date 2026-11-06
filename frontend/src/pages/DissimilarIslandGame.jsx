@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
@@ -10,7 +11,7 @@ import ButterflyTutorial from '../components/ButterflyTutorial';
 import SettingsPage from './SettingsPage';
 import './game.css';
 import '../components/components.css';
-import { getDissimilarTier, TIMING, getFeedbackDuration, scoreProblem, dissimilarSteps } from '../utils/gameUtils';
+import { getDissimilarTier, TIMING, getFeedbackDuration, scoreProblem, dissimilarSteps, MAX_HEARTS, HEART_LOSS, healHearts, heartsToSave } from '../utils/gameUtils';
 import ImproperToMixedGame from '../components/ImproperToMixedGame';
 import EdgeBurst, { triggerEdgeBurst } from '../components/EdgeBurst';
 import { triggerScreenShake } from '../utils/screenShake';
@@ -1172,6 +1173,7 @@ const DissimilarIslandGame = ({
     const feedbackMessage = `Correct! +${pts} points${hinted ? ` | Hint used! (-${scored.lost})` : ''}`;
     setEnemyHealth(newEHp); setEnemyLives(newELives);
     setStreak(newStreak); setMultiplier(newMult); setScore(newScore);
+    setLives(healHearts(lives));   // half a heart back for a correct final answer
     setFeedback(feedbackMessage); setFeedbackType('correct');
     setFeedbackClickable(false);
     feedbackClickableTimeoutRef.current = setTimeout(() => setFeedbackClickable(true), 1000);
@@ -1183,7 +1185,7 @@ const DissimilarIslandGame = ({
       answerSubmitted: `${numerator}/${denominator}`,
       correctAnswer: getCorrectAnswerStr(),
       isCorrect: true, errorType: null,
-      remainingLives: lives, streakCount: newStreak, multiplierValue: newMult,
+      remainingLives: heartsToSave(healHearts(lives)), streakCount: newStreak, multiplierValue: newMult,
       enemyHealthBefore: enemyHealth, enemyHealthAfter: newEHp, pointsEarned: pts,
       solveTimeMs: Math.round(solveWatch.getMs()),
     });
@@ -1215,7 +1217,7 @@ const DissimilarIslandGame = ({
   const handleWrongAnswer = async (hint, submittedValue, errorType, onResolved) => {
     setAnsweredProblem(problem);
     lastFailedProblemKey.current = problemKey(problem);
-    const newLives = lives - 1;
+    const newLives = lives - HEART_LOSS;   // a wrong answer costs half a heart
     setLives(newLives); setStreak(0); setMultiplier(1.0);
     setEnemyAttacking(true); setTimeout(() => setEnemyAttacking(false), 1000);
     setPlayerFlashing(true); setTimeout(() => setPlayerFlashing(false), 500);
@@ -1232,7 +1234,7 @@ const DissimilarIslandGame = ({
       answerSubmitted: String(submittedValue ?? ''),
       correctAnswer: getCorrectAnswerStr(),
       isCorrect: false, errorType: errorType || 'INCORRECT_ANSWER',
-      remainingLives: newLives, streakCount: 0, multiplierValue: 1.0,
+      remainingLives: heartsToSave(newLives), streakCount: 0, multiplierValue: 1.0,
       enemyHealthBefore: enemyHealth, enemyHealthAfter: enemyHealth, pointsEarned: 0,
       solveTimeMs: Math.round(solveWatch.getMs()),
     });
@@ -1297,12 +1299,7 @@ const DissimilarIslandGame = ({
   }, [headerHint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Heart renderer ────────────────────────────────────────────────────────
-  const renderHearts = (count, max) => Array.from({ length: max }, (_, i) => (
-    <img key={i} src="/InteractableUI/HeartSprite.png" alt="heart" style={{
-      width: 28, height: 28, objectFit: 'contain',
-      opacity: i < count ? 1 : 0.25, filter: i < count ? 'none' : 'grayscale(1)',
-    }} />
-  ));
+  const renderHearts = (count, max) => <Hearts count={count} max={max} size={28} />;
 
   // ── Corner decoration helper ──────────────────────────────────────────────
   const corners = (color) => (
@@ -1479,7 +1476,7 @@ const DissimilarIslandGame = ({
                 {corners('#fff')}{studentNickname || 'Player'}
               </div>
               <div style={{ position:'relative', border:'4px solid #fff', background:'#000', padding:'6px 10px', display:'flex', gap:'4px', alignItems:'center' }}>
-                {corners('#fff')}{renderHearts(lives, 3)}
+                {corners('#fff')}{renderHearts(lives, MAX_HEARTS)}
               </div>
             </div>
           </div>
@@ -2030,7 +2027,7 @@ const DissimilarIslandGame = ({
                                   answerSubmitted: String(m.entered),
                                   correctAnswer: String(m.correct),
                                   isCorrect: false, errorType: misconceptionType,
-                                  remainingLives: lives, streakCount: streak, multiplierValue: multiplier,
+                                  remainingLives: heartsToSave(lives), streakCount: streak, multiplierValue: multiplier,
                                   enemyHealthBefore: enemyHealth, enemyHealthAfter: enemyHealth, pointsEarned: 0,
                                   solveTimeMs: Math.round(solveWatch.getMs()),
                                 });

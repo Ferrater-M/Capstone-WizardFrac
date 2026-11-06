@@ -173,3 +173,12 @@ export const hybridSteps = (p) => {
   const rawNum = p.operator === '+' ? p.denominator2 * i1 + p.denominator1 * i2 : p.denominator2 * i1 - p.denominator1 * i2;
   return forged + 4 + 1 + (rawNum >= p.denominator1 * p.denominator2 ? 1 : 0);
 };
+
+// ── Hearts ─────────────────────────────────────────────────────────────────
+// A wrong answer costs half a heart; a correct final answer gives half a heart back (never above MAX_HEARTS).
+export const MAX_HEARTS = 3;
+export const HEART_LOSS = 0.5;
+export const HEART_GAIN = 0.5;
+export const healHearts = (hearts) => Math.min(MAX_HEARTS, hearts + HEART_GAIN);
+// The backend keeps whole hearts; any part of a heart left still counts as one
+export const heartsToSave = (hearts) => Math.ceil(Math.max(0, hearts));

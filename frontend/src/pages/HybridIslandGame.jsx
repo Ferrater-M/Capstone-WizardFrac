@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
 import { createPortal } from 'react-dom';
@@ -15,7 +16,7 @@ import HybridFractionTutorial from '../components/HybridFractionTutorial';
 import GameMenuModal from '../components/GameMenuModal';
 import SettingsPage from './SettingsPage';
 import './game.css';
-import { getFeedbackDuration, getDifficultyParamsHybrid, scoreProblem, hybridSteps } from '../utils/gameUtils';
+import { getFeedbackDuration, getDifficultyParamsHybrid, scoreProblem, hybridSteps, MAX_HEARTS, HEART_LOSS, healHearts, heartsToSave } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
 import GameStopwatches from '../components/GameStopwatches';
 import { useStopwatch, useHalfWidth, useAnimationHold, useReportBusy } from '../utils/stopwatch';
@@ -4199,21 +4200,7 @@ const HybridIslandGame = ({
       ? `${p.whole1} ${p.numerator1}/${p.denominator1} ${p.operator} ${p.whole2} ${p.numerator2}/${p.denominator2}`
       : `${p.numerator1}/${p.denominator1} ${p.operator} ${p.numerator2}/${p.denominator2}`;
 
-  const renderHearts = (count, max) =>
-    Array.from({ length: max }, (_, i) => (
-      <div
-        key={i}
-        role="img"
-        aria-label="heart"
-        style={{
-          width: 24, height: 24,
-          backgroundImage: 'url(/InteractableUI/HeartSprite.png)',
-          backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center',
-          opacity: i < count ? 1 : 0.25,
-          filter: i < count ? 'none' : 'grayscale(1)',
-        }}
-      />
-    ));
+  const renderHearts = (count, max) => <Hearts count={count} max={max} size={24} />;
 
   // The converted improper fraction shown under the problem once Forge is done —
   // glowing white, no background/border, just the number and a thin glowing rule.
@@ -4273,8 +4260,9 @@ const HybridIslandGame = ({
     wizardAnimTimerRef.current = setTimeout(() => setWizardAnim('idle'), (frameCount[anim] / 14) * 1000);
   };
 
-  const triggerDefeat = (onComplete) => {
-    setDefeatTarget('enemy');
+  // target: 'enemy' (you won) or 'player' (you lost)
+  const triggerDefeat = (target, onComplete) => {
+    setDefeatTarget(target);
 
     // beforeDefeat.wav with escalating playback rate over 3 seconds
     const audio = new Audio('/SoundEffects/beforeDefeat.wav');
@@ -4296,7 +4284,7 @@ const HybridIslandGame = ({
       // Phase 2: fade + defeat sound + white particle burst
       setDefeatFading(true);
       playSfx('/SoundEffects/defeat.wav');
-      const el = enemyBoxRef.current;
+      const el = target === 'enemy' ? enemyBoxRef.current : playerBoxRef.current;
       if (el) {
         const rect = el.getBoundingClientRect();
         const cx = rect.left + rect.width / 2;
@@ -4379,6 +4367,7 @@ const HybridIslandGame = ({
     setMultiplier(newMultiplier);
     setScore(newScore);
     setEnemyLives(newEnemyLives);
+    setPlayerHealth(healHearts(playerHealth));   // half a heart back for a correct final answer
     setCurrentHint('');
     const feedbackMessage = `✓ Correct! +${pointsEarned} points${hinted ? ` | Hint used! (-${scored.lost})` : ''}`;
     setFeedback(feedbackMessage);
@@ -4395,14 +4384,14 @@ const HybridIslandGame = ({
       gameSessionId: gameSession.sessionId, mechanicType: gameSession.mechanicType || 'HYBRID',
       problemStatement: getProblemStatement(), answerSubmitted,
       correctAnswer: getCorrectAnswerStr(), isCorrect: true, errorType: null,
-      remainingLives: playerHealth, streakCount: newStreak, multiplierValue: newMultiplier,
+      remainingLives: heartsToSave(healHearts(playerHealth)), streakCount: newStreak, multiplierValue: newMultiplier,
       enemyHealthBefore: enemyLives * 33, enemyHealthAfter: newEnemyLives * 33, pointsEarned,
       solveTimeMs: Math.round(solveWatch.getMs()),
     });
 
     if (newEnemyLives <= 0) {
       await saveGameEnd('COMPLETED', true);
-      triggerDefeat(() => onGameEnd({ isWon: true, score: newScore }));
+      triggerDefeat('enemy', () => onGameEnd({ isWon: true, score: newScore }));
       return;
     }
 
@@ -4454,7 +4443,7 @@ const HybridIslandGame = ({
     setBgShift('left');
     lastBgShiftRef.current = 'left';
 
-    const newLives = playerHealth - 1;
+    const newLives = playerHealth - HEART_LOSS;   // a wrong answer costs half a heart
     setPlayerHealth(newLives);
     setStreak(0);
     setMultiplier(1.0);
@@ -4472,7 +4461,7 @@ const HybridIslandGame = ({
       gameSessionId: gameSession.sessionId, mechanicType: gameSession.mechanicType || 'HYBRID',
       problemStatement: getProblemStatement(), answerSubmitted: String(submittedValue ?? ''),
       correctAnswer: getCorrectAnswerStr(), isCorrect: false,
-      errorType: errorType || 'INCORRECT_ANSWER', remainingLives: newLives,
+      errorType: errorType || 'INCORRECT_ANSWER', remainingLives: heartsToSave(newLives),
       streakCount: 0, multiplierValue: 1.0,
       enemyHealthBefore: enemyLives * 33, enemyHealthAfter: enemyLives * 33, pointsEarned: 0,
       solveTimeMs: Math.round(solveWatch.getMs()),
@@ -4480,7 +4469,7 @@ const HybridIslandGame = ({
 
     if (newLives <= 0) {
       await saveGameEnd('FAILED', false);
-      setTimeout(() => setGameOver(true), 800);
+      triggerDefeat('player', () => onGameEnd({ isWon: false, score }));
     } else {
       const resolveFeedback = () => {
         feedbackTimeoutRef.current = null;
@@ -4677,7 +4666,9 @@ const HybridIslandGame = ({
                 const DISP = 420;
                 const kf = `${charKey}_${wizardAnim}`;
                 const sprAnim = `${kf} ${(n / (wizardAnim === 'idle' ? 10 : 14)).toFixed(2)}s steps(${n}) ${wizardAnim === 'idle' ? 'infinite' : '1 forwards'}`;
-                const combined = playerFlashing
+                const combined = defeatTarget === 'player' && !defeatFading
+                  ? `${sprAnim}, defeatFlash 0.25s ease-in-out infinite`
+                  : playerFlashing
                   ? `${sprAnim}, enemyFlash 0.5s ease-out, damageShake 0.5s ease-out`
                   : sprAnim;
                 const capAnim = wizardAnim[0].toUpperCase() + wizardAnim.slice(1);
@@ -4696,6 +4687,8 @@ const HybridIslandGame = ({
                       backgroundPosition: '0px 0px',
                       animation: combined,
                       imageRendering: 'pixelated',
+                      opacity: defeatTarget === 'player' && defeatFading ? 0 : 1,
+                      transition: defeatTarget === 'player' && defeatFading ? 'opacity 1.1s ease-out' : 'none',
                     }} />
                   </>
                 );
@@ -4740,7 +4733,7 @@ const HybridIslandGame = ({
                 {corners('#fff')}{studentNickname || 'Player'}
               </div>
               <div style={{ position: 'relative', border: '4px solid #fff', background: '#000', padding: '6px 10px', display: 'flex', gap: '4px', alignItems: 'center' }}>
-                {corners('#fff')}{renderHearts(playerHealth, 3)}
+                {corners('#fff')}{renderHearts(playerHealth, MAX_HEARTS)}
               </div>
             </div>
           </div>
