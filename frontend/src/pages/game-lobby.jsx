@@ -60,7 +60,7 @@ const pixelCorners = (color, edgeOffset = -6) => (
   </>
 );
 
-const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onEnterIslandInterior, onLeaveIslandInterior, onLogout, onNicknameChanged, onMasterVolumeChanged }) => {
+const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onEnterIslandInterior, onLeaveIslandInterior, onIslandInteriorLoaded, onLogout, onNicknameChanged, onMasterVolumeChanged }) => {
   const [gameProgress, setGameProgress] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -529,13 +529,31 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       if (islandType === selectedIsland.name) islandStars[stageNumber] = stars;
     });
     return (
-      <IslandInterior
-        island={selectedIsland}
-        maxStage={liveMaxStage}
-        stars={islandStars}
-        onSelectLevel={handleSelectLevel}
-        onBack={handleBackToLobby}
-      />
+      <>
+        <IslandInterior
+          island={selectedIsland}
+          maxStage={liveMaxStage}
+          stars={islandStars}
+          character={character}
+          paused={showSettings}
+          onSelectLevel={handleSelectLevel}
+          onBack={handleBackToLobby}
+          onOpenMenu={() => setShowSettings(true)}
+          onLoaded={onIslandInteriorLoaded}
+        />
+        {/* Menu: the same Settings pop-up as the island selection's ⚙️ button and the in-game Menu */}
+        {showSettings && (
+          <SettingsPage
+            studentId={studentId}
+            studentNickname={studentNickname}
+            selectedCharacter={character}
+            onBack={() => setShowSettings(false)}
+            onLogout={onLogout}
+            onNicknameChanged={onNicknameChanged}
+            onMasterVolumeChanged={onMasterVolumeChanged}
+          />
+        )}
+      </>
     );
   }
 

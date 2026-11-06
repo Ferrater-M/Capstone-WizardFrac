@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import IntroPhase from '../components/IntroPhase';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
 // ButterflyDiagramCanvas and ButterflyStepPanel disabled — new solving method coming
@@ -142,6 +143,8 @@ const DissimilarIslandGame = ({
   const needsCarry = rawNum >= rawDen;
   const [currentStep, setCurrentStep] = useState(1);
   const [showTutorial, setShowTutorial] = useState(true);
+  // Intro Phase (player VERSUS enemy) plays first; the music, tutorial and timers start after it
+  const [introDone, setIntroDone] = useState(false);
   const butterflyPanelRef = useRef(null);
 
   // ── Game state ─────────────────────────────────────────────────────────────
@@ -584,17 +587,18 @@ const DissimilarIslandGame = ({
   }, []);
 
   useEffect(() => {
+    if (!introDone) return undefined;
     const track = Math.floor(Math.random() * 3) + 1;
     playOST(`/OSTFiles/dissimilarcombatOST${track}.mp3`);
     return () => { if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; } };
-  }, [gameSession.level]);
+  }, [gameSession.level, introDone]);
 
   useEffect(() => {
-    if (enemyData?.type === 'boss') {
+    if (introDone && enemyData?.type === 'boss') {
       const track = Math.floor(Math.random() * 2) + 1;
       playOST(`/OSTFiles/bossOST${track}.mp3`);
     }
-  }, [enemyData?.type]);
+  }, [enemyData?.type, introDone]);
 
   // ── Environmental particle spawner ────────────────────────────────────────
   useEffect(() => {
@@ -1271,7 +1275,7 @@ const DissimilarIslandGame = ({
     || fireball !== null || defeatTarget !== null
     || animHeld;                                                                 // header hint sliding in
   const sessionEnded = defeatTarget !== null || gameOver;
-  const sessionRunning = !showTutorial && !showSettings && !sessionEnded && !animating;
+  const sessionRunning = introDone && !showTutorial && !showSettings && !sessionEnded && !animating;
   const solveRunning = sessionRunning && answeredProblem !== problem;
   // getMs() on these gives the exact time for saving.
   const sessionWatch = useStopwatch(sessionRunning);
@@ -2356,7 +2360,17 @@ const DissimilarIslandGame = ({
       )}
 
       {/* Tutorials */}
-      {showTutorial && <ButterflyTutorial onComplete={() => setShowTutorial(false)} />}
+      {!introDone && (
+        <IntroPhase
+          playerName={studentNickname}
+          playerSprite={selectedCharacter?.name?.toLowerCase().includes('girl') ? '/PlayerAssets/witch/witchIdle.png' : '/PlayerAssets/wizard/wizardIdle.png'}
+          enemyName={enemyData?.name}
+          enemySprite={enemyData?.name ? `/enemyAssets/dissimilarIsland/${enemyData.name}/idle.png` : ''}
+          onDone={() => setIntroDone(true)}
+        />
+      )}
+
+      {showTutorial && introDone && <ButterflyTutorial onComplete={() => setShowTutorial(false)} />}
 
       {/* Flying number bubbles — same style as Similar Island's denomination bubbles */}
       {flyBubbles && (

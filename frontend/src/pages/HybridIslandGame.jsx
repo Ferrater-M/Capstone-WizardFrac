@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import IntroPhase from '../components/IntroPhase';
 import { createPortal } from 'react-dom';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
@@ -3812,6 +3813,8 @@ const HybridIslandGame = ({
   const [gameOver,       setGameOver]       = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
+  // Intro Phase (player VERSUS enemy) plays first; the music, tutorial and timers start after it
+  const [introDone, setIntroDone] = useState(false);
 
   const [problem,          setProblem]          = useState(() => generateProblem());
   // Bumped every time a new problem is generated — used as a React `key` on
@@ -3975,17 +3978,18 @@ const HybridIslandGame = ({
   }, []);
 
   useEffect(() => {
+    if (!introDone) return undefined;
     const track = Math.floor(Math.random() * 3) + 1;
     playOST(`/OSTFiles/hybridcombatOST${track}.mp3`);
     return () => { if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; } };
-  }, [gameSession.level]);
+  }, [gameSession.level, introDone]);
 
   useEffect(() => {
-    if (enemyData?.type === 'boss') {
+    if (introDone && enemyData?.type === 'boss') {
       const track = Math.floor(Math.random() * 2) + 1;
       playOST(`/OSTFiles/bossOST${track}.mp3`);
     }
-  }, [enemyData?.type]);
+  }, [enemyData?.type, introDone]);
 
   // Parse enemyData.txt and apply matching enemy for this level
   useEffect(() => {
@@ -4478,7 +4482,7 @@ const HybridIslandGame = ({
     || fireball !== null
     || animHeld;                                     // header hint sliding in
   const sessionEnded = gameOver || enemyLives <= 0 || playerHealth <= 0;
-  const sessionRunning = !showTutorial && !showSettings && !sessionEnded && !animating;
+  const sessionRunning = introDone && !showTutorial && !showSettings && !sessionEnded && !animating;
   const solveRunning = sessionRunning && answeredRound !== roundKey;
   // getMs() on these gives the exact time for saving.
   const sessionWatch = useStopwatch(sessionRunning);
@@ -4946,7 +4950,17 @@ const HybridIslandGame = ({
         />
       ))}
 
-      {showTutorial && <HybridFractionTutorial onComplete={() => setShowTutorial(false)} />}
+      {!introDone && (
+        <IntroPhase
+          playerName={studentNickname}
+          playerSprite={selectedCharacter?.name?.toLowerCase().includes('girl') ? '/PlayerAssets/witch/witchIdle.png' : '/PlayerAssets/wizard/wizardIdle.png'}
+          enemyName={enemyData?.name}
+          enemySprite={enemyData?.name ? `/enemyAssets/hybridIsland/${enemyData.name}/idle.png` : ''}
+          onDone={() => setIntroDone(true)}
+        />
+      )}
+
+      {showTutorial && introDone && <HybridFractionTutorial onComplete={() => setShowTutorial(false)} />}
 
       {/* Game Over */}
       {gameOver && (

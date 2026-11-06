@@ -1,0 +1,169 @@
+/* Intro Phase — the pre-battle "player VERSUS enemy" pop-up (IntroPhase.jsx).
+   Same black-and-white style as the battle UI (player nameplate, Correct/Incorrect pop-ups):
+   black boxes, thick white borders, thin inner line, square white corners. Only the sprites are in colour. */
+.ip-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30000;                 /* above every battle effect and pop-up */
+  background: rgba(0, 0, 0, 0.78);
+  font-family: 'Press Start 2P', monospace;
+  overflow: hidden;
+  cursor: pointer;
+  animation: ipDarken 0.3s ease-out;
+  transition: opacity 0.5s ease;
+}
+
+.ip-overlay.is-fading { opacity: 0; }
+
+@keyframes ipDarken { from { opacity: 0; } to { opacity: 1; } }
+
+/* Black band across the middle with white rails; the sprites are taller and float out past it */
+.ip-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 300px;
+  transform: translateY(-50%);
+  background: #000;
+  border-top: 6px solid #fff;
+  border-bottom: 6px solid #fff;
+}
+
+.ip-band::before,
+.ip-band::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #fff;
+}
+
+.ip-band::before { top: 7px; }
+.ip-band::after { bottom: 7px; }
+
+.ip-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  pointer-events: none;
+}
+
+.ip-sprite {
+  flex: 0 0 auto;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 14px 16px rgba(0, 0, 0, 0.7));
+}
+
+/* Name: plain white text, no box behind it */
+.ip-name-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  color: #fff;
+  text-shadow: 3px 3px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+}
+
+.ip-role {
+  font-size: 13px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.ip-name {
+  font-size: clamp(20px, 3vw, 36px);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Player: in from the right, out to the left. Enemy: in from the left. */
+.ip-player.is-entering { animation: ipInFromRight 0.55s cubic-bezier(.2, .9, .3, 1) both; }
+.ip-player.is-leaving { animation: ipOutToLeft 0.4s cubic-bezier(.6, 0, .9, .4) both; }
+.ip-enemy.is-entering { animation: ipInFromLeft 0.55s cubic-bezier(.2, .9, .3, 1) both; }
+
+@keyframes ipInFromRight { from { transform: translateX(110vw); } to { transform: translateX(0); } }
+@keyframes ipOutToLeft { from { transform: translateX(0); } to { transform: translateX(-110vw); } }
+@keyframes ipInFromLeft { from { transform: translateX(-110vw); } to { transform: translateX(0); } }
+
+/* VERSUS: pops in big (inner), then the slot shrinks it up out of the way when the enemy arrives */
+.ip-versus-slot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  transition: transform 0.35s ease, top 0.35s ease, opacity 0.35s ease;
+}
+
+.ip-versus-slot.is-small {
+  top: calc(50% - 150px + 24px);
+  transform: translate(-50%, 0) scale(0.4);
+  opacity: 0.9;
+}
+
+.ip-versus {
+  display: block;
+  color: #fff;
+  font-size: clamp(36px, 6vw, 72px);
+  letter-spacing: 6px;
+  white-space: nowrap;
+  text-shadow: 4px 4px 0 #000, -2px -2px 0 #000, 6px 6px 0 rgba(255, 255, 255, 0.25);
+  animation: ipVersusIn 0.45s cubic-bezier(.2, 1.4, .4, 1) both, ipShake 0.3s steps(2) 0.45s;
+}
+
+@keyframes ipVersusIn { from { opacity: 0; transform: scale(2.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes ipShake { 0%, 100% { margin-left: 0; } 50% { margin-left: 6px; } }
+
+/* FIGHT! — the "Perfect!" pop-up's flash, as plain text (no box behind it) */
+.ip-fight {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: clamp(40px, 7vw, 88px);
+  letter-spacing: 6px;
+  white-space: nowrap;
+  animation: ipFightFlash 1.5s ease-in-out both;
+}
+
+@keyframes ipFightFlash {
+  0%   { opacity: 0;    text-shadow: 0 0 0 rgba(255,255,255,0); }
+  6%   { opacity: 1;    text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+  12%  { opacity: 0.35; text-shadow: 0 0 4px #fff; }
+  18%  { opacity: 1;    text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+  24%  { opacity: 0.35; text-shadow: 0 0 4px #fff; }
+  30%  { opacity: 1;    text-shadow: 0 0 14px #fff, 0 0 28px #fff; }
+  40%, 100% { opacity: 1; text-shadow: 0 0 8px #fff; }
+}
+
+.ip-skip {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+@media (max-width: 700px) {
+  .ip-band { height: 220px; }
+  .ip-row { gap: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ip-player.is-entering, .ip-player.is-leaving, .ip-enemy.is-entering, .ip-versus { animation-duration: 0.01s; }
+  .ip-fight { animation: none; }
+}

@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import GameEndPopup from './components/GameEndPopup';
+import { countEnemiesPerIsland } from './utils/islandStages';
 import { flushSync } from 'react-dom';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import './App.css';
@@ -14,6 +16,8 @@ import { getMasterVolume } from './utils/audio';
 import { API_BASE_URL } from './config';
 
 const LOBBY_PATHS = ['/', '/login', '/character-selection', '/game-lobby'];
+// Menu music plays a little under the Master Volume setting.
+const MUSIC_VOLUME = 0.7;
 
 function App() {
   const navigate = useNavigate();
@@ -31,6 +35,15 @@ function App() {
   const [isMuted, setIsMuted] = useState(false);
   const audioRef = useRef(null);
   const endActionLocked = useRef(false);
+  const [endError, setEndError] = useState('');
+  // Levels per island, from enemyData.txt — decides whether "Next Level" exists and which level is the boss
+  const [stageCounts, setStageCounts] = useState({});
+  useEffect(() => {
+    fetch(`/enemyData.txt?t=${Date.now()}`)
+      .then(r => r.text())
+      .then(text => setStageCounts(countEnemiesPerIsland(text)))
+      .catch(() => {});
+  }, []);
 
   // ── Content protection ──────────────────────────────────────────────────
   // Makes the game behave like a normal app: no dragging images out of the
@@ -78,43 +91,65 @@ function App() {
     return () => window.removeEventListener('mousemove', onMove);
   }, []);
 
-  // Create the audio instance once
+  // Create the audio instances once: the title music, and the level selection's own theme
+  const islandAudioRef = useRef(null);
+  const inIslandRef = useRef(false);   // inside an island's level selection (its theme replaces the title music)
   useEffect(() => {
-    const audio = new Audio('/TitleTheme.wav');
+    const audio = new Audio('/OSTFiles/TitleTheme.mp3');
     audio.loop = true;
-    audio.volume = getMasterVolume();
+    audio.volume = getMasterVolume() * MUSIC_VOLUME;
     audioRef.current = audio;
-    return () => { audio.pause(); audio.src = ''; };
+    const island = new Audio('/OSTFiles/IslandSelectionTheme.mp3');
+    island.loop = true;
+    island.volume = getMasterVolume() * MUSIC_VOLUME;
+    islandAudioRef.current = island;
+    return () => {
+      audio.pause(); audio.src = '';
+      island.pause(); island.src = '';
+    };
   }, []);
 
-  // Play on login/lobby screens, pause otherwise
+  // Title music on login/lobby screens (unless a level selection is open), nothing elsewhere
   useEffect(() => {
     if (!audioRef.current) return;
     if (LOBBY_PATHS.includes(location.pathname)) {
-      audioRef.current.play().catch(() => {});
+      if (!inIslandRef.current) audioRef.current.play().catch(() => {});
     } else {
       audioRef.current.pause();
+      islandAudioRef.current?.pause();   // e.g. a fight started from the level selection
+      inIslandRef.current = false;
     }
   }, [location.pathname]);
 
-  const pauseMusic  = () => audioRef.current?.pause();
-  const resumeMusic = () => { if (!isMuted) audioRef.current?.play().catch(() => {}); };
+  // Entering an island: the title music stops; the level selection's theme starts once it has loaded.
+  const pauseMusic = () => { inIslandRef.current = true; audioRef.current?.pause(); };
+  const playIslandTheme = () => {
+    const island = islandAudioRef.current;
+    if (!island) return;
+    island.currentTime = 0;               // always from the beginning
+    if (!isMuted) island.play().catch(() => {});
+  };
+  // Leaving the island: its theme stops and the title music comes back.
+  const resumeMusic = () => {
+    inIslandRef.current = false;
+    islandAudioRef.current?.pause();
+    if (!isMuted) audioRef.current?.play().catch(() => {});
+  };
 
   const toggleMute = () => {
     if (!audioRef.current) return;
-    if (isMuted) {
-      audioRef.current.volume = getMasterVolume();
-    } else {
-      audioRef.current.volume = 0;
-    }
+    const volume = isMuted ? getMasterVolume() * MUSIC_VOLUME : 0;
+    audioRef.current.volume = volume;
+    if (islandAudioRef.current) islandAudioRef.current.volume = volume;
     setIsMuted(m => !m);
   };
 
   // Live-update the currently playing background music when the Master
   // Volume slider on the Settings page moves, without waiting for a reload.
   const handleMasterVolumeChanged = (volume01) => {
-    if (audioRef.current && !isMuted) {
-      audioRef.current.volume = volume01;
+    if (!isMuted) {
+      if (audioRef.current) audioRef.current.volume = volume01 * MUSIC_VOLUME;
+      if (islandAudioRef.current) islandAudioRef.current.volume = volume01 * MUSIC_VOLUME;
     }
   };
 
@@ -152,6 +187,8 @@ function App() {
   };
 
   const handleGameEnd = (result) => {
+    endActionLocked.current = false;
+    setEndError('');
     flushSync(() => setGameResult(result));
     navigate('/game-end');
   };
@@ -172,22 +209,25 @@ function App() {
 
   const handleNextLevel = async () => {
     const nextLevel = (gameSession.level || 1) + 1;
+    const total = stageCounts[gameSession.islandType];
     try {
       const res = await fetch(`${API_BASE_URL}/api/game-lobby/start-stage/${studentId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ islandType: gameSession.islandType, stageNumber: nextLevel }),
       });
-      if (res.ok) {
-        const newSession = await res.json();
-        flushSync(() => {
-          setGameSession({ ...newSession, level: nextLevel, isBoss: nextLevel === 6 });
-          setGameResult(null);
-        });
-        navigate('/game');
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const newSession = await res.json();
+      flushSync(() => setGameSession({ ...newSession, level: nextLevel, isBoss: nextLevel === total }));
+      navigate('/game');
+      // Cleared only after leaving /game-end: that route sends you to the lobby when there is no result,
+      // and clearing it first made Next Level land on the lobby instead of the next fight.
+      setGameResult(null);
     } catch (err) {
       console.error('Error starting next level:', err);
+      setEndError('Could not start the next level. Please try again.');
+    } finally {
+      endActionLocked.current = false;
     }
   };
 
@@ -274,6 +314,7 @@ function App() {
                 onOpenDashboard={handleOpenDashboard}
                 onEnterIslandInterior={pauseMusic}
                 onLeaveIslandInterior={resumeMusic}
+                onIslandInteriorLoaded={playIslandTheme}
                 onLogout={handleReturnToLogin}
                 onNicknameChanged={handleNicknameChanged}
                 onMasterVolumeChanged={handleMasterVolumeChanged}
@@ -301,104 +342,16 @@ function App() {
         <Route path="/game-end" element={
           studentId && gameResult
             ? (
-              <div style={{
-                position: 'fixed', inset: 0,
-                backgroundImage: 'url(/PostMatchBackground.jpg)',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-                fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-              }}>
-                <div style={{
-                  position: 'relative',
-                  background: '#251e59',
-                  border: '4px solid #f6b825',
-                  borderRadius: '12px',
-                  boxShadow: '0 0 0 2px #18113c, 0 20px 40px rgba(0,0,0,0.6)',
-                  padding: '36px 56px 28px',
-                  textAlign: 'center',
-                }}>
-                  <div style={{
-                    position: 'absolute',
-                    top: 8, right: 8, bottom: 8, left: 8,
-                    border: '1px solid #f6b825',
-                    borderRadius: '6px',
-                    pointerEvents: 'none',
-                  }} />
-
-                  <h1 style={{
-                    fontSize: 'clamp(2.5em, 6vw, 5em)',
-                    fontWeight: 900,
-                    margin: 0,
-                    color: gameResult.isWon ? '#f6b825' : '#ef4444',
-                    textShadow: '0 0 20px rgba(0,0,0,0.6), 2px 2px 6px rgba(0,0,0,0.8)',
-                    letterSpacing: '6px',
-                    textTransform: 'uppercase',
-                  }}>
-                    {gameResult.isWon ? 'VICTORY!' : 'DEFEAT!'}
-                  </h1>
-
-                  <p style={{
-                    fontSize: 'clamp(1em, 2vw, 1.3em)',
-                    color: '#fff',
-                    margin: '36px 0 0',
-                    fontWeight: 500,
-                  }}>
-                    {gameResult.isWon ? 'You defeated the enemy!' : 'You ran out of lives.'}
-                  </p>
-
-                  <p style={{
-                    fontSize: 'clamp(1.1em, 2vw, 1.6em)',
-                    color: '#fff',
-                    margin: '12px 0 0',
-                    fontWeight: 700,
-                  }}>
-                    Score: {gameResult.score}{gameSession?.isBoss ? ' + 500' : ''}
-                  </p>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'row', gap: '12px', marginTop: '16px' }}>
-                  {gameResult.isWon && gameSession?.level < 6 && (
-                    <button
-                      onClick={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleNextLevel(); }}
-                      style={{
-                        padding: '12px 28px', fontSize: '15px', fontWeight: 700,
-                        background: 'rgba(40,40,40,0.8)', color: '#fff',
-                        border: '1px solid rgba(255,255,255,0.3)', borderRadius: '10px',
-                        cursor: 'pointer', backdropFilter: 'blur(10px)',
-                      }}
-                    >
-                      ▶ Next Level
-                    </button>
-                  )}
-                  <button
-                    onClick={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleReturnToLobby(); }}
-                    style={{
-                      padding: '12px 28px', fontSize: '15px', fontWeight: 700,
-                      background: 'rgba(40,40,40,0.8)', color: '#fff',
-                      border: '1px solid rgba(255,255,255,0.3)', borderRadius: '10px',
-                      cursor: 'pointer', backdropFilter: 'blur(10px)',
-                    }}
-                  >
-                    Back to Lobby
-                  </button>
-                  <button
-                    onClick={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleReturnToLogin(); }}
-                    style={{
-                      padding: '12px 28px', fontSize: '15px', fontWeight: 700,
-                      background: 'rgba(40,40,40,0.8)', color: '#fff',
-                      border: '1px solid rgba(255,255,255,0.3)', borderRadius: '10px',
-                      cursor: 'pointer', backdropFilter: 'blur(10px)',
-                    }}
-                  >
-                    Back to Login
-                  </button>
-                </div>
-              </div>
+              <GameEndPopup
+                isWon={gameResult.isWon}
+                score={gameResult.score}
+                bonus={gameSession?.isBoss ? 500 : 0}
+                hasNextLevel={!!(gameResult.isWon && gameSession && stageCounts[gameSession.islandType] > (gameSession.level || 1))}
+                error={endError}
+                onNextLevel={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleNextLevel(); }}
+                onLobby={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleReturnToLobby(); }}
+                onLogin={() => { if (endActionLocked.current) return; handleReturnToLogin(); }}
+              />
             )
             : <Navigate to={studentId ? '/game-lobby' : '/login'} replace />
         } />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import IntroPhase from '../components/IntroPhase';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import './game.css';
 import DrawingCanvas from '../components/DrawingCanvas';
@@ -79,6 +80,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [gameOver, setGameOver] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
+  // Intro Phase (player VERSUS enemy) plays first; the music, tutorial and timers start after it
+  const [introDone, setIntroDone] = useState(false);
   const [currentHint, setCurrentHint] = useState('');
   const [circleDetected, setCircleDetected] = useState(false);
   const [magicN, setMagicN] = useState('');
@@ -230,18 +233,19 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
 
   // Start combat OST on mount
   useEffect(() => {
+    if (!introDone) return undefined;
     const track = Math.floor(Math.random() * 3) + 1;
     playOST(`/OSTFiles/similarcombatOST${track}.mp3`);
     return () => { if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; } };
-  }, [gameSession.level]);
+  }, [gameSession.level, introDone]);
 
   // Switch to boss OST if enemy type is "boss"
   useEffect(() => {
-    if (enemyData?.type === 'boss') {
+    if (introDone && enemyData?.type === 'boss') {
       const track = Math.floor(Math.random() * 2) + 1;
       playOST(`/OSTFiles/bossOST${track}.mp3`);
     }
-  }, [enemyData?.type]);
+  }, [enemyData?.type, introDone]);
 
   // Leaf & flower environmental particles — rain from top-right to bottom-left
   useEffect(() => {
@@ -945,7 +949,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     || fireball !== null || defeatTarget !== null
     || animHeld;                                                       // short one-offs (hint reveal)
   const sessionEnded = defeatTarget !== null || gameOver;
-  const sessionRunning = !showTutorial && !showSettings && !sessionEnded && !animating;
+  const sessionRunning = introDone && !showTutorial && !showSettings && !sessionEnded && !animating;
   const solveRunning = sessionRunning && !problemAnswered;
   // getMs() on these gives the exact time for saving.
   const sessionWatch = useStopwatch(sessionRunning);
@@ -2444,7 +2448,17 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         />
       ))}
 
-      {showTutorial && (
+      {!introDone && (
+        <IntroPhase
+          playerName={studentNickname}
+          playerSprite={selectedCharacter?.name?.toLowerCase().includes('girl') ? '/PlayerAssets/witch/witchIdle.png' : '/PlayerAssets/wizard/wizardIdle.png'}
+          enemyName={enemyData?.name}
+          enemySprite={enemyData?.name ? `/enemyAssets/similarIsland/${enemyData.name}/idle.png` : ''}
+          onDone={() => setIntroDone(true)}
+        />
+      )}
+
+      {showTutorial && introDone && (
         <SimilarFractionTutorial onComplete={() => setShowTutorial(false)} />
       )}
 

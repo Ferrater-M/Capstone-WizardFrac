@@ -174,3 +174,376 @@
   transform: scale(1.08);
   box-shadow: 0 10px 35px rgba(102, 126, 234, 0.6);
 }
+
+/* ── Key guide (bottom left): WASD = Move, Enter = Fight — pixel style like the island selection ── */
+.key-guide {
+  position: absolute;
+  left: 20px;
+  bottom: 20px;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  padding: 18px 20px 16px;
+  background: linear-gradient(165deg, rgba(33, 16, 68, 0.92) 0%, rgba(23, 10, 52, 0.92) 100%);
+  border: 4px solid #6D28D9;
+  border-radius: 0;
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.15), 0 20px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  font-family: 'Press Start 2P', monospace;
+  pointer-events: none;
+  user-select: none;
+}
+
+.key-guide-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.key-guide-row {
+  display: flex;
+  gap: 8px;
+}
+
+.keycap {
+  box-sizing: border-box;
+  min-width: 54px;
+  height: 54px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #32175E;
+  color: #F8F7FF;
+  border: 3px solid #6D28D9;
+  border-radius: 0;
+  box-shadow: 0 6px 0 #1b0d40;          /* the key's side, so it looks raised */
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease, color 0.08s ease;
+}
+
+/* Idle: the WASD caps light up one after another, suggesting "walk" */
+.keycap.is-idle { animation: keycapHint 1.8s ease-in-out infinite; }
+
+@keyframes keycapHint {
+  0%, 30%, 100% { transform: translateY(0); box-shadow: 0 5px 0 #1b0d40; background: #32175E; color: #F8F7FF; }
+  12%, 20%      { transform: translateY(4px); box-shadow: 0 1px 0 #1b0d40; background: #7C3AED; color: #FBBF24; }
+}
+
+/* Held down: pressed in, lit */
+.keycap.is-down {
+  animation: none;
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #1b0d40;
+  background: #7C3AED;
+  color: #FBBF24;
+}
+
+.keycap-enter {
+  min-width: 132px;
+  height: 116px;                         /* as tall as the two WASD rows */
+  font-size: 15px;
+  opacity: 0.55;
+}
+
+/* Next to an enemy: Enter glows and pulses */
+.keycap-enter.can-fight {
+  opacity: 1;
+  border-color: #FBBF24;
+  color: #FBBF24;
+  animation: enterPulse 1.1s ease-in-out infinite;
+}
+
+.keycap-enter.can-fight.is-down { animation: none; }
+
+@keyframes enterPulse {
+  0%, 100% { box-shadow: 0 5px 0 #1b0d40, 0 0 0 0 rgba(251, 191, 36, 0.55); }
+  50%      { box-shadow: 0 5px 0 #1b0d40, 0 0 18px 4px rgba(251, 191, 36, 0.55); }
+}
+
+.key-guide-label {
+  margin-top: 8px;
+  color: #C4B5FD;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.key-guide-label.is-ready { color: #FBBF24; }
+
+@media (prefers-reduced-motion: reduce) {
+  .keycap.is-idle,
+  .keycap-enter.can-fight { animation: none; }
+}
+
+/* ── Pixel sky background (drawn small and scaled up by PixelSky) ── */
+.pixel-sky {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* ── Back / Menu: the island selection's square "icon-pill" buttons ── */
+.ii-pill {
+  position: absolute;
+  top: 20px;
+  z-index: 10;
+  box-sizing: border-box;
+  height: 54px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  background: #32175E;
+  color: #F8F7FF;
+  border: 4px solid #6D28D9;
+  border-radius: 0;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.18);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.ii-pill:hover {
+  background: #7C3AED;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.45);
+  transform: translateY(-1px);
+}
+
+.ii-pill-back { left: 20px; }
+.ii-pill-menu { right: 20px; }
+
+.ii-inner-line {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid #6D28D9;
+  pointer-events: none;
+}
+
+.ii-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #6D28D9;
+  pointer-events: none;
+}
+
+.ii-corner.tl { top: 0; left: 0; }
+.ii-corner.tr { top: 0; right: 0; }
+.ii-corner.bl { bottom: 0; left: 0; }
+.ii-corner.br { bottom: 0; right: 0; }
+
+/* ── Miniature sprites ── */
+.mini-sprite {
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  image-rendering: pixelated;
+}
+
+.level-node {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.55));
+  transition: filter 0.15s ease;
+}
+
+.level-node.is-near { filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 14px rgba(251, 191, 36, 0.9)); }
+.level-node.is-locked .level-sprite { filter: brightness(0.25) saturate(0); opacity: 0.8; }
+.level-node.is-done .level-sprite { filter: saturate(0.45) brightness(0.8); }
+
+.level-crown {
+  position: absolute;
+  top: 6px;
+  font-size: 18px;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9));
+  z-index: 2;
+}
+
+.level-stars {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.level-lock {
+  position: absolute;
+  font-size: 18px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+}
+
+.level-tag {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 7px;
+  background: linear-gradient(165deg, #211044 0%, #170a34 100%);
+  border: 3px solid #6D28D9;
+  color: #F8F7FF;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.level-node.is-near .level-tag { border-color: #FBBF24; color: #FBBF24; }
+
+/* Completed level: red pixel X that pops in block by block, then breathes */
+.pixel-x {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -12px 0 0 -22px;      /* sits over the character, a little below the frame's centre */
+  overflow: visible;
+  animation: pixelXPulse 2.2s ease-in-out 0.8s infinite;
+  filter: drop-shadow(1px 1px 0 #3b0a0a) drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));
+}
+
+.pixel-x-cell {
+  fill: #ef4444;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pixelXIn 0.28s steps(3) forwards;
+}
+
+@keyframes pixelXIn {
+  0%   { opacity: 0; transform: scale(0.2); }
+  70%  { opacity: 1; transform: scale(1.3); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pixelXPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
+}
+
+.level-prompt {
+  position: absolute;
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 10px;
+  background: linear-gradient(165deg, #211044 0%, #170a34 100%);
+  border: 4px solid #6D28D9;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+  color: #F8F7FF;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  line-height: 1.4;
+  text-align: center;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.level-prompt-name { color: #C4B5FD; }
+
+/* Always one line, at the bottom of the prompt */
+.level-prompt-action {
+  margin-top: 2px;
+  color: #FBBF24;
+  white-space: nowrap;
+}
+
+.player-mini {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.55));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pixel-x, .pixel-x-cell { animation: none; opacity: 1; }
+}
+
+/* Pixel frame variants: corners outside the border (panels, like the island selection's title box),
+   and a small version for the level tags and prompt */
+.ii-corner.is-outside.tl { top: -6px; left: -6px; }
+.ii-corner.is-outside.tr { top: -6px; right: -6px; }
+.ii-corner.is-outside.bl { bottom: -6px; left: -6px; }
+.ii-corner.is-outside.br { bottom: -6px; right: -6px; }
+.ii-corner.is-small { width: 6px; height: 6px; }
+.ii-inner-line.is-small { inset: 2px; }
+.ii-corner, .ii-inner-line { z-index: 1; }
+.level-tag, .level-prompt, .key-guide { position: absolute; }
+.level-tag > *, .level-prompt > * { position: relative; }
+.level-tag > .ii-inner-line, .level-tag > .ii-corner,
+.level-prompt > .ii-inner-line, .level-prompt > .ii-corner { position: absolute; }
+
+/* Island title — the island selection's "WIZARD ISLANDS" box, centred at the top */
+.ii-title-box {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: 24px 44px 18px;
+  background-color: #211044;
+  background-image: linear-gradient(165deg, #211044 0%, #170a34 100%);
+  border: 4px solid #6D28D9;
+  border-radius: 0;
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.15), 0 20px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.ii-title-gem {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(135deg, #A855F7 0%, #7C3AED 100%);
+  border: 2px solid #FBBF24;
+  box-shadow: 0 0 18px rgba(168, 85, 247, 0.6);
+  z-index: 2;
+}
+
+.ii-title-gem span { position: absolute; inset: 5px; background: rgba(255, 255, 255, 0.35); }
+
+.ii-title {
+  margin: 0;
+  color: #FBBF24;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(14px, 2vw, 22px);
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(251, 191, 36, 0.5), 2px 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* The island picture, drawn small and scaled up (PixelImage) */
+.pixel-image { image-rendering: pixelated; }
+canvas.walkable-area-float { display: block; }
+
+/* Cloud fly-through intro, above everything until it clears (CloudIntro) */
+.cloud-intro {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
