@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { shouldAutoShowTutorial, markTutorialSeen } from '../utils/tutorialSeen';
 import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
@@ -81,7 +82,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [enemyAttacking, setEnemyAttacking] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(true);
+  // Opens by itself only on level 1, until it's been finished or skipped once (Help still opens it)
+  const [showTutorial, setShowTutorial] = useState(() => shouldAutoShowTutorial('Similar', studentId, gameSession.level));
   // Intro Phase (player VERSUS enemy) plays first; the music, tutorial and timers start after it
   const [introDone, setIntroDone] = useState(false);
   const [currentHint, setCurrentHint] = useState('');
@@ -2443,7 +2445,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       )}
 
       {showTutorial && introDone && (
-        <SimilarFractionTutorial onComplete={() => setShowTutorial(false)} />
+        <SimilarFractionTutorial onComplete={() => { markTutorialSeen('Similar', studentId); setShowTutorial(false); }} />
       )}
 
       {dBubble && (

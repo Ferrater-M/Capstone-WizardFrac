@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@700&display=swap');
+
 .main-page {
   position: relative;
   width: 100vw;
@@ -40,8 +42,8 @@
 .main-greeting {
   position: absolute;
   right: 0;
-  bottom: 0;
-  transform: translate(32%, 160%) rotate(-12deg);
+  top: 0;                                       /* above the logo's top-right corner, clear of the banner */
+  transform: translate(28%, -85%) rotate(14deg);
   z-index: 1;
   font-size: clamp(0.6em, 1.1vw, 0.85em);
   line-height: 1.4;
@@ -55,7 +57,7 @@
 
 @media (max-width: 700px) {
   .main-greeting {
-    transform: translate(5%, 280%) rotate(-12deg);
+    transform: translate(5%, -95%) rotate(14deg);
     font-size: 0.5em;
   }
 }
@@ -85,18 +87,19 @@
   pointer-events: none;
 }
 
-/* About modal palette */
+/* About pop-up — the same frame as the island selection's Settings pop-up and the dashboard pop-ups:
+   dark galaxy fill, 4px square border with a thin inner line and pixel corners, Press Start 2P,
+   gold headings. No emoji/star symbols. */
 .about-overlay {
-  --mp-panel: #211052;
-  --mp-panel2: #32156B;
+  --mp-bg1: #08051C;
+  --mp-bg2: #12082F;
+  --mp-panel2: #241354;
+  --mp-border: #382066;
   --mp-accent: #7C3AED;
-  --mp-glow: #A78BFA;
   --mp-gold: #FBBF24;
   --mp-text: #F8F7FF;
   --mp-text2: #C4B5FD;
-}
 
-.about-overlay {
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -104,123 +107,112 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(6, 4, 20, 0.72);
-  backdrop-filter: blur(4px);
+  box-sizing: border-box;
+  background: rgba(4, 2, 16, 0.72);
+  backdrop-filter: blur(6px);
+  font-family: 'Press Start 2P', 'Outfit', 'Segoe UI', monospace;
+  animation: aboutOverlayIn 0.18s ease;
 }
+
+@keyframes aboutOverlayIn { from { opacity: 0; } to { opacity: 1; } }
 
 .about-panel {
   position: relative;
   width: 100%;
   max-width: 980px;
   max-height: 88vh;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 44px 40px 32px;
-  background:
-    /* scattered stars, spread across the whole panel */
-    radial-gradient(1.6px 1.6px at 6% 12%,  rgba(255,255,255,0.9) 50%, transparent 52%),
-    radial-gradient(1.3px 1.3px at 15% 30%, rgba(255,255,255,0.7) 50%, transparent 52%),
-    radial-gradient(1.4px 1.4px at 27% 8%,  rgba(255,255,255,0.8) 50%, transparent 52%),
-    radial-gradient(1.2px 1.2px at 38% 22%, rgba(255,255,255,0.6) 50%, transparent 52%),
-    radial-gradient(1.6px 1.6px at 50% 10%, rgba(255,255,255,0.85) 50%, transparent 52%),
-    radial-gradient(1.3px 1.3px at 62% 18%, rgba(255,255,255,0.7) 50%, transparent 52%),
-    radial-gradient(1.5px 1.5px at 73% 9%,  rgba(255,255,255,0.9) 50%, transparent 52%),
-    radial-gradient(1.2px 1.2px at 85% 24%, rgba(255,255,255,0.6) 50%, transparent 52%),
-    radial-gradient(1.4px 1.4px at 93% 14%, rgba(255,255,255,0.8) 50%, transparent 52%),
-    radial-gradient(1.2px 1.2px at 20% 55%, rgba(255,255,255,0.55) 50%, transparent 52%),
-    radial-gradient(1.3px 1.3px at 45% 62%, rgba(255,255,255,0.5) 50%, transparent 52%),
-    radial-gradient(1.2px 1.2px at 68% 50%, rgba(255,255,255,0.5) 50%, transparent 52%),
-    /* soft glow behind the characters */
-    radial-gradient(ellipse 55% 55% at 80% 70%, rgba(124, 58, 237, 0.4) 0%, rgba(33, 16, 82, 0) 70%),
-    /* base night sky */
-    linear-gradient(165deg, var(--mp-panel) 0%, #150a38 100%);
-  border: 4px solid #f6b825;
-  border-radius: 22px;
-  box-shadow:
-    0 0 0 2px #18113c,
-    0 0 60px rgba(124, 58, 237, 0.35),
-    0 20px 60px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 40px 40px 32px;
+  background: radial-gradient(ellipse at 50% -10%, var(--mp-bg2) 0%, var(--mp-bg1) 65%);
+  border: 4px solid var(--mp-border);
+  border-radius: 0;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  color: var(--mp-text);
+  font-family: inherit;
+  animation: aboutPanelIn 0.22s ease;
 }
 
-/* Purple diamond corner accents, matching the login panel edge */
+@keyframes aboutPanelIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Thin inner line + square pixel corners */
+.about-inner-line {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid var(--mp-border);
+  pointer-events: none;
+}
+
 .about-corner {
   position: absolute;
-  width: 8px;
-  height: 8px;
-  background: linear-gradient(135deg, #c4b0ff 0%, #7c3aed 100%);
-  transform: rotate(45deg);
+  width: 12px;
+  height: 12px;
+  background: var(--mp-border);
   z-index: 2;
+  pointer-events: none;
 }
-.about-corner.top-left     { top: -4px; left: -4px; }
-.about-corner.top-right    { top: -4px; right: -4px; }
-.about-corner.bottom-left  { bottom: -4px; left: -4px; }
-.about-corner.bottom-right { bottom: -4px; right: -4px; }
+.about-corner.top-left     { top: 0; left: 0; }
+.about-corner.top-right    { top: 0; right: 0; }
+.about-corner.bottom-left  { bottom: 0; left: 0; }
+.about-corner.bottom-right { bottom: 0; right: 0; }
 
 .about-close {
   position: absolute;
   top: 18px;
   right: 18px;
   z-index: 3;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
-  border: 1px solid rgba(167, 139, 250, 0.4);
+  border: 1px solid var(--mp-border);
   background: var(--mp-panel2);
   color: var(--mp-text);
-  font-size: 0.95em;
+  font-size: 0.9em;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.18);
+  transition: background 0.2s ease, transform 0.15s ease;
 }
 
 .about-close:hover {
   background: var(--mp-accent);
-  transform: rotate(90deg);
+  transform: translateY(-1px);
 }
 
 .about-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 12px 24px;
-  margin: 0 auto 14px;
-  width: fit-content;
-  background: linear-gradient(135deg, var(--mp-accent) 0%, #4F46E5 100%);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.45);
-}
-
-.about-banner-star {
-  color: var(--mp-gold);
-  font-size: 0.9em;
-}
-
-.about-banner-about {
-  color: var(--mp-text);
-  font-weight: 800;
+  margin: 4px 48px 12px;
+  text-align: center;
+  font-family: inherit;
+  font-size: clamp(14px, 2.2vw, 22px);
+  font-weight: 400;
+  line-height: 1.5;
   letter-spacing: 2px;
-  font-size: 1.15em;
 }
+
+.about-banner-about { color: var(--mp-text); }
 
 .about-banner-name {
   color: var(--mp-gold);
-  font-weight: 900;
-  letter-spacing: 2px;
-  font-size: 1.15em;
+  text-shadow: 0 0 14px rgba(251, 191, 36, 0.4);
 }
 
 .about-subtitle {
+  margin: 0 0 14px;
   text-align: center;
   color: var(--mp-text2);
-  font-style: italic;
-  font-size: 1em;
-  margin: 0 0 14px;
+  font-size: 11px;
+  line-height: 1.8;
 }
 
+/* Divider: two lines with a square pixel between them */
 .about-separator {
   display: flex;
   align-items: center;
@@ -232,21 +224,19 @@
 
 .about-sep-line {
   flex: 1;
-  height: 1px;
-  background: rgba(246, 184, 37, 0.4);
+  height: 2px;
+  background: var(--mp-border);
 }
 
 .about-sep-diamond {
-  width: 6px;
-  height: 6px;
-  background: #f6b825;
-  transform: rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: var(--mp-gold);
   flex: 0 0 auto;
 }
 
 /* Body: a fixed-height frame. The character art is a plain child here, so
-   it never scrolls. .about-scroll is the only thing that scrolls, and its
-   own scrollbar sits flush at the panel's real right edge. */
+   it never scrolls. .about-scroll is the only thing that scrolls. */
 .about-body {
   position: relative;
   display: flex;
@@ -261,25 +251,17 @@
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: #f6b825 rgba(167, 139, 250, 0.12);
+  scrollbar-color: var(--mp-border) transparent;
 }
 
-.about-scroll::-webkit-scrollbar {
-  width: 8px;
-}
-.about-scroll::-webkit-scrollbar-track {
-  background: rgba(167, 139, 250, 0.12);
-  border-radius: 8px;
-}
-.about-scroll::-webkit-scrollbar-thumb {
-  background: #f6b825;
-  border-radius: 8px;
-}
+.about-scroll::-webkit-scrollbar { width: 8px; }
+.about-scroll::-webkit-scrollbar-track { background: transparent; }
+.about-scroll::-webkit-scrollbar-thumb { background: var(--mp-border); }
 
 .about-text-col {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 26px;
   padding-right: 44%;
 }
 
@@ -307,18 +289,14 @@
 @media (max-width: 760px) {
   .about-panel {
     max-width: 480px;
-    padding: 44px 24px 28px;
+    padding: 40px 20px 26px;
   }
-  .about-body {
-    overflow-y: auto;
-  }
+  .about-body { overflow-y: auto; }
   .about-scroll {
     flex: 0 0 auto;
     overflow-y: visible;
   }
-  .about-text-col {
-    padding-right: 0;
-  }
+  .about-text-col { padding-right: 0; }
   .about-image-col {
     position: static;
     order: -1;
@@ -347,25 +325,15 @@
   flex: 0 0 auto;
   width: 48px;
   height: 48px;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.3em;
-  background: var(--mp-panel2);
-  border: 1px solid rgba(246, 184, 37, 0.45);
-  box-shadow: 0 0 16px rgba(246, 184, 37, 0.25);
 }
 
-/* Image badges (Hat / Book / Trophy) already carry their own ring art,
-   so drop the emoji circle's fill/border and just glow behind them */
 .about-icon-circle--img {
   width: 56px;
   height: 56px;
   margin-top: -6px;
-  background: transparent;
-  border: none;
-  box-shadow: none;
 }
 
 .about-icon-img {
@@ -374,21 +342,25 @@
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  filter: drop-shadow(0 0 10px rgba(246, 184, 37, 0.35));
+  filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.35));
 }
 
 .about-section-title {
-  margin: 2px 0 6px;
-  color: var(--mp-glow);
-  font-size: 1.05em;
-  font-weight: 800;
+  margin: 2px 0 10px;
+  color: var(--mp-gold);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .about-section-text {
   margin: 0;
   color: var(--mp-text2);
-  font-size: 0.92em;
-  line-height: 1.55;
+  font-size: 10px;
+  line-height: 2;
 }
 
 .about-why-list {
@@ -397,31 +369,37 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 
 .about-why-list li {
   color: var(--mp-text2);
-  font-size: 0.92em;
-  line-height: 1.4;
+  font-size: 10px;
+  line-height: 1.9;
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
 }
 
-.about-why-star {
-  color: var(--mp-gold);
+/* Square pixel bullet instead of a star */
+.about-why-bullet {
   flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+  background: var(--mp-gold);
 }
 
+/* Quote: a framed box like the island selection's tip boxes */
 .about-quote {
-  padding: 16px 22px;
+  position: relative;
+  padding: 16px 20px;
   background: var(--mp-panel2);
-  border: 1px solid rgba(167, 139, 250, 0.35);
-  border-radius: 12px;
-  color: var(--mp-text2);
-  font-style: italic;
-  font-size: 0.92em;
+  border: 2px solid var(--mp-border);
+  border-radius: 0;
+  color: var(--mp-text);
+  font-size: 10px;
+  line-height: 2;
   text-align: center;
   display: flex;
   align-items: center;
@@ -430,14 +408,9 @@
 }
 
 .about-quote-mark {
-  color: var(--mp-accent);
-  font-size: 1.6em;
-  font-style: normal;
-  line-height: 0;
-}
-
-.about-quote-star {
   color: var(--mp-gold);
+  font-size: 1.6em;
+  line-height: 0;
 }
 
 /* About button */
@@ -496,7 +469,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 0;
+  animation: mainLogoFloat 4s ease-in-out infinite;   /* same gentle float as the login logo */
+}
+
+@keyframes mainLogoFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
 }
 
 /* Anchor for the greeting sticker on the title's corner */
@@ -504,43 +483,62 @@
   position: relative;
 }
 
+/* Same logo as the login page: Pixelify Sans, gold, white outline, orange 3D shadow */
 .main-title {
   margin: 0;
-  /* letter-spacing adds a trailing gutter after the last letter, which
-     nudges the visible text left of true center — pull it back */
-  margin-right: -4px;
-  /* the global :root font shorthand fixes line-height at ~26px (145% of
-     18px) and that literal px value inherits straight into this much
-     bigger heading, squashing its box until it overlaps the tagline below —
-     reset it so the line box scales with this element's own font-size */
-  line-height: 1.2;
-  /* every pixel-font glyph is a full 1em wide, so this runs smaller than a
-     normal font would to fit the same width */
-  font-size: clamp(2.2em, 6.5vw, 5.5em);
-  /* index.css gives every h1 its own heading font */
-  font-family: inherit;
-  font-weight: 400;
-  letter-spacing: 4px;
+  font-family: 'Pixelify Sans', 'Press Start 2P', monospace;
+  font-weight: 700;
+  font-size: clamp(3rem, 8vw, 6.5rem);
+  white-space: nowrap;
+  color: #ffcc00;
   text-transform: uppercase;
-  color: #f6b825;
   text-shadow:
-    0 0 20px rgba(246, 184, 37, 0.85),
-    0 0 55px rgba(246, 184, 37, 0.45),
-    3px 3px 8px rgba(0, 0, 0, 0.95);
-  animation: titlePulse 3s ease-in-out infinite;
+    0px 3px 0 #fff,
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff,
+    0 8px 0 #b35900,
+    0 15px 20px rgba(0,0,0,0.5);
+  letter-spacing: 2px;
+  line-height: 1;
+  position: relative;
+  z-index: 2;
 }
 
-.main-tagline {
-  margin: 10px 0 0;
-  margin-right: -1px;
-  font-size: clamp(0.6em, 1.2vw, 0.95em);
+/* Same subtitle banner as the login page */
+.main-banner {
+  position: relative;
+  z-index: 1;
+  margin-top: -15px;
+  padding: 8px 30px;
+  background: #3c2a93;
+  border: 2px solid #5a45cc;
+  border-radius: 4px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+
+.main-banner::before,
+.main-banner::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 30px;
+  background: #271b63;
+  z-index: -1;
+}
+.main-banner::before { left: -10px; transform: translateY(-50%) skewY(15deg); }
+.main-banner::after { right: -10px; transform: translateY(-50%) skewY(-15deg); }
+
+.main-banner span {
+  color: #f7ca5e;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.5rem, 1vw, 0.7rem);
   line-height: 1.6;
-  color: #ffffff;
   letter-spacing: 1px;
-  text-shadow:
-    -2px -2px 0 #000,  0 -2px 0 #000,  2px -2px 0 #000,
-    -2px  0   0 #000,                  2px  0   0 #000,
-    -2px  2px 0 #000,  0  2px 0 #000,  2px  2px 0 #000;
+  white-space: nowrap;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
 }
 
 /* Bare pixel text, no pill: white with the same black outline as the
@@ -622,11 +620,8 @@
    cascade. */
 @media (max-width: 700px) {
   .main-title {
-    font-size: 7.5vw;
+    font-size: 11vw;
     letter-spacing: 1px;
-    margin-right: -1px;
   }
-  .main-tagline {
-    margin-top: 48px;
-  }
+  .main-banner { padding: 8px 14px; }
 }

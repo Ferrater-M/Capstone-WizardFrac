@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { shouldAutoShowTutorial, markTutorialSeen } from '../utils/tutorialSeen';
 import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
@@ -144,7 +145,8 @@ const DissimilarIslandGame = ({
     : problem.denominator2 * problem.numerator1 - problem.denominator1 * problem.numerator2;
   const needsCarry = rawNum >= rawDen;
   const [currentStep, setCurrentStep] = useState(1);
-  const [showTutorial, setShowTutorial] = useState(true);
+  // Opens by itself only on level 1, until it's been finished or skipped once (Help still opens it)
+  const [showTutorial, setShowTutorial] = useState(() => shouldAutoShowTutorial('Dissimilar', studentId, gameSession.level));
   // Intro Phase (player VERSUS enemy) plays first; the music, tutorial and timers start after it
   const [introDone, setIntroDone] = useState(false);
   const butterflyPanelRef = useRef(null);
@@ -2370,7 +2372,7 @@ const DissimilarIslandGame = ({
         />
       )}
 
-      {showTutorial && introDone && <ButterflyTutorial onComplete={() => setShowTutorial(false)} />}
+      {showTutorial && introDone && <ButterflyTutorial onComplete={() => { markTutorialSeen('Dissimilar', studentId); setShowTutorial(false); }} />}
 
       {/* Flying number bubbles — same style as Similar Island's denomination bubbles */}
       {flyBubbles && (

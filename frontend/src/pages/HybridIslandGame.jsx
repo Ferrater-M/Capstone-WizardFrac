@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { shouldAutoShowTutorial, markTutorialSeen } from '../utils/tutorialSeen';
 import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
@@ -3816,7 +3817,8 @@ const HybridIslandGame = ({
   const [enemyAttacking, setEnemyAttacking] = useState(false);
   const [gameOver,       setGameOver]       = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(true);
+  // Opens by itself only on level 1, until it's been finished or skipped once (Help still opens it)
+  const [showTutorial, setShowTutorial] = useState(() => shouldAutoShowTutorial('Hybrid', studentId, gameSession.level));
   // Intro Phase (player VERSUS enemy) plays first; the music, tutorial and timers start after it
   const [introDone, setIntroDone] = useState(false);
 
@@ -5023,7 +5025,7 @@ const HybridIslandGame = ({
         />
       )}
 
-      {showTutorial && introDone && <HybridFractionTutorial onComplete={() => setShowTutorial(false)} />}
+      {showTutorial && introDone && <HybridFractionTutorial onComplete={() => { markTutorialSeen('Hybrid', studentId); setShowTutorial(false); }} />}
 
       {/* Game Over */}
       {gameOver && (

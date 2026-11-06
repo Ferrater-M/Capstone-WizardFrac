@@ -17,7 +17,7 @@ const ABOUT_SECTIONS = [
 const WHY_WIZARDFRAC = [
   'Aligned with the MATATAG Curriculum',
   'Game-based learning that keeps students motivated',
-  'Tracks progress and rewards rank badges',
+  'Tracks progress and rewards wizard ranks',
   'Safe, fun, and student-friendly environment',
 ];
 
@@ -668,7 +668,10 @@ const MainPage = ({ onStart }) => {
             <h1 className="main-title">WIZARDFRAC</h1>
             <div className="main-greeting">{GREETINGS[timeOfDay]}</div>
           </div>
-          <p className="main-tagline">Master your fractions skills</p>
+          {/* Subtitle banner, same as the login page */}
+          <div className="main-banner">
+            <span>MASTER FRACTIONS. CAST SPELLS. SAVE THE ISLANDS!</span>
+          </div>
         </div>
 
         <button className="main-start-btn" onClick={onStart}>
@@ -679,6 +682,8 @@ const MainPage = ({ onStart }) => {
       {showAbout && (
         <div className="about-overlay" onClick={() => setShowAbout(false)}>
           <div className="about-panel" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            {/* Pixel frame, as on the island selection / dashboard pop-ups */}
+            <span className="about-inner-line" />
             <span className="about-corner top-left"></span>
             <span className="about-corner top-right"></span>
             <span className="about-corner bottom-left"></span>
@@ -686,12 +691,10 @@ const MainPage = ({ onStart }) => {
 
             <button className="about-close" onClick={() => setShowAbout(false)} aria-label="Close">✕</button>
 
-            <div className="about-banner">
-              <span className="about-banner-star">★</span>
+            <h2 className="about-banner">
               <span className="about-banner-about">ABOUT</span>{' '}
               <span className="about-banner-name">WIZARDFRAC</span>
-              <span className="about-banner-star">★</span>
-            </div>
+            </h2>
 
             <p className="about-subtitle">A magical journey to master fractions!</p>
 
@@ -725,7 +728,7 @@ const MainPage = ({ onStart }) => {
                       <h3 className="about-section-title">Why WizardFrac?</h3>
                       <ul className="about-why-list">
                         {WHY_WIZARDFRAC.map(item => (
-                          <li key={item}><span className="about-why-star">★</span>{item}</li>
+                          <li key={item}><span className="about-why-bullet" aria-hidden="true" />{item}</li>
                         ))}
                       </ul>
                     </div>
@@ -735,7 +738,6 @@ const MainPage = ({ onStart }) => {
                 <div className="about-quote">
                   <span className="about-quote-mark">&ldquo;</span>
                   Every fraction you solve brings you closer to becoming a fraction master!
-                  <span className="about-quote-star">★</span>
                 </div>
               </div>
               </div>
