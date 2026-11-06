@@ -657,6 +657,11 @@ const MainPage = ({ onStart }) => {
         <span className="main-about-icon">ⓘ</span> About
       </button>
 
+      {/* Static page in /public (also linked from the Google OAuth consent screen), so a plain link, not a route */}
+      <a className="main-about-btn main-privacy-btn" href="/privacy.html">
+        <span className="main-about-icon">🔒</span> Privacy
+      </a>
+
       <div className="main-content" ref={contentRef}>
         <div className="main-title-group">
           <div className="main-title-wrap">

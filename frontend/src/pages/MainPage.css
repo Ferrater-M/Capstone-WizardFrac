@@ -469,6 +469,13 @@
   box-shadow: 0 0 26px rgba(130, 90, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
+/* Privacy Policy link — the About button's twin, in the top-right corner */
+.main-privacy-btn {
+  left: auto;
+  right: 28px;
+  text-decoration: none;
+}
+
 .main-about-icon {
   font-size: 1.05em;
   line-height: 1;
