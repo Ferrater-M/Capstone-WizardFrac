@@ -244,15 +244,21 @@ public class GameProgressService {
     // Get session history
     public List<GameplayHistoryDTO> getSessionHistory(Long studentId) {
         List<GameSession> sessions = gameSessionRepository.findByStudentIdOrderByStartedAtDesc(studentId);
+        Map<Long, List<SpellAttempt>> attemptsBySession = attemptsBySession(studentId);
         return sessions.stream()
             .filter(session -> session.getEndedAt() != null)
-            .map(this::toGameplayHistoryDTO)
+            .map(session -> toGameplayHistoryDTO(session, attemptsBySession.getOrDefault(session.getId(), List.of())))
             .collect(Collectors.toList());
     }
 
-    private GameplayHistoryDTO toGameplayHistoryDTO(GameSession session) {
-        List<SpellAttempt> attempts = spellAttemptRepository
-            .findByGameSessionIdOrderByTimestamp(session.getId());
+    // All of a student's attempts fetched in ONE query, grouped by session (each list stays in timestamp order).
+    // The database is remote, so one round trip per session made the dashboard slower with every game played.
+    private Map<Long, List<SpellAttempt>> attemptsBySession(Long studentId) {
+        return spellAttemptRepository.findByGameSessionStudentIdOrderByTimestamp(studentId).stream()
+            .collect(Collectors.groupingBy(a -> a.getGameSession().getId()));
+    }
+
+    private GameplayHistoryDTO toGameplayHistoryDTO(GameSession session, List<SpellAttempt> attempts) {
         int correctAnswers = (int) attempts.stream()
             .filter(SpellAttempt::getIsCorrect)
             .count();
@@ -296,9 +302,10 @@ public class GameProgressService {
     public DiagnosticsDTO getDiagnostics(Long studentId) {
         List<GameSession> sessions = gameSessionRepository.findByStudentIdOrderByStartedAtDesc(studentId);
 
+        Map<Long, List<SpellAttempt>> attemptsBySession = attemptsBySession(studentId);
         List<SpellAttempt> allAttempts = new ArrayList<>();
         for (GameSession session : sessions) {
-            allAttempts.addAll(spellAttemptRepository.findByGameSessionIdOrderByTimestamp(session.getId()));
+            allAttempts.addAll(attemptsBySession.getOrDefault(session.getId(), List.of()));
         }
 
         // Calculate summary
@@ -349,7 +356,7 @@ public class GameProgressService {
 
             double accuracy = compAttempts.isEmpty() ? 0.0 : (double) compCorrect / compAttempts.size() * 100;
             String masteryLevel = getMasteryLevel(accuracy);
-            List<Double> trendData = compAttempts.isEmpty() ? Arrays.asList(0.0) : Arrays.asList(accuracy); // Simplified for now
+            List<Double> trendData = competencyTrend(sessions, attemptsBySession, competencyId);
 
             competencies.add(new DiagnosticsDTO.CompetencyMasteryDTO(
                 competencyId,
@@ -362,13 +369,33 @@ public class GameProgressService {
 
         List<GameplayHistoryDTO> gameHistory = sessions.stream()
             .filter(session -> session.getEndedAt() != null)
-            .map(this::toGameplayHistoryDTO)
+            .map(session -> toGameplayHistoryDTO(session, attemptsBySession.getOrDefault(session.getId(), List.of())))
             .collect(Collectors.toList());
 
         List<DiagnosticsDTO.MisconceptionDTO> dissimilarMisconceptions =
             getMisconceptionBreakdown(attemptsByCompetency.getOrDefault("ButterflyMethod", new ArrayList<>()));
 
         return new DiagnosticsDTO(competencies, summary, gameHistory, dissimilarMisconceptions);
+    }
+
+    // Accuracy (0-100) of each session that had attempts for this competency, oldest first, for the dashboard's
+    // line chart. Only the latest TREND_POINTS sessions, so heavy players still get a readable chart.
+    private static final int TREND_POINTS = 20;
+
+    private List<Double> competencyTrend(List<GameSession> sessionsNewestFirst,
+                                         Map<Long, List<SpellAttempt>> attemptsBySession, String competencyId) {
+        List<Double> trend = new ArrayList<>();
+        for (int i = sessionsNewestFirst.size() - 1; i >= 0; i--) {
+            List<SpellAttempt> attempts = attemptsBySession.getOrDefault(sessionsNewestFirst.get(i).getId(), List.of());
+            long total = 0, correct = 0;
+            for (SpellAttempt a : attempts) {
+                if (!competencyId.equals(a.getMechanicType())) continue;
+                total++;
+                if (Boolean.TRUE.equals(a.getIsCorrect())) correct++;
+            }
+            if (total > 0) trend.add((double) correct / total * 100);
+        }
+        return trend.size() > TREND_POINTS ? new ArrayList<>(trend.subList(trend.size() - TREND_POINTS, trend.size())) : trend;
     }
 
     // UC-2.3 - diagnostic tracking for recurring misconceptions in dissimilar fraction operations
