@@ -53,6 +53,25 @@ public class StudentService {
         return studentRepository.save(student);
     }
 
+    // Thrown when someone tries to register a nickname that is already claimed.
+    public static class NicknameTakenException extends RuntimeException {
+        public NicknameTakenException(String message) {
+            super(message);
+        }
+    }
+
+    // New player in ONE step: create the nickname (or take over an existing but unclaimed one) and set its
+    // password, with a single save. Replaces the old create-then-set-password pair of requests.
+    public Student register(String nickname, String password) {
+        Student student = studentRepository.findByNickname(nickname).orElseGet(() -> new Student(nickname));
+        if (student.hasPassword()) {
+            throw new NicknameTakenException("That nickname is already taken.");
+        }
+        student.setPasswordHash(passwordEncoder.encode(password));
+        student.setLastLoginAt(LocalDateTime.now());
+        return studentRepository.save(student);
+    }
+
     // Set (claim) or change a student's password. If one is already set, currentPassword
     // must match it first — pass null/blank only when the nickname isn't claimed yet.
     public Student setPassword(Long studentId, String currentPassword, String newPassword) {

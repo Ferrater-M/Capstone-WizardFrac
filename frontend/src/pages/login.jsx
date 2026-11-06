@@ -79,7 +79,8 @@ const LandingPage = ({ onLoginSuccess }) => {
     setResetSent(true);
   };
 
-  // Claim step 2: create/fetch the (still-unclaimed) student, then set its password.
+  // Claim step 2: create the player and set the password in ONE request (POST /register) —
+  // it used to take two trips to the server (/login, then /{id}/password).
   const handleClaim = async (e) => {
     e.preventDefault();
     if (newPassword.length < 4) { setError('Password must be at least 4 characters.'); return; }
@@ -87,17 +88,13 @@ const LandingPage = ({ onLoginSuccess }) => {
     setError('');
     setLoading(true);
     try {
-      const { ok, data } = await loginRequest(null);
-      if (!ok) { setError(data.error || 'Failed to login. Please try again.'); return; }
-
-      const pwRes = await fetch(`${API_BASE}/api/students/${data.studentId}/password`, {
-        method: 'PUT',
+      const response = await fetch(`${API_BASE}/api/students/register`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newPassword }),
+        body: JSON.stringify({ nickname: nickname.trim(), password: newPassword }),
       });
-      const pwData = await pwRes.json().catch(() => ({}));
-      if (!pwRes.ok) { setError(pwData.error || 'Failed to set password.'); return; }
-
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { setError(data.error || 'Failed to create your account. Please try again.'); return; }
       onLoginSuccess(data);
     } catch (err) {
       setError('Connection error. Make sure the backend server is running.');

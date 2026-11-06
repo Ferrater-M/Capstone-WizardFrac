@@ -50,6 +50,34 @@ public class StudentController {
             return ResponseEntity.status(401).body(error);
         }
 
+        return ResponseEntity.ok(loginResponse(student));
+    }
+
+    // Register a new player in one request: create the nickname and set its password together
+    // (the old flow needed /login and then /{id}/password — two trips to the server).
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody Map<String, String> request) {
+        String nickname = request.get("nickname");
+        String password = request.get("password");
+        Map<String, String> error = new HashMap<>();
+        if (nickname == null || nickname.trim().isEmpty()) {
+            error.put("error", "Nickname is required.");
+            return ResponseEntity.badRequest().body(error);
+        }
+        if (password == null || password.length() < 4) {
+            error.put("error", "Password must be at least 4 characters.");
+            return ResponseEntity.badRequest().body(error);
+        }
+        try {
+            return ResponseEntity.ok(loginResponse(studentService.register(nickname.trim(), password)));
+        } catch (StudentService.NicknameTakenException e) {
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(409).body(error);
+        }
+    }
+
+    // What the frontend gets after logging in or registering
+    private Map<String, Object> loginResponse(Student student) {
         Map<String, Object> response = new HashMap<>();
         response.put("studentId", student.getId());
         response.put("nickname", student.getNickname());
@@ -57,8 +85,7 @@ public class StudentController {
         response.put("selectedCharacterName", student.getSelectedCharacterName());
         response.put("createdAt", student.getCreatedAt());
         response.put("hasPassword", student.hasPassword());
-
-        return ResponseEntity.ok(response);
+        return response;
     }
 
     // Tells the login screen whether this nickname is already claimed (needs a
