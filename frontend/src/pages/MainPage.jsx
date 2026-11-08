@@ -230,6 +230,18 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
     startJourney();
   };
 
+  // Coming back from the privacy page with the browser's back arrow can restore this page exactly as it was
+  // (music paused). Start the title music again and turn the "leave site?" warning back on.
+  useEffect(() => {
+    const onShow = (e) => {
+      if (!e.persisted) return;
+      window.__allowLeave = false;
+      if (introStage === 'done') startTitleMusic();
+    };
+    window.addEventListener('pageshow', onShow);
+    return () => window.removeEventListener('pageshow', onShow);
+  });
+
   // Click anywhere during the intro: straight to the normal Title Page, music from the top
   const skipIntro = () => {
     ignoreNextClickRef.current = true;
@@ -817,7 +829,17 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
       </button>
 
       {/* Static page in /public (also linked from the Google OAuth consent screen), so a plain link, not a route */}
-      <a className="main-pill main-pill-privacy" href="/privacy.html" target="_blank" rel="noopener noreferrer">
+      <a
+        className="main-pill main-pill-privacy"
+        href="/privacy.html"
+        onClick={() => {
+          // Leaving for the privacy page: stop every sound now and don't ask "leave site?". Its Back button
+          // reloads the Title Page fresh, so only one copy of the music ever plays.
+          window.__allowLeave = true;
+          document.querySelectorAll('audio, video').forEach(m => m.pause());
+          if (ostRef.current) ostRef.current.pause();
+        }}
+      >
         <PillFrame />Privacy
       </a>
 

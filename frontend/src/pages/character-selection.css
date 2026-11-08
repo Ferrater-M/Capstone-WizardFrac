@@ -1,5 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Open+Sans:wght@600;700;800&family=Outfit:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@700&display=swap');
 
+/* Character selection — styled like the dashboard (StudentDashboard.css): galaxy background with pixel clouds,
+   the magic float layer, pixel font, square 4px borders with pixel corners. Fits one screen (no scrolling).
+   Layout: top bar (logo, Back, Volume) · title box · two wizard cards · SELECT button · hint. */
 .character-selection {
   --cs-bg1: #08051C;
   --cs-bg2: #12082F;
@@ -11,158 +14,219 @@
   --cs-text: #F8F7FF;
   --cs-text2: #C4B5FD;
   --cs-border: #6D28D9;
+  --cs-font: 'Press Start 2P', 'Outfit', 'Segoe UI', monospace;
 
   height: 100vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  background: linear-gradient(rgba(17, 24, 39, 0.76), rgba(17, 24, 39, 0.76)),
-              url('/IslandBackground.jpg') center / cover no-repeat;
+  height: 100dvh;
+  overflow: hidden;          /* everything fits on one screen */
+  background: linear-gradient(160deg, var(--cs-bg2) 0%, var(--cs-bg1) 70%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-family: 'Outfit', 'Open Sans', sans-serif;
+  font-family: var(--cs-font);
   color: var(--cs-text);
   position: relative;
   box-sizing: border-box;
 }
 
-/* --- NAV BAR --- */
+.character-selection * { font-family: inherit; }
+
+/* Everything sits above the galaxy and the magic float layer (both z-index 1) */
+.character-selection > .nav-bar,
+.character-selection > .character-selection-container {
+  position: relative;
+  z-index: 2;
+  animation: csFadeIn 0.5s ease-out both;
+}
+
+@keyframes csFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- PIXEL FRAME PIECES --- */
+.cs-inner-line {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid var(--cs-border);
+  pointer-events: none;
+}
+
+.cs-corner {
+  position: absolute;
+  z-index: 10;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+
+/* --- TOP BAR: Title Page logo + Back / Volume --- */
 .nav-bar {
   width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 40px;
-  border-bottom: 1px solid rgba(109, 40, 217, 0.35);
+  gap: 12px;
+  padding: clamp(10px, 2vh, 20px) 20px 0;
   box-sizing: border-box;
+  flex: 0 0 auto;
 }
 
-.nav-logo {
-  position: relative;
-  display: inline-block;
-}
-
-.nav-logo span {
-  position: relative;
-  font-family: 'Fredoka One', cursive;
-  font-size: 1.8rem;
-  color: var(--cs-gold);
-  text-shadow: 0 0 18px rgba(251, 191, 36, 0.4);
-  letter-spacing: 2px;
-}
-
-.nav-logo span::before,
-.nav-logo span::after {
-  content: '✦';
-  color: var(--cs-gold);
-  font-size: 0.6em;
-  margin: 0 8px;
-  vertical-align: middle;
-}
-
-/* Scattered sparkle stars decorating the wordmark */
-.nav-logo::before,
-.nav-logo::after {
-  content: '✦';
-  position: absolute;
-  color: var(--cs-gold);
-  text-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
-  pointer-events: none;
-}
-
-.nav-logo::before {
-  top: -6px;
-  left: 18%;
-  font-size: 0.5rem;
-}
-
-.nav-logo::after {
-  top: -2px;
-  left: 68%;
-  font-size: 0.4rem;
-}
-
-.menu-btn {
-  padding: 10px 20px;
-  background: rgba(8, 5, 28, 0.55);
-  border: 1px solid rgba(196, 181, 253, 0.35);
-  color: var(--cs-text);
-  border-radius: 8px;
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.85rem;
+.character-selection .cs-logo {
+  margin: 0 0 8px;           /* room for the 3D shadow */
+  font-family: 'Pixelify Sans', 'Press Start 2P', monospace;
   font-weight: 700;
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
-  letter-spacing: 1px;
+  font-size: clamp(1.8rem, 3.6vw, 2.8rem);
+  white-space: nowrap;
+  color: #ffcc00;
   text-transform: uppercase;
+  letter-spacing: 2px;
+  line-height: 1;
+  text-shadow:
+    0px 2px 0 #fff,
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff,
+    0 5px 0 #b35900,
+    0 10px 14px rgba(0, 0, 0, 0.5);
+}
+
+.nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* The dashboard's square "dash-pill" button */
+.menu-btn {
+  position: relative;
+  box-sizing: border-box;
+  height: clamp(42px, 6.5vh, 54px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  background: var(--cs-panel2);
+  color: var(--cs-text);
+  border: 4px solid var(--cs-border);
+  border-radius: 0;
+  font-size: 0.7em;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.18);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  white-space: nowrap;
 }
 
 .menu-btn:hover {
-  background: rgba(124, 58, 237, 0.25);
-  border-color: var(--cs-glow);
+  background: var(--cs-primary);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.45);
+  transform: translateY(-1px);
 }
 
-/* --- CONTAINER & GRID --- */
+/* --- CONTAINER --- */
 .character-selection-container {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
   max-width: 1080px;
-  padding: 36px 20px 48px;
+  padding: clamp(10px, 2vh, 24px) 20px clamp(10px, 2.5vh, 28px);
   box-sizing: border-box;
+}
+
+/* --- TITLE BOX (the dashboard's title box) --- */
+.cs-title-box {
+  position: relative;
+  background-color: var(--cs-panel);
+  background-image: linear-gradient(165deg, var(--cs-panel) 0%, #170a34 100%);
+  border: 4px solid var(--cs-border);
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.15), 0 20px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  padding: clamp(14px, 2.4vh, 26px) 48px clamp(8px, 1.4vh, 16px);
+  margin: clamp(8px, 1.6vh, 12px) 0 clamp(12px, 2.6vh, 28px);
+  flex: 0 0 auto;
+  text-align: center;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.cs-title-gem {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--cs-glow) 0%, var(--cs-primary) 100%);
+  border: 2px solid var(--cs-gold);
+  box-shadow: 0 0 18px rgba(168, 85, 247, 0.6);
+  z-index: 11;
+}
+
+.cs-title-gem span {
+  position: absolute;
+  inset: 6px;
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .cs-title-row {
   display: flex;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 6px;
-}
-
-.cs-title-deco {
-  color: rgba(196, 181, 253, 0.4);
-  font-size: 0.9rem;
-  letter-spacing: 2px;
+  justify-content: center;
 }
 
 .cs-title {
-  margin: 0;
-  font-family: 'Fredoka One', cursive;
-  font-size: clamp(1.6rem, 3.4vw, 2.4rem);
-  color: var(--cs-text);
+  margin: 4px 0 clamp(4px, 1vh, 10px);
+  color: var(--cs-gold);
+  font-size: clamp(0.9em, min(2.4vw, 3.6vh), 1.8em);
+  font-weight: 400;
+  letter-spacing: 3px;
+  line-height: 1.4;
   text-transform: uppercase;
-  letter-spacing: 2px;
-  text-shadow: 0 0 20px rgba(196, 181, 253, 0.35);
+  text-shadow: 0 0 18px rgba(251, 191, 36, 0.5), 2px 2px 0 rgba(0, 0, 0, 0.4);
 }
 
 .cs-subtitle {
-  margin: 0 0 36px;
+  margin: 0 0 4px;
   color: var(--cs-text2);
-  font-size: 0.95rem;
+  font-size: clamp(0.5em, 1vw, 0.72em);
+  line-height: 1.8;
+  letter-spacing: 1px;
 }
 
+.cs-star { color: var(--cs-gold); }
+
+/* --- GRID & CARDS --- */
 .characters-grid {
   display: flex;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: 40px;
-  margin-bottom: 36px;
+  flex-wrap: nowrap;         /* both wizards always side by side */
+  gap: clamp(12px, 4vw, 40px);
+  margin-bottom: clamp(10px, 2.5vh, 30px);
   width: 100%;
+  flex: 1 1 auto;            /* the cards get all the height that's left */
+  min-height: 0;
 }
 
 .character-card {
   position: relative;
-  width: 300px;
+  flex: 0 1 390px;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  box-sizing: border-box;
   background-color: var(--cs-panel);
-  background-image: linear-gradient(165deg, var(--cs-panel) 0%, #150a38 100%);
-  border: 1px solid var(--cs-border);
-  border-radius: 20px;
-  padding: 20px 20px 26px;
+  background-image: linear-gradient(165deg, var(--cs-panel) 0%, #170a34 100%);
+  border: 4px solid var(--cs-border);
+  border-radius: 0;
+  padding: clamp(12px, 2.2vh, 22px) clamp(12px, 1.8vw, 20px) clamp(12px, 2.5vh, 26px);
   cursor: pointer;
   transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.25s ease, border-color 0.25s ease;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 16px 36px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.18), 0 16px 36px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -171,30 +235,28 @@
 .character-card:hover {
   transform: translateY(-6px);
   border-color: var(--cs-glow);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 0 26px rgba(168, 85, 247, 0.3), 0 20px 40px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 26px rgba(168, 85, 247, 0.4), 0 20px 40px rgba(0, 0, 0, 0.55);
 }
 
 .character-card.selected {
-  border-color: var(--cs-glow);
-  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.55), 0 0 32px rgba(168, 85, 247, 0.45), 0 20px 40px rgba(0, 0, 0, 0.55);
+  border-color: var(--cs-gold);
+  box-shadow: 0 0 30px rgba(251, 191, 36, 0.4), 0 20px 40px rgba(0, 0, 0, 0.55);
   transform: translateY(-6px);
 }
 
-/* --- RIBBON & GENDER BADGE --- */
+/* --- NAME TAG & GENDER BADGE --- */
 .character-ribbon {
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: linear-gradient(135deg, var(--cs-primary) 0%, var(--cs-glow) 100%);
+  gap: 8px;
+  background: var(--cs-primary);
   color: var(--cs-text);
-  padding: 8px 22px 8px 14px;
-  border-radius: 8px 0 0 8px;
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
-  font-size: 0.78rem;
-  font-weight: 800;
+  border: 3px solid var(--cs-glow);
+  padding: 8px 12px;
+  font-size: 0.62rem;
   letter-spacing: 1px;
-  box-shadow: 0 8px 18px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 0 14px rgba(124, 58, 237, 0.45);
   margin-bottom: 8px;
 }
 
@@ -209,10 +271,11 @@
   right: 20px;
   width: 40px;
   height: 40px;
-  border-radius: 50%;
+  box-sizing: border-box;
   background: var(--cs-panel2);
-  border: 1px solid var(--cs-border);
+  border: 3px solid var(--cs-border);
   color: var(--cs-glow);
+  font-family: 'Segoe UI Symbol', 'Segoe UI', sans-serif;
   font-size: 1.2rem;
   font-weight: 700;
   display: flex;
@@ -221,77 +284,43 @@
   box-shadow: 0 0 12px rgba(168, 85, 247, 0.25);
 }
 
-/* --- CHARACTER IMAGE --- */
+/* --- CHARACTER PICTURE AREA (fills the card's spare height) --- */
 .character-image {
   position: relative;
   width: 100%;
-  aspect-ratio: 3/4;
-  border-radius: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 4px 0 6px;
 }
 
-.character-image::after {
-  content: '';
-  position: absolute;
-  bottom: 6%;
-  left: 50%;
-  width: 62%;
-  height: 14%;
-  transform: translateX(-50%);
-  background: radial-gradient(ellipse at center, rgba(168, 85, 247, 0.35) 0%, transparent 72%);
-  filter: blur(2px);
-  z-index: 1;
-}
-
-.image-placeholder {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, var(--cs-panel2) 0%, var(--cs-panel) 100%);
-  border-radius: 8px;
-}
-
-.character-image img {
-  width: auto;
-  height: 92%;
-  max-width: 92%;
-  object-fit: contain;
-  object-position: center center;
-  display: block;
-  position: relative;
-  z-index: 2;
-  filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.5));
-  animation: characterFloat 4s ease-in-out infinite;
-}
-
-@keyframes characterFloat {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-10px); }
-}
-
 .selected-overlay {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;     /* the tick sits in the picture's corner, not over the wizard */
+  justify-content: flex-end;
+  padding: 4px;
   z-index: 3;
+  pointer-events: none;
 }
 
 .check-icon {
-  background: var(--cs-glow);
-  color: #150a38;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
+  background: var(--cs-gold);
+  color: #170a34;
+  border: 4px solid #fff3c4;
+  width: 44px;
+  height: 44px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-family: 'Segoe UI Symbol', 'Segoe UI', sans-serif;
+  font-size: 22px;
   font-weight: bold;
-  box-shadow: 0 0 22px rgba(168, 85, 247, 0.7), 0 6px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 22px rgba(251, 191, 36, 0.7), 0 6px 16px rgba(0, 0, 0, 0.5);
   animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -299,14 +328,14 @@
 .character-divider {
   width: 100%;
   text-align: center;
-  margin: 2px 0 12px;
+  margin: 2px 0 clamp(6px, 1.3vh, 12px);
   color: var(--cs-glow);
-  font-size: 0.7rem;
+  font-size: 0.6rem;
 }
 
 .character-divider span::before,
 .character-divider span::after {
-  content: '─';
+  content: '────';
   color: rgba(196, 181, 253, 0.3);
   margin: 0 6px;
 }
@@ -318,77 +347,56 @@
   align-items: center;
   width: 100%;
   text-align: center;
-  gap: 12px;
+  gap: clamp(8px, 1.5vh, 14px);
+  flex: 0 0 auto;
 }
 
 .description {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.55rem;
   color: var(--cs-text2);
-  line-height: 1.4;
-  min-height: 38px;
+  line-height: 1.9;
 }
 
-.character-traits {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-
-.trait-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: rgba(124, 58, 237, 0.12);
-  border: 1px solid var(--cs-border);
-  color: var(--cs-text2);
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.trait-icon {
-  color: var(--cs-gold);
-  font-size: 0.85em;
-}
-
-/* --- BUTTON --- */
+/* --- SELECT BUTTON (a big gold dash-pill) --- */
 .selection-actions {
   display: flex;
   justify-content: center;
   width: 100%;
-  margin-top: 6px;
+  flex: 0 0 auto;
 }
 
 .confirm-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  background: linear-gradient(135deg, var(--cs-primary) 0%, var(--cs-glow) 100%);
-  color: var(--cs-text);
-  border: 1px solid rgba(196, 181, 253, 0.4);
-  padding: 18px 40px;
-  min-width: 280px;
+  gap: 12px;
+  box-sizing: border-box;
+  height: clamp(48px, 7.5vh, 64px);
+  min-width: 0;
   width: min(420px, 100%);
-  font-size: 1.15rem;
-  font-weight: 800;
-  border-radius: 50px;
+  padding: 0 40px;
+  background: var(--cs-primary);
+  color: var(--cs-gold);
+  border: 4px solid var(--cs-gold);
+  border-radius: 0;
+  font-size: 1rem;
+  letter-spacing: 3px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.4);
   cursor: pointer;
-  transition: box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
-  box-shadow: 0 0 24px rgba(124, 58, 237, 0.45), 0 10px 24px rgba(0, 0, 0, 0.4);
-  letter-spacing: 2px;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease, opacity 0.2s ease;
+  box-shadow: 0 0 24px rgba(251, 191, 36, 0.3), 0 10px 24px rgba(0, 0, 0, 0.4);
 }
 
 .confirm-btn-deco {
-  color: var(--cs-gold);
-  font-size: 0.85em;
+  color: var(--cs-text);
+  font-size: 0.8em;
 }
 
 .confirm-btn:not(:disabled):hover {
-  box-shadow: 0 0 34px rgba(168, 85, 247, 0.6), 0 14px 28px rgba(0, 0, 0, 0.45);
+  background: var(--cs-glow);
+  box-shadow: 0 0 34px rgba(251, 191, 36, 0.5), 0 14px 28px rgba(0, 0, 0, 0.45);
   transform: translateY(-2px);
 }
 
@@ -398,34 +406,80 @@
   box-shadow: none;
 }
 
-/* --- HINT BAR --- */
+/* --- HINT (plain white text) --- */
 .cs-hint {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 24px;
-  padding: 12px 22px;
-  background: var(--cs-panel2);
-  border: 1px solid var(--cs-border);
-  border-radius: 50px;
-  color: var(--cs-text2);
-  font-size: 0.85rem;
-}
-
-.cs-hint-icon {
-  font-size: 1em;
+  margin-top: clamp(10px, 2.5vh, 26px);
+  padding: 4px 12px;
+  flex: 0 0 auto;
+  color: #fff;
+  text-align: center;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+  font-size: 0.55rem;
+  line-height: 1.8;
 }
 
 /* --- ERROR MESSAGE --- */
 .error-message {
   background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  border: 4px solid rgba(239, 68, 68, 0.55);
   color: #fca5a5;
   padding: 14px 26px;
-  border-radius: 10px;
   margin-bottom: 24px;
   text-align: center;
-  font-weight: 700;
+  font-size: 0.65rem;
+  line-height: 1.8;
+}
+
+/* --- THE REAL IN-GAME IDLE SPRITE ---
+   Square, as tall as the picture area allows, pixel-sharp. The wrapper holds the sprite and its floor
+   shadow, so the shadow always sits at the feet. */
+.cs-sprite-wrap {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 1;
+  translate: 0 -8%;          /* a little higher in the card */
+  pointer-events: none;      /* just a picture: clicks go to the card */
+}
+
+/* The witch stands left of centre in her frames: nudge her right */
+.cs-sprite-wrap.cs-sprite-girl { translate: 14% -8%; }
+
+/* Floor shadow under the feet. After the 1.7x scale (from 88% down) the feet land at 88 + 12x1.7 = ~108%
+   of the wrapper's height, so the shadow is centred there. */
+.cs-sprite-shadow {
+  position: absolute;
+  left: 50%;
+  top: 107.5%;
+  width: 56%;
+  height: 10%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse at center, rgba(5, 0, 18, 0.75) 0%, rgba(88, 40, 170, 0.45) 45%, transparent 72%);
+  pointer-events: none;
+}
+
+.cs-sprite-girl .cs-sprite-shadow { left: 36%; width: 40%; }   /* her feet are left of the frame's centre */
+
+.cs-sprite {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: 0% 0;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.5));
+  scale: 1.7;                /* each frame has lots of empty space around the wizard */
+  transform-origin: 50% 88%; /* grow upward from the feet */
+}
+
+/* jump-none steps land exactly on each frame from the first (0%) to the last (100%) */
+@keyframes csSpriteFrames {
+  from { background-position-x: 0%; }
+  to   { background-position-x: 100%; }
 }
 
 /* --- ANIMATIONS & RESPONSIVE --- */
@@ -434,18 +488,26 @@
   100% { transform: scale(1); }
 }
 
+/* Small screens: the two cards stay side by side (smaller) so the page still fits without scrolling */
 @media (max-width: 768px) {
-  .characters-grid {
-    flex-direction: column;
-    align-items: center;
-    gap: 28px;
-  }
+  .characters-grid { gap: 12px; }
 
-  .character-card {
-    width: 280px;
-  }
+  .character-ribbon { font-size: 0.42rem; padding: 6px 6px; gap: 4px; max-width: calc(100% - 34px); box-sizing: border-box; }
+  .character-ribbon-icon { display: none; }
+  .check-icon { width: 32px; height: 32px; font-size: 16px; border-width: 3px; }
+  .character-gender-badge { width: 30px; height: 30px; font-size: 0.95rem; top: 12px; right: 12px; }
+  .description { font-size: 0.45rem; }
+  .cs-hint { font-size: 0.45rem; padding: 4px 8px; }
+  .confirm-btn { font-size: 0.8rem; }
 
-  .cs-title-deco {
-    display: none;
-  }
+  .cs-title-box { padding: 28px 22px 18px; }
+  .character-selection .cs-logo { font-size: 1.5rem; }
+  .nav-buttons { gap: 8px; }
+  .menu-btn { padding: 0 14px; font-size: 0.55em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-sprite { animation: none !important; }
+  .character-selection > .nav-bar,
+  .character-selection > .character-selection-container { animation: none; }
 }

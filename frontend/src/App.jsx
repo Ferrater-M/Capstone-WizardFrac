@@ -47,7 +47,10 @@ function App() {
   // Every refresh (or closing the tab) asks first. Browsers show their own wording for this box,
   // e.g. "Reload site? Changes you made may not be saved."
   useEffect(() => {
-    const warn = (e) => { e.preventDefault(); e.returnValue = ''; return ''; };
+    const warn = (e) => {
+      if (window.__allowLeave) return undefined;   // e.g. the Title Page's Privacy link
+      e.preventDefault(); e.returnValue = ''; return '';
+    };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, []);
@@ -342,7 +345,7 @@ function App() {
 
         <Route path="/character-selection" element={
           studentId
-            ? <CharacterSelection studentId={studentId} onCharacterSelected={handleCharacterSelected} onBack={handleReturnToLogin} />
+            ? <CharacterSelection studentId={studentId} onCharacterSelected={handleCharacterSelected} onBack={handleReturnToLogin} onMasterVolumeChanged={handleMasterVolumeChanged} />
             : <Navigate to="/login" replace />
         } />
 

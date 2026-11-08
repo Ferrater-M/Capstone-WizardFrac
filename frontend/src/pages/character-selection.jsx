@@ -1,20 +1,63 @@
 import React, { useState, useEffect } from 'react';
 import './character-selection.css';
 import LoadingScreen from '../components/LoadingScreen';
+import GalaxyBackground from '../components/GalaxyBackground';
+import MagicFloatLayer from '../components/MagicFloatLayer';
+import SettingsPage from './SettingsPage';
 import { API_BASE_URL } from '../config';
 
-const CHARACTER_TRAITS = {
-  boy: [
-    { icon: '✦', label: 'Balanced' },
-    { icon: '📖', label: 'Support' },
-    { icon: '🌀', label: 'Magic' },
-  ],
-  girl: [
-    { icon: '✦', label: 'High Magic' },
-    { icon: '🏹', label: 'Ranged' },
-    { icon: '💎', label: 'Agile' },
-  ],
+// The same idle sprite sheets the player uses in battle and in the level selection (square frames in a row)
+const IDLE_SPRITES = {
+  boy: '/PlayerAssets/wizard/wizardIdle.png',
+  girl: '/PlayerAssets/witch/witchIdle.png',
 };
+
+// Plays a sprite sheet's frames on a loop, filling the height it's given (square frames, pixel-sharp)
+const IdleSprite = ({ src, label, className = '' }) => {
+  const [frames, setFrames] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const img = new Image();
+    img.onload = () => { if (alive) setFrames(Math.max(1, Math.round(img.naturalWidth / img.naturalHeight))); };
+    img.src = src;
+    return () => { alive = false; };
+  }, [src]);
+  if (!frames) return null;
+  return (
+    <div className={`cs-sprite-wrap ${className}`}>
+    <div className="cs-sprite-shadow" />
+    <div
+      className="cs-sprite"
+      role="img"
+      aria-label={label}
+      style={{
+        backgroundImage: `url(${src})`,
+        backgroundSize: `${frames * 100}% 100%`,
+        animation: frames > 1 ? `csSpriteFrames ${(frames / 8).toFixed(2)}s steps(${frames}, jump-none) infinite` : 'none',
+        '--cs-frames': frames,
+      }}
+    />
+    </div>
+  );
+};
+
+// Square border + thin inner line + pixel corner squares, as on the dashboard and island selection.
+const PixelCorners = ({ color = 'var(--cs-border)', edge = 0 }) => (
+  <>
+    <div className="cs-inner-line" style={{ borderColor: color }} />
+    {[[edge, edge], [null, edge], [edge, null], [null, null]].map(([t, l], i) => (
+      <div
+        key={i}
+        className="cs-corner"
+        style={{
+          background: color,
+          ...(t !== null ? { top: t } : { bottom: edge }),
+          ...(l !== null ? { left: l } : { right: edge }),
+        }}
+      />
+    ))}
+  </>
+);
 
 const getGenderKey = (name) => {
   const n = (name || '').toLowerCase();
@@ -23,7 +66,8 @@ const getGenderKey = (name) => {
   return null;
 };
 
-const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
+const CharacterSelection = ({ studentId, onCharacterSelected, onBack, onMasterVolumeChanged }) => {
+  const [showVolume, setShowVolume] = useState(false);   // the Title Page's volume pop-up
   const [characters, setCharacters] = useState([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,15 +92,7 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
     setSelectedCharacterId(characterId);
   };
 
-  const getCharacterCardImage = (character) => {
-    if (character.name.toLowerCase().includes('girl')) {
-      return '/Female.png';
-    }
-    if (character.name.toLowerCase().includes('boy')) {
-      return '/Male.png';
-    }
-    return character.imageUrl || '/Female.png';
-  };
+  const getCharacterSprite = (character) => IDLE_SPRITES[getGenderKey(character.name)] || IDLE_SPRITES.boy;
 
   const handleConfirmSelection = async () => {
     if (!selectedCharacterId) {
@@ -97,20 +133,42 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
 
   return (
     <div className="character-selection">
+      <GalaxyBackground pixelClouds />
+      <MagicFloatLayer />
       <div className="nav-bar">
-        <div className="nav-logo">
-          <span>WIZARDFRAC</span>
+        {/* The Title Page / login logo */}
+        <h2 className="cs-logo">WIZARDFRAC</h2>
+        <div className="nav-buttons">
+          <button type="button" className="menu-btn" onClick={onBack}>
+            <PixelCorners />
+            Back
+          </button>
+          <button type="button" className="menu-btn" onClick={() => setShowVolume(true)}>
+            <PixelCorners />
+            Volume
+          </button>
         </div>
-        <button type="button" className="menu-btn" onClick={onBack}>← Back to Main</button>
       </div>
 
+      {/* Same volume pop-up as the Title Page's Volume button */}
+      {showVolume && (
+        <SettingsPage
+          volumeOnly
+          hideExit
+          onBack={() => setShowVolume(false)}
+          onMasterVolumeChanged={onMasterVolumeChanged}
+        />
+      )}
+
       <div className="character-selection-container">
-        <div className="cs-title-row">
-          <span className="cs-title-deco">✦───✦</span>
-          <h1 className="cs-title">Choose Your Wizard</h1>
-          <span className="cs-title-deco">✦───✦</span>
+        <div className="cs-title-box">
+          <PixelCorners edge={-6} />
+          <div className="cs-title-gem"><span /></div>
+          <div className="cs-title-row">
+            <h1 className="cs-title">Choose Your Wizard</h1>
+          </div>
+          <p className="cs-subtitle"><span className="cs-star">★</span> Select a character to begin your magical journey. <span className="cs-star">★</span></p>
         </div>
-        <p className="cs-subtitle">Select a character to begin your magical journey.</p>
 
         {error && <div className="error-message">{error}</div>}
 
@@ -121,13 +179,13 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
             .map(character => {
               const displayName = character.name;
               const genderKey = getGenderKey(character.name);
-              const traits = CHARACTER_TRAITS[genderKey] || [];
               return (
                 <div
                   key={character.id}
                   className={`character-card ${selectedCharacterId === character.id ? 'selected' : ''}`}
                   onClick={() => handleSelectCharacter(character.id)}
                 >
+                  <PixelCorners color={selectedCharacterId === character.id ? 'var(--cs-gold)' : 'var(--cs-border)'} />
                   <div className="character-ribbon">
                     <span className="character-ribbon-icon">✦</span>
                     {displayName.toUpperCase()}
@@ -139,11 +197,7 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
                   )}
 
                   <div className="character-image">
-                    {getCharacterCardImage(character) ? (
-                      <img src={getCharacterCardImage(character)} alt={displayName} />
-                    ) : (
-                      <div className="image-placeholder"></div>
-                    )}
+                    <IdleSprite src={getCharacterSprite(character)} label={displayName} className={`cs-sprite-${genderKey || 'boy'}`} />
                     {selectedCharacterId === character.id && (
                       <div className="selected-overlay">
                         <span className="check-icon">✓</span>
@@ -155,16 +209,6 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
 
                   <div className="character-info">
                     <p className="description">{character.description}</p>
-                    {traits.length > 0 && (
-                      <div className="character-traits">
-                        {traits.map(trait => (
-                          <span key={trait.label} className="trait-pill">
-                            <span className="trait-icon">{trait.icon}</span>
-                            {trait.label}
-                          </span>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </div>
               );
@@ -177,12 +221,13 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack }) => {
             onClick={handleConfirmSelection}
             disabled={!selectedCharacterId}
           >
+            <PixelCorners color="var(--cs-gold)" />
             <span className="confirm-btn-deco">✦</span> SELECT <span className="confirm-btn-deco">✦</span>
           </button>
         </div>
 
         <div className="cs-hint">
-          <span className="cs-hint-icon">💡</span> You can change your character later in the settings.
+          You can change your character later in the settings.
         </div>
       </div>
     </div>
