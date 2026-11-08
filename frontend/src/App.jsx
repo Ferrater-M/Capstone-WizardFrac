@@ -31,6 +31,27 @@ function App() {
     const c = sessionStorage.getItem('selectedCharacter');
     return c ? JSON.parse(c) : null;
   });
+  // After a refresh (or opening a link straight to a page): the login goes back to the Title Page; any
+  // other screen goes to the Island Selection (or the character selection if no wizard was picked yet).
+  // Runs once, on the first load only.
+  const firstLoadHandledRef = useRef(false);
+  useEffect(() => {
+    if (firstLoadHandledRef.current) return;
+    firstLoadHandledRef.current = true;
+    const path = location.pathname;
+    if (path === '/') return;
+    if (path === '/login' || !studentId) navigate('/', { replace: true });
+    else navigate(selectedCharacter ? '/game-lobby' : '/character-selection', { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Every refresh (or closing the tab) asks first. Browsers show their own wording for this box,
+  // e.g. "Reload site? Changes you made may not be saved."
+  useEffect(() => {
+    const warn = (e) => { e.preventDefault(); e.returnValue = ''; return ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, []);
+
   const [gameSession, setGameSession] = useState(null);
   const [gameResult, setGameResult] = useState(null);
   const [lobbyKey, setLobbyKey] = useState(0);

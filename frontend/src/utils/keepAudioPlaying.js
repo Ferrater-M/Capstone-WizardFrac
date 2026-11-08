@@ -70,6 +70,10 @@ export const installKeepAudioPlaying = () => {
     window[name] = Wrapped;
   });
 
+  // After a refresh the browser blocks sound until the player clicks or presses a key. Music that was
+  // blocked is still waiting in `loops` (paused, but not paused by the game), so the first click/key starts it.
+  ['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, resumeAll, { capture: true, passive: true }));
+
   document.addEventListener('visibilitychange', resumeAll);
   window.addEventListener('blur', resumeAll);
   window.addEventListener('focus', resumeAll);

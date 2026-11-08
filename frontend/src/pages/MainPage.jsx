@@ -817,7 +817,7 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
       </button>
 
       {/* Static page in /public (also linked from the Google OAuth consent screen), so a plain link, not a route */}
-      <a className="main-pill main-pill-privacy" href="/privacy.html">
+      <a className="main-pill main-pill-privacy" href="/privacy.html" target="_blank" rel="noopener noreferrer">
         <PillFrame />Privacy
       </a>
 
