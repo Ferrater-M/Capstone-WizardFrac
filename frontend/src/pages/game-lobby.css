@@ -1255,3 +1255,14 @@
   10%  { opacity: 1; }
   100% { opacity: 0;   transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.5); }
 }
+
+/* Star count, Help and Settings: shine and dissolve with the player card when an island is picked */
+.lobby-top-right.anim-flash {
+  animation: titleFlash 0.5s ease-out forwards;
+  pointer-events: none;
+}
+
+.lobby-top-right.anim-hidden {
+  opacity: 0;
+  pointer-events: none;
+}

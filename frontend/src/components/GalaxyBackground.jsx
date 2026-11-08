@@ -1,8 +1,17 @@
 import React, { useEffect, useRef } from 'react';
 
 // The animated galaxy behind the island selection screen (nebulae, drifting pixel clouds, twinkling stars,
-// shooting stars), drawn on a full-screen canvas. Shared by the island selection screen and the dashboard.
-const GalaxyBackground = () => {
+// shooting stars), drawn on a full-screen canvas. Shared by the island selection screen, the login and the dashboard.
+// pixelClouds: swap the few big clouds for lots of small blocky pixel clouds (the Title Page's style) in
+// galaxy purple, drifting smoothly at different depths. Used by the login and the dashboard.
+const PX = 6;   // one "pixel" of a pixel cloud, in screen px
+const PIXEL_PUFFS = [
+  { x: 0, y: 0, r: 7 }, { x: 7, y: -3, r: 5 }, { x: -7, y: -2, r: 5 },
+  { x: 13, y: 1, r: 4 }, { x: -12, y: 1, r: 4 }, { x: 5, y: 3, r: 4 }, { x: -4, y: 3, r: 4 },
+];
+const PIXEL_TINT = { top: [96, 64, 160], body: [58, 32, 112], shadow: [18, 6, 46] };
+
+const GalaxyBackground = ({ pixelClouds = false }) => {
   const canvasRef = useRef(null);
   const galaxyFrameRef = useRef(null);
 
@@ -81,7 +90,35 @@ const GalaxyBackground = () => {
         ctx.restore();
       };
 
-      const clouds = Array.from({ length: 6 }, (_, i) => ({
+      // Pixel clouds: far ones small, faint and slow; near ones bigger, brighter and faster
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      const pixClouds = pixelClouds
+        ? Array.from({ length: 44 }, () => {
+            const depth = Math.random();
+            return {
+              x: Math.random() * 1.3 - 0.15,
+              y: Math.random() * 0.95,
+              scale: 0.5 + depth * 1.6,
+              speed: (0.00011 + depth * 0.0004) * (reduceMotion ? 0 : 1),   // per 60 fps frame
+              alpha: 0.3 + depth * 0.4,
+              depth,
+            };
+          }).sort((a, b) => a.depth - b.depth)
+        : [];
+      const snap = (v) => Math.round(v / PX) * PX;
+      const drawPixelCloud = (cx, cy, scale, alpha) => {
+        // shadow underneath, body, then a lighter top edge: blocky shape, smooth glide
+        [[PX, PIXEL_TINT.shadow, 1], [0, PIXEL_TINT.body, 1], [-PX, PIXEL_TINT.top, 0.55]].forEach(([dy, col, k]) => {
+          ctx.fillStyle = `rgba(${col.join(',')}, ${alpha})`;
+          PIXEL_PUFFS.forEach(pf => {
+            const r = Math.max(1, Math.round(pf.r * scale * k)) * PX;
+            ctx.fillRect(cx + snap(pf.x * scale * PX) - r, cy + snap(pf.y * scale * PX) - r + dy, r * 2, r * 2);
+          });
+        });
+      };
+      let lastT = 0;
+
+      const clouds = pixelClouds ? [] : Array.from({ length: 6 }, (_, i) => ({
         x: Math.random(),
         y: 0.05 + Math.random() * 0.75,
         vx: (0.00006 + Math.random() * 0.00008) * (Math.random() < 0.65 ? 1 : -1),
@@ -104,6 +141,15 @@ const GalaxyBackground = () => {
           ctx.beginPath();
           ctx.arc(gx, gy, gr, 0, Math.PI * 2);
           ctx.fill();
+        });
+
+        const nowT = performance.now();
+        const step = Math.min(3, (nowT - (lastT || nowT)) / (1000 / 60));   // same speed on any screen
+        lastT = nowT;
+        pixClouds.forEach(c => {
+          c.x += c.speed * step;
+          if (c.x > 1.25) { c.x = -0.25; c.y = Math.random() * 0.95; }
+          drawPixelCloud(c.x * w, c.y * h, c.scale, c.alpha);
         });
 
         clouds.forEach(cloud => {
@@ -218,7 +264,7 @@ const GalaxyBackground = () => {
       cancelAnimationFrame(galaxyFrameRef.current);
       if (resizeHandler) window.removeEventListener('resize', resizeHandler);
     };
-  }, []);
+  }, [pixelClouds]);
 
   return (
     <canvas

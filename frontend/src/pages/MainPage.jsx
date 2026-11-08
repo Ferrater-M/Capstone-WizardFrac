@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './MainPage.css';
+import SettingsPage from './SettingsPage';
+import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 
 const ABOUT_SECTIONS = [
   {
@@ -99,13 +101,154 @@ const GREETINGS = {
   evening:   'Good Evening, Wizard!',
 };
 
-const MainPage = ({ onStart }) => {
+// Thin inner line + square pixel corners — the dashboard's square button frame
+const PillFrame = () => (
+  <>
+    <span className="main-pill-line" />
+    {['tl', 'tr', 'bl', 'br'].map(c => <span key={c} className={`main-pill-corner ${c}`} />)}
+  </>
+);
+
+// ── Title Page intro ──────────────────────────────────────────────────────────
+// Plays every time the Title Page loads (click anywhere to skip):
+//   black → "Capstone Team 20 Presents..." fades in (bell) → fades out (bell fades too) →
+//   WIZARDFRAC shines in (oomf) → subtitle shines in (oomf) → white flash (explode), the title music
+//   starts looping and the rest of the page appears.
+const INTRO_TIMELINE = [
+  ['presents', 500],       // text fades in, introductionBell.ogg
+  ['presents-out', 2000],  // text fades out slowly, bell fades to silence
+  ['title', 3500],         // WIZARDFRAC shines in, introductionOomf.wav
+  ['subtitle', 3700],      // subtitle shines in, introductionOomf.wav
+  ['flash', 3900],         // white flash, introductionExplode.wav, introductionOST.mp3, rest of the UI
+  ['done', 4300],
+];
+const TITLE_MUSIC_VOLUME = 0.7;   // same share of Master Volume as the other menu music
+const BELL_FADE_MS = 1500;
+const LEAVE_FADE_MS = 800;   // fade to black before going to the login
+
+const MainPage = ({ onStart, onMasterVolumeChanged }) => {
   const canvasRef = useRef(null);
   const frameRef  = useRef(null);
   const flashRef  = useRef(null);
   const fxCanvasRef = useRef(null);
   const contentRef  = useRef(null);
   const [showAbout, setShowAbout] = useState(false);
+  const [showVolume, setShowVolume] = useState(false);   // Title Volume pop-up
+  const [introStage, setIntroStage] = useState('black');
+  const [leaving, setLeaving] = useState(false);          // fading to black on the way to the login
+  const ignoreNextClickRef = useRef(false);               // the click that skipped the intro mustn't also start
+  const introTimersRef = useRef([]);
+  const bellRef = useRef(null);
+  const ostRef  = useRef(null);
+
+  // The Title Page's own music (loops). Starts from the beginning; if the browser hasn't allowed sound
+  // yet (no click on the site so far), it starts on the first click or key press instead.
+  const startTitleMusic = () => {
+    let ost = ostRef.current;
+    if (!ost) {
+      ost = new Audio('/OSTFiles/introductionOST.mp3');
+      ost.loop = true;
+      ostRef.current = ost;
+    }
+    ost.volume = getMasterVolume() * TITLE_MUSIC_VOLUME;
+    ost.currentTime = 0;
+    ost.play().catch(() => {
+      const resume = () => { if (ostRef.current === ost) ost.play().catch(() => {}); };
+      window.addEventListener('pointerdown', resume, { once: true });
+      window.addEventListener('keydown', resume, { once: true });
+    });
+  };
+
+  const stopBell = () => {
+    const bell = bellRef.current;
+    if (!bell) return;
+    clearInterval(bell._fade);
+    bell.pause();
+    bell.src = '';
+    bellRef.current = null;
+  };
+
+  // The bell fades out until it can't be heard, then stops (frees the audio)
+  const fadeOutBell = () => {
+    const bell = bellRef.current;
+    if (!bell) return;
+    const start = bell.volume, t0 = performance.now();
+    bell._fade = setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / BELL_FADE_MS);
+      bell.volume = start * (1 - k);
+      if (k >= 1) stopBell();
+    }, 40);
+  };
+
+  useEffect(() => {
+    introTimersRef.current = INTRO_TIMELINE.map(([stage, at]) => setTimeout(() => {
+      setIntroStage(stage);
+      if (stage === 'presents') {
+        const bell = new Audio('/OSTFiles/introductionBell.ogg');
+        bell.volume = getSfxVolume();
+        bell.play().catch(() => {});
+        bellRef.current = bell;
+      } else if (stage === 'presents-out') {
+        fadeOutBell();
+      } else if (stage === 'title' || stage === 'subtitle') {
+        playSfx('/OSTFiles/introductionOomf.wav');
+      } else if (stage === 'flash') {
+        playSfx('/OSTFiles/introductionExplode.wav');
+        startTitleMusic();
+      }
+    }, at));
+    return () => {
+      introTimersRef.current.forEach(clearTimeout);
+      stopBell();
+      if (ostRef.current) { ostRef.current.pause(); ostRef.current.src = ''; ostRef.current = null; }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Start the journey (the Start button, or a click anywhere on the page): everything fades to black
+  // and the music fades out over ~0.8 s, then the login opens.
+  const startJourney = () => {
+    if (leaving) return;
+    setLeaving(true);
+    const ost = ostRef.current;
+    if (ost) {
+      const v0 = ost.volume, t0 = performance.now();
+      const fade = setInterval(() => {
+        const k = Math.min(1, (performance.now() - t0) / LEAVE_FADE_MS);
+        ost.volume = v0 * (1 - k);
+        if (k >= 1) clearInterval(fade);
+      }, 30);
+    }
+    setTimeout(onStart, LEAVE_FADE_MS);
+  };
+
+  // A click on empty space starts the journey; buttons, links and pop-ups keep their own clicks
+  const handlePageClick = (e) => {
+    if (ignoreNextClickRef.current) { ignoreNextClickRef.current = false; return; }
+    if (introStage !== 'done') return;
+    if (showAbout || showVolume) return;
+    if (e.target.closest('button, a, input, .about-overlay, .settings-overlay')) return;
+    startJourney();
+  };
+
+  // Click anywhere during the intro: straight to the normal Title Page, music from the top
+  const skipIntro = () => {
+    ignoreNextClickRef.current = true;
+    introTimersRef.current.forEach(clearTimeout);
+    stopBell();
+    setIntroStage('done');
+    startTitleMusic();
+  };
+
+  const introOn = introStage !== 'done';
+  const uiHidden = introOn && introStage !== 'flash';           // buttons, Start, greeting wait for the flash
+  const titleIn = ['title', 'subtitle', 'flash'].includes(introStage);
+  const bannerIn = ['subtitle', 'flash'].includes(introStage);
+
+  // Title Volume also changes this page's music right away
+  const handleTitleVolume = (volume01) => {
+    if (ostRef.current) ostRef.current.volume = volume01 * TITLE_MUSIC_VOLUME;
+    onMasterVolumeChanged?.(volume01);
+  };
   const [timeOfDay, setTimeOfDay] = useState(getTimeOfDay());
 
   // Re-check the clock every minute so morning/afternoon/evening — and the
@@ -145,52 +288,45 @@ const MainPage = ({ onStart }) => {
         }))
       : [];
 
-    // Cloud tint: dark storm clouds at night, dull grey for a gloomy
-    // morning, soft bright white for a sunny afternoon
-    const cloudColors = isEvening
-      ? ['rgba(14, 6, 35, 0.97)',     'rgba(10, 4, 26, 0.86)',    'rgba(4, 2, 12, 0)']
+    // Lots of blocky pixel clouds (like the level selection's), drifting at different depths.
+    // Their colours follow the sky: grey-blue for the gloomy morning, white for the sunny
+    // afternoon, deep purple-navy for the night storm.
+    const PX = 6;                                   // one "pixel" of cloud, in screen px
+    const PIXEL_PUFFS = [
+      { x: 0, y: 0, r: 7 }, { x: 7, y: -3, r: 5 }, { x: -7, y: -2, r: 5 },
+      { x: 13, y: 1, r: 4 }, { x: -12, y: 1, r: 4 }, { x: 5, y: 3, r: 4 }, { x: -4, y: 3, r: 4 },
+    ];
+    const pixelTint = isEvening
+      ? { top: [104, 82, 160],  body: [72, 56, 126],   shadow: [30, 20, 64],    alpha: 0.88 }
       : isMorning
-      ? ['rgba(146, 156, 173, 0.88)', 'rgba(126, 137, 156, 0.66)','rgba(120, 130, 150, 0)']
-      : ['rgba(255, 255, 255, 0.92)', 'rgba(255, 255, 255, 0.62)','rgba(255, 255, 255, 0)'];
+      ? { top: [250, 252, 255], body: [222, 230, 240], shadow: [160, 174, 196], alpha: 0.9 }
+      : { top: [255, 255, 255], body: [255, 255, 255], shadow: [180, 218, 246], alpha: 0.95 };
+    const pixelClouds = Array.from({ length: 48 }, () => {
+      const depth = Math.random();                // 0 = far (small, faint, slow) … 1 = near
+      return {
+        x: Math.random() * 1.3 - 0.15,
+        y: Math.random() * 0.95,
+        scale: 0.5 + depth * 1.6,
+        speed: 0.00011 + depth * 0.0004,       // per 60 fps frame
+        alpha: pixelTint.alpha * (0.65 + depth * 0.35),
+        depth,
+      };
+    }).sort((a, b) => a.depth - b.depth);
 
-    // A full gloomy layer covers the sky in the morning and the night
-    // storm; the sunny afternoon only gets a couple of light drifters
-    const cloudDefs = isAfternoon
-      ? [
-          { x: -0.05, y: 0.10, scale: 300, speed: 0.000018, alpha: 0.50 },
-          { x:  0.55, y: 0.05, scale: 260, speed: 0.000014, alpha: 0.40 },
-        ]
-      : [
-          { x: -0.05, y: 0.09, scale: 330, speed: 0.000022, alpha: isMorning ? 0.80 : 0.94 },
-          { x:  0.32, y: 0.04, scale: 410, speed: 0.000016, alpha: isMorning ? 0.82 : 0.96 },
-          { x:  0.68, y: 0.12, scale: 370, speed: 0.000028, alpha: isMorning ? 0.76 : 0.90 },
-          { x:  1.05, y: 0.06, scale: 350, speed: 0.000020, alpha: isMorning ? 0.78 : 0.92 },
-        ];
-    const clouds = cloudDefs.map(c => ({ ...c }));
-
-    function drawCloud(cx, cy, scale) {
-      const puffs = [
-        [0,              0,              1.0],
-        [scale * 0.55,  -scale * 0.28,  0.82],
-        [scale * 1.15,  -scale * 0.05,  0.92],
-        [scale * 1.76,  -scale * 0.22,  0.78],
-        [scale * 2.28,   scale * 0.03,  0.85],
-        [-scale * 0.50,  scale * 0.04,  0.72],
-        [scale * 0.90,   scale * 0.18,  1.05],
-        [scale * 1.48,   scale * 0.13,  0.80],
-      ];
-      puffs.forEach(([dx, dy, sr]) => {
-        const px = cx + dx, py = cy + dy, r = scale * sr * 0.62;
-        const g = ctx.createRadialGradient(px, py - r * 0.15, 0, px, py, r);
-        g.addColorStop(0,   cloudColors[0]);
-        g.addColorStop(0.6, cloudColors[1]);
-        g.addColorStop(1,   cloudColors[2]);
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(px, py, r, 0, Math.PI * 2);
-        ctx.fill();
+    let lastCloudT = 0;
+    function drawPixelCloud(cx, cy, scale, alpha) {
+      const snap = (v) => Math.round(v / PX) * PX;
+      // shadow underneath, body, then a lighter top edge — hard-edged blocks, no smoothing
+      [[PX, pixelTint.shadow, 1], [0, pixelTint.body, 1], [-PX, pixelTint.top, 0.55]].forEach(([dy, col, k]) => {
+        ctx.fillStyle = `rgba(${col.join(',')}, ${alpha})`;
+        PIXEL_PUFFS.forEach(pf => {
+          const r = Math.max(1, Math.round(pf.r * scale * k)) * PX;
+          const px = cx + snap(pf.x * scale * PX), py = cy + snap(pf.y * scale * PX);   // blocky shape, smooth glide
+          ctx.fillRect(px - r, py - r + dy, r * 2, r * 2);
+        });
       });
     }
+
 
     // Rain and lightning are night-storm-only — mornings and afternoons stay dry
     const rain = isEvening
@@ -294,6 +430,16 @@ const MainPage = ({ onStart }) => {
         ctx.restore();
       });
 
+      // Pixel cloud layer (far to near), behind the rain
+      const nowT = performance.now();
+      const step = Math.min(3, (nowT - (lastCloudT || nowT)) / (1000 / 60));   // same speed on any screen
+      lastCloudT = nowT;
+      pixelClouds.forEach(c => {
+        c.x += c.speed * step;
+        if (c.x > 1.25) { c.x = -0.25; c.y = Math.random() * 0.95; }
+        drawPixelCloud(c.x * w, c.y * h, c.scale, c.alpha);
+      });
+
       // Rain (diagonal, top-right → bottom-left slant) — evening storm only
       if (isEvening) {
         const SLANT = 0.30;
@@ -315,15 +461,6 @@ const MainPage = ({ onStart }) => {
         });
       }
 
-      // Clouds
-      clouds.forEach(c => {
-        c.x += c.speed;
-        if (c.x > 1.35) c.x = -0.55;
-        ctx.save();
-        ctx.globalAlpha = c.alpha;
-        drawCloud(c.x * w, c.y * h, c.scale);
-        ctx.restore();
-      });
 
       // Lightning — evening storm only
       if (isEvening) {
@@ -647,34 +784,66 @@ const MainPage = ({ onStart }) => {
   }, []);
 
   return (
-    <div className={`main-page time-${timeOfDay}`}>
+    <div
+      className={`main-page time-${timeOfDay}${uiHidden ? ' is-intro' : ''}`}
+      onPointerDownCapture={introOn && introStage !== 'flash' ? skipIntro : undefined}
+      onClick={handlePageClick}
+    >
       <canvas ref={canvasRef} className="main-canvas" />
       <div className="main-scrim" aria-hidden="true" />
       <canvas ref={fxCanvasRef} className="main-fx-canvas" aria-hidden="true" />
       <div ref={flashRef} className="lightning-overlay" />
 
-      <button className="main-about-btn" onClick={() => setShowAbout(true)}>
-        <span className="main-about-icon">ⓘ</span> About
+      {/* Intro: black screen with "Capstone Team 20 Presents..." (the title and subtitle shine in above it) */}
+      {introOn && introStage !== 'flash' && (
+        <div className="intro-overlay" aria-hidden="true">
+          {(introStage === 'presents' || introStage === 'presents-out') && (
+            <span className={`intro-presents${introStage === 'presents-out' ? ' is-out' : ''}`}>
+              Capstone Team 20 Presents...
+            </span>
+          )}
+        </div>
+      )}
+      {introStage === 'flash' && <div className="intro-flash" aria-hidden="true" />}
+      {leaving && <div className="leave-fade" aria-hidden="true" />}
+
+      {/* Square pixel buttons like the dashboard's: About (top left), Title Volume (top right), Privacy (bottom right) */}
+      <button className="main-pill main-pill-about" onClick={() => setShowAbout(true)}>
+        <PillFrame />About
+      </button>
+
+      <button className="main-pill main-pill-volume" onClick={() => setShowVolume(true)}>
+        <PillFrame />Volume
       </button>
 
       {/* Static page in /public (also linked from the Google OAuth consent screen), so a plain link, not a route */}
-      <a className="main-about-btn main-privacy-btn" href="/privacy.html">
-        <span className="main-about-icon">🔒</span> Privacy
+      <a className="main-pill main-pill-privacy" href="/privacy.html">
+        <PillFrame />Privacy
       </a>
+
+      {/* Title Volume: the Settings pop-up's volume sliders only */}
+      {showVolume && (
+        <SettingsPage
+          volumeOnly
+          hideExit
+          onBack={() => setShowVolume(false)}
+          onMasterVolumeChanged={handleTitleVolume}
+        />
+      )}
 
       <div className="main-content" ref={contentRef}>
         <div className="main-title-group">
           <div className="main-title-wrap">
-            <h1 className="main-title">WIZARDFRAC</h1>
+            <h1 className={`main-title${introOn ? (titleIn ? ' intro-shine' : ' intro-hidden') : ''}`}>WIZARDFRAC</h1>
             <div className="main-greeting">{GREETINGS[timeOfDay]}</div>
           </div>
           {/* Subtitle banner, same as the login page */}
-          <div className="main-banner">
+          <div className={`main-banner${introOn ? (bannerIn ? ' intro-shine' : ' intro-hidden') : ''}`}>
             <span>MASTER FRACTIONS. CAST SPELLS. SAVE THE ISLANDS!</span>
           </div>
         </div>
 
-        <button className="main-start-btn" onClick={onStart}>
+        <button className="main-start-btn" onClick={startJourney}>
           Start your Journey
         </button>
       </div>

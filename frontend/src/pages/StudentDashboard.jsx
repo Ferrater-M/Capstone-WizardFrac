@@ -300,7 +300,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
   if (error) {
     return (
       <div className="dashboard-container">
-        <GalaxyBackground />
+        <GalaxyBackground pixelClouds />
       <MagicFloatLayer />
         <div className="dash-fade">
           {header}
@@ -559,7 +559,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
 
   return (
     <div className="dashboard-container">
-      <GalaxyBackground />
+      <GalaxyBackground pixelClouds />
       <MagicFloatLayer />
 
       <div className="dash-fade">

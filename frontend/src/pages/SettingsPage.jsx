@@ -38,6 +38,7 @@ const SettingsPage = ({
   studentId, studentNickname, selectedCharacter,
   onBack, onLogout, onNicknameChanged, onMasterVolumeChanged,
   volumeOnly = false, exitLabel = 'Logout', onExit,
+  hideExit = false,   // Title Volume: just the volume sliders, nothing to exit from
 }) => {
   const handleExit = onExit || onLogout;
   const fileInputRef = useRef(null);
@@ -257,9 +258,11 @@ const SettingsPage = ({
                 <span>🔒</span> Reset Password
               </button>
             )}
-            <button className="settings-nav-item danger" onClick={() => setShowLogoutConfirm(true)}>
-              <span>⏻</span> {exitLabel}
-            </button>
+            {!hideExit && (
+              <button className="settings-nav-item danger" onClick={() => setShowLogoutConfirm(true)}>
+                <span>⏻</span> {exitLabel}
+              </button>
+            )}
           </nav>
 
           {!volumeOnly && (
@@ -437,6 +440,7 @@ const SettingsPage = ({
           </section>
           )}
 
+          {!hideExit && (
           <section className="settings-card settings-logout-card" ref={logoutSectionRef}>
             {pixelCorners('var(--st-danger)')}
             <div>
@@ -449,6 +453,7 @@ const SettingsPage = ({
               ⏻ {exitLabel}
             </button>
           </section>
+          )}
         </main>
       </div>
       </div>

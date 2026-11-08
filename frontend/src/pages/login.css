@@ -420,3 +420,29 @@
 
   .panel-container { margin-right: 0; width: 100%; display: flex; justify-content: center; }
 }
+
+/* X at the panel's top-right corner — back to the Title Page. Square pixel button like the panel itself. */
+.panel-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 12;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--gl-panel2);
+  color: var(--gl-text);
+  border: 3px solid var(--gl-border);
+  border-radius: 0;
+  font-size: 0.7em;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.18);
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.panel-close:hover { background: var(--gl-primary); transform: translateY(-1px); }
+.panel-close:focus-visible { outline: 2px solid var(--gl-gold); outline-offset: 2px; }

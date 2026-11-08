@@ -171,21 +171,23 @@ const PixelSky = ({ src }) => {
       } else {
         lctx.fillStyle = '#5a6aa0'; lctx.fillRect(0, 0, lw, lh);
       }
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(low, 0, 0, lw * PIXEL, lh * PIXEL);
+      // Clouds go on the full-size canvas: the shape stays made of PIXEL-sized blocks, but the whole cloud
+      // glides smoothly instead of hopping one big pixel at a time.
       clouds.forEach(c => {
         c.x += c.speed * dt;
         if (c.x > 1.15) { c.x = -0.15; c.y = Math.random(); }
-        const cx = Math.round(c.x * lw), cy = Math.round(c.y * lh);
+        const cx = c.x * lw * PIXEL, cy = c.y * lh * PIXEL;
         // Shadow underneath, then the body: hard-edged blocks, no smoothing
         [[1, 'rgba(70, 84, 130, '], [0, c.light ? 'rgba(250, 246, 236, ' : 'rgba(190, 200, 225, ']].forEach(([dy, col]) => {
-          lctx.fillStyle = `${col}${c.alpha})`;
+          ctx.fillStyle = `${col}${c.alpha})`;
           CLOUD_PUFFS.forEach(p => {
-            const r = Math.max(1, Math.round(p.r * c.scale));
-            lctx.fillRect(cx + Math.round(p.x * c.scale) - r, cy + Math.round(p.y * c.scale) - r + dy, r * 2, r * 2);
+            const r = Math.max(1, Math.round(p.r * c.scale)) * PIXEL;
+            ctx.fillRect(cx + Math.round(p.x * c.scale) * PIXEL - r, cy + (Math.round(p.y * c.scale) + dy) * PIXEL - r, r * 2, r * 2);
           });
         });
       });
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(low, 0, 0, lw * PIXEL, lh * PIXEL);
       frame = requestAnimationFrame(draw);
     };
     frame = requestAnimationFrame(draw);

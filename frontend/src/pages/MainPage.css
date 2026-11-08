@@ -43,7 +43,13 @@
   position: absolute;
   right: 0;
   top: 0;                                       /* above the logo's top-right corner, clear of the banner */
-  transform: translate(28%, -85%) rotate(14deg);
+  --greet-x: 28%;
+  --greet-y: -85%;
+  /* Separate translate / rotate / scale so the pulse and the rocking can run as two animations at once */
+  translate: var(--greet-x) var(--greet-y);
+  rotate: 14deg;
+  /* Minecraft-splash-style throb (quick size pulse) + a slower rock from side to side around 14deg */
+  animation: greetPulse 0.5s ease-in-out infinite, greetRock 2.4s ease-in-out infinite;
   z-index: 1;
   font-size: clamp(0.6em, 1.1vw, 0.85em);
   line-height: 1.4;
@@ -57,7 +63,8 @@
 
 @media (max-width: 700px) {
   .main-greeting {
-    transform: translate(5%, -95%) rotate(14deg);
+    --greet-x: 5%;
+    --greet-y: -95%;
     font-size: 0.5em;
   }
 }
@@ -413,46 +420,61 @@
   line-height: 0;
 }
 
-/* About button */
-.main-about-btn {
+/* Title Page buttons — the dashboard's square pixel buttons (4px purple border, pixel corners, pixel font):
+   About top left, Title Volume top right, Privacy bottom right. */
+.main-pill {
   position: absolute;
-  top: 28px;
-  left: 28px;
   z-index: 6;
+  box-sizing: border-box;
+  height: 54px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
+  justify-content: center;
+  padding: 0 24px;
+  background: #32175E;
+  color: #F8F7FF;
+  border: 4px solid #6D28D9;
+  border-radius: 0;
   font-family: inherit;
   font-size: 0.7em;
-  line-height: 1.4;
-  color: #e8ddff;
-  background: rgba(109, 40, 217, 0.28);
-  border: 1px solid rgba(180, 140, 255, 0.40);
-  border-radius: 50px;
-  backdrop-filter: blur(6px);
-  cursor: pointer;
-  box-shadow: 0 0 16px rgba(130, 90, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.10);
-  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-}
-
-.main-about-btn:hover {
-  transform: translateY(-2px);
-  background: rgba(124, 58, 237, 0.42);
-  box-shadow: 0 0 26px rgba(130, 90, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-/* Privacy Policy link — the About button's twin, in the top-right corner */
-.main-privacy-btn {
-  left: auto;
-  right: 28px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
   text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.18);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
 
-.main-about-icon {
-  font-size: 1.05em;
-  line-height: 1;
+.main-pill:hover {
+  background: #7C3AED;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.45);
+  transform: translateY(-1px);
 }
+
+.main-pill-line {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid #6D28D9;
+  pointer-events: none;
+}
+
+.main-pill-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #6D28D9;
+  pointer-events: none;
+}
+.main-pill-corner.tl { top: 0; left: 0; }
+.main-pill-corner.tr { top: 0; right: 0; }
+.main-pill-corner.bl { bottom: 0; left: 0; }
+.main-pill-corner.br { bottom: 0; right: 0; }
+
+.main-pill-about { top: 28px; left: 28px; }
+.main-pill-privacy { bottom: 28px; right: 28px; }
+
+/* Title Volume: same as About and Privacy */
+.main-pill-volume { top: 28px; right: 28px; }
 
 /* Main content */
 .main-content {
@@ -624,4 +646,112 @@
     letter-spacing: 1px;
   }
   .main-banner { padding: 8px 14px; }
+}
+
+/* ── Title Page intro ─────────────────────────────────────────────────────────
+   Black layer over the background (under the title, which shines in above it), "Presents" text,
+   shine-in for the title and subtitle, and a white flash that reveals the rest of the page. */
+.intro-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;                 /* over the sky, scrim and magic circles; under the title (5) and buttons (6) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  cursor: pointer;
+}
+
+.intro-presents {
+  color: #fff;
+  font-size: clamp(14px, 2vw, 24px);
+  letter-spacing: 3px;
+  opacity: 0;
+  animation: introPresentsIn 1s ease-out forwards;
+}
+
+.intro-presents.is-out { animation: introPresentsOut 1.3s ease-in forwards; }
+
+@keyframes introPresentsIn {
+  0%   { opacity: 0; letter-spacing: 12px; filter: blur(6px); transform: translateY(8px); text-shadow: 0 0 0 rgba(255,255,255,0); }
+  60%  { opacity: 1; filter: blur(0); text-shadow: 0 0 18px rgba(255,255,255,0.8); }
+  100% { opacity: 1; letter-spacing: 3px; filter: blur(0); transform: translateY(0); text-shadow: 0 0 8px rgba(255,255,255,0.35); }
+}
+
+@keyframes introPresentsOut {
+  from { opacity: 1; letter-spacing: 3px; }
+  to   { opacity: 0; letter-spacing: 6px; }
+}
+
+/* Waiting for its turn */
+.main-title.intro-hidden,
+.main-banner.intro-hidden { opacity: 0; }
+
+/* Shines in bright and glowing, back to normal in about 0.2 s */
+.main-title.intro-shine,
+.main-banner.intro-shine { animation: introShine 0.3s ease-out both; }
+
+@keyframes introShine {
+  0%   { opacity: 0; transform: scale(1.18); filter: brightness(3) drop-shadow(0 0 30px #fff); }
+  35%  { opacity: 1; transform: scale(1.04); filter: brightness(2.2) drop-shadow(0 0 22px #fff); }
+  100% { opacity: 1; transform: scale(1);    filter: brightness(1) drop-shadow(0 0 0 rgba(255,255,255,0)); }
+}
+
+/* Buttons, Start and the greeting wait for the flash */
+.main-page.is-intro .main-pill,
+.main-page.is-intro .main-start-btn,
+.main-page.is-intro .main-greeting {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The whole screen flashes white, then clears over 0.2 s */
+.intro-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: #fff;
+  pointer-events: none;
+  animation: introFlash 0.4s ease-out forwards;
+}
+
+@keyframes introFlash {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-presents, .intro-presents.is-out { animation-duration: 0.01s; }
+  .main-title.intro-shine, .main-banner.intro-shine { animation: none; opacity: 1; }
+  .intro-flash { animation-duration: 0.01s; }
+}
+
+/* Click anywhere (not on a button) to start */
+.main-page:not(.is-intro) { cursor: pointer; }
+
+/* Fade to black before the login opens (~0.8 s) */
+.leave-fade {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  background: #000;
+  pointer-events: all;
+  animation: leaveFade 0.8s ease-in forwards;
+}
+
+@keyframes leaveFade { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes greetPulse {
+  0%, 100% { scale: 1.08; }
+  50%      { scale: 0.98; }
+}
+
+@keyframes greetRock {
+  0%, 100% { rotate: 9deg; }
+  50%      { rotate: 19deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-greeting { animation: none; }
 }

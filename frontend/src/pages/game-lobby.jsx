@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { playSfx, getSfxVolume } from '../utils/audio';
+import { triggerScreenShake } from '../utils/screenShake';
 import './game-lobby.css';
 import LoadingScreen from '../components/LoadingScreen';
 import GalaxyBackground from '../components/GalaxyBackground';
@@ -229,6 +230,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
 
   const titleBoxRef = useRef(null);
   const playerCardRef = useRef(null);
+  const topRightRef = useRef(null);      // star count, Help, Settings
   const islandCardRefs = useRef({});
   const sparkleRef = useRef(null);
   const [animPhase, setAnimPhase] = useState(null);
@@ -236,6 +238,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const [sparkleStart, setSparkleStart] = useState({ x: 0, y: 0 });
   const [sparkleEnd, setSparkleEnd] = useState({ x: 0, y: 0 });
   const [cardBurstRect, setCardBurstRect] = useState(null);
+  const [topBurstRect, setTopBurstRect] = useState(null);
 
   // Random burst directions for the player card's particle-dissolve effect,
   // regenerated once per island-entry attempt (not on every re-render).
@@ -337,6 +340,10 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
     if (cardRect) {
       setCardBurstRect({ top: cardRect.top, left: cardRect.left, width: cardRect.width, height: cardRect.height });
     }
+    const topRect = topRightRef.current?.getBoundingClientRect();
+    if (topRect) {
+      setTopBurstRect({ top: topRect.top, left: topRect.left, width: topRect.width, height: topRect.height });
+    }
     setAnimIsland(island);
     setAnimPhase('flash');
   };
@@ -391,6 +398,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       if (t < 1) rafId = requestAnimationFrame(animate);
       else {
         playSfx('/SoundEffects/starHit.wav');
+        triggerScreenShake({ sound: false });   // the star slams into the island
         setAnimPhase('explode');
       }
     };
@@ -559,10 +567,13 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
 
   return (
     <div className="game-lobby">
-      <GalaxyBackground />
+      <GalaxyBackground pixelClouds />
       {loading && <LoadingScreen />}
 
-      <div className="lobby-top-right">
+      <div
+        ref={topRightRef}
+        className={`lobby-top-right${animPhase === 'flash' ? ' anim-flash' : ''}${animPhase && animPhase !== 'flash' ? ' anim-hidden' : ''}`}
+      >
         <div className="currency-badge">
           {pixelCorners('var(--gl-border)', 0)}
           <span className="currency-star">⭐</span> {starCurrency}
@@ -600,6 +611,21 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
           <p className="xp-text">{xpIntoLevel} / {xpForNextLevel} XP</p>
         </div>
       </div>
+
+      {animPhase && topBurstRect && (
+        <div
+          className="card-particle-burst"
+          style={{ top: topBurstRect.top, left: topBurstRect.left, width: topBurstRect.width, height: topBurstRect.height }}
+        >
+          {cardParticles.map((p, i) => (
+            <span
+              key={i}
+              className="card-particle"
+              style={{ '--dx': `${p.dx}px`, '--dy': `${p.dy}px`, animationDelay: `${p.delay}ms` }}
+            />
+          ))}
+        </div>
+      )}
 
       {animPhase && cardBurstRect && (
         <div

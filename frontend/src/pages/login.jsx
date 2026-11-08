@@ -19,7 +19,7 @@ const PixelCorners = ({ color = 'var(--gl-border)', edge = -6 }) => (
   </>
 );
 
-const LandingPage = ({ onLoginSuccess }) => {
+const LandingPage = ({ onLoginSuccess, onBack }) => {
   const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -117,7 +117,7 @@ const LandingPage = ({ onLoginSuccess }) => {
 
   return (
     <div className="login-container">
-      <GalaxyBackground />
+      <GalaxyBackground pixelClouds />
 
       {/* Top Left Logo */}
       <div className="logo-area">
@@ -137,6 +137,12 @@ const LandingPage = ({ onLoginSuccess }) => {
       {/* Right Side Panel */}
       <div className="panel-container">
         <div className="panel">
+          {/* Back to the Title Page */}
+          {onBack && (
+            <button type="button" className="panel-close" onClick={onBack} aria-label="Back to the title page">
+              X
+            </button>
+          )}
           <PixelCorners />
           <div className="panel-gem"><span /></div>
 

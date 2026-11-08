@@ -16,7 +16,8 @@ import StudentDashboard from './pages/StudentDashboard';
 import { getMasterVolume } from './utils/audio';
 import { API_BASE_URL } from './config';
 
-const LOBBY_PATHS = ['/', '/login', '/character-selection', '/game-lobby'];
+// Screens with the title music. The Title Page itself ('/') is silent; the music starts at the login.
+const LOBBY_PATHS = ['/login', '/character-selection', '/game-lobby'];
 // Menu music plays a little under the Master Volume setting.
 const MUSIC_VOLUME = 0.7;
 
@@ -96,7 +97,7 @@ function App() {
   const islandAudioRef = useRef(null);
   const inIslandRef = useRef(false);   // inside an island's level selection (its theme replaces the title music)
   useEffect(() => {
-    const audio = new Audio('/OSTFiles/TitleTheme.mp3');
+    const audio = new Audio('/OSTFiles/mainTheme.mp3');
     audio.loop = true;
     audio.volume = getMasterVolume() * MUSIC_VOLUME;
     audioRef.current = audio;
@@ -110,11 +111,28 @@ function App() {
     };
   }, []);
 
+  // The title music never plays under other music, and whenever it comes back after being stopped it
+  // starts from the beginning instead of where it left off. (Moving between menu screens while it is
+  // already playing doesn't restart it.)
+  const playMainTheme = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) audio.currentTime = 0;
+    audio.play().catch(() => {});
+  };
+
   // Title music on login/lobby screens (unless a level selection is open), nothing elsewhere
   useEffect(() => {
     if (!audioRef.current) return;
-    if (LOBBY_PATHS.includes(location.pathname)) {
-      if (!inIslandRef.current) audioRef.current.play().catch(() => {});
+    if (location.pathname === '/login') {
+      // Every visit to the login starts the song from the beginning. Logging out from inside an island:
+      // its level selection theme stops first.
+      islandAudioRef.current?.pause();
+      inIslandRef.current = false;
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
+    } else if (LOBBY_PATHS.includes(location.pathname)) {
+      if (!inIslandRef.current) playMainTheme();
     } else {
       audioRef.current.pause();
       islandAudioRef.current?.pause();   // e.g. a fight started from the level selection
@@ -134,7 +152,7 @@ function App() {
   const resumeMusic = () => {
     inIslandRef.current = false;
     islandAudioRef.current?.pause();
-    if (!isMuted) audioRef.current?.play().catch(() => {});
+    if (!isMuted) playMainTheme();
   };
 
   const toggleMute = () => {
@@ -297,9 +315,9 @@ function App() {
       {/* Trails behind every moving blue sparkle, on every screen */}
       <SparkleTrails />
       <Routes>
-        <Route path="/" element={<MainPage onStart={() => navigate('/login')} />} />
+        <Route path="/" element={<MainPage onStart={() => navigate('/login')} onMasterVolumeChanged={handleMasterVolumeChanged} />} />
 
-        <Route path="/login" element={<LandingPage onLoginSuccess={handleLogin} />} />
+        <Route path="/login" element={<LandingPage onLoginSuccess={handleLogin} onBack={() => navigate('/')} />} />
 
         <Route path="/character-selection" element={
           studentId
