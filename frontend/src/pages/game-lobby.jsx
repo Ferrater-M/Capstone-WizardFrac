@@ -822,6 +822,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
 
       {showSettings && (
         <SettingsPage
+          showAccount
           studentId={studentId}
           studentNickname={studentNickname}
           selectedCharacter={character}

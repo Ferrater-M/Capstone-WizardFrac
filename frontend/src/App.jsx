@@ -15,6 +15,7 @@ import HybridIslandGame from './pages/HybridIslandGame';
 import StudentDashboard from './pages/StudentDashboard';
 import { getMasterVolume } from './utils/audio';
 import { API_BASE_URL } from './config';
+import { getAuthToken, setAuthToken, setAuthExpiredHandler } from './utils/authFetch';
 
 // Screens with the title music. The Title Page itself ('/') is silent; the music starts at the login.
 const LOBBY_PATHS = ['/login', '/character-selection', '/game-lobby'];
@@ -25,7 +26,8 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [studentId, setStudentId] = useState(() => sessionStorage.getItem('studentId'));
+  // No login pass = not logged in (e.g. a tab left open from before login passes existed).
+  const [studentId, setStudentId] = useState(() => (getAuthToken() ? sessionStorage.getItem('studentId') : null));
   const [studentNickname, setStudentNickname] = useState(() => sessionStorage.getItem('studentNickname'));
   const [selectedCharacter, setSelectedCharacter] = useState(() => {
     const c = sessionStorage.getItem('selectedCharacter');
@@ -209,6 +211,7 @@ function App() {
 
     sessionStorage.setItem('studentId', id);
     sessionStorage.setItem('studentNickname', nickname);
+    setAuthToken(student.token);
     if (char) sessionStorage.setItem('selectedCharacter', JSON.stringify(char));
 
     if (student.selectedCharacterId) {
@@ -272,7 +275,12 @@ function App() {
     }
   };
 
-  const handleReturnToLogin = () => {
+  // expired === true: the server already rejected the login pass, so there's nothing to log out of.
+  const handleReturnToLogin = (expired) => {
+    if (expired !== true && getAuthToken()) {
+      // Tell the server this login pass is finished (fire-and-forget; the token is attached right now).
+      fetch(`${API_BASE_URL}/api/students/logout`, { method: 'POST' }).catch(() => {});
+    }
     setStudentId(null);
     setStudentNickname(null);
     setSelectedCharacter(null);
@@ -281,6 +289,11 @@ function App() {
     sessionStorage.clear();
     navigate('/login');
   };
+
+  // Login pass expired / replaced → back to the login screen.
+  useEffect(() => {
+    setAuthExpiredHandler(() => handleReturnToLogin(true));
+  });
 
   const handleOpenDashboard = () => navigate('/dashboard');
   const handleBackToLobbyFromDashboard = () => navigate('/game-lobby');

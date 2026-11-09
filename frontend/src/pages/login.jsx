@@ -24,7 +24,6 @@ const LandingPage = ({ onLoginSuccess, onBack }) => {
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [resetEmail, setResetEmail] = useState('');
   const [resetSent, setResetSent] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -66,17 +65,29 @@ const LandingPage = ({ onLoginSuccess, onBack }) => {
 
   const handleBackToForm = () => { setStep('form'); setPassword(''); setNewPassword(''); setConfirmPassword(''); setError(''); };
   const handleGoToSetPassword = () => { setNewPassword(''); setConfirmPassword(''); setError(''); setStep('set-password'); };
-  const handleGoToForgot = () => { setResetEmail(''); setResetSent(false); setError(''); setStep('forgot'); };
+  const handleGoToForgot = () => { setResetSent(false); setError(''); setStep('forgot'); };
 
-  // TEMPORARY: students don't have an email on file yet, so there's no real
-  // backend to send a reset link to. This just shows the same confirmation a
-  // real flow would, without actually sending anything — wire this up once
-  // accounts can store an email.
-  const handleRequestReset = (e) => {
+  // I FORGOT: the server emails a reset link to this nickname's VERIFIED email (set in Settings).
+  // Its answer is the same whether or not the wizard has an email, so the screen can't say which.
+  const handleRequestReset = async (e) => {
     e.preventDefault();
-    if (!resetEmail.trim()) { setError('Please enter your email.'); return; }
     setError('');
-    setResetSent(true);
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/students/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickname: nickname.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error || 'Something went wrong. Please try again.'); return; }
+      setResetSent(true);
+    } catch (err) {
+      setError('Connection error. Make sure the backend server is running.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Claim step 2: create the player and set the password in ONE request (POST /register) —
@@ -328,8 +339,11 @@ const LandingPage = ({ onLoginSuccess, onBack }) => {
                 {resetSent ? (
                   <>
                     <p className="panel-subtitle prompt-message">
-                      If an email is on file for <strong>{nickname.trim()}</strong>, reset instructions
-                      have been sent. If not, ask your teacher for help.
+                      If <strong>{nickname.trim()}</strong> has a verified email, we sent a reset link to it.
+                      Open your email and click the link! It works for 1 hour.
+                    </p>
+                    <p className="panel-subtitle prompt-message">
+                      No email? Ask your teacher or a grown-up for help.
                     </p>
                     <div className="prompt-actions">
                       <button type="button" className="prompt-btn prompt-btn-back" onClick={() => setStep('password')}>BACK</button>
@@ -338,21 +352,15 @@ const LandingPage = ({ onLoginSuccess, onBack }) => {
                 ) : (
                   <>
                     <p className="panel-subtitle prompt-message">
-                      If you have an email address on file, you can reset your password by entering it below.
+                      We can send a link to the email verified for <strong>{nickname.trim()}</strong>,
+                      so you can choose a new password.
                     </p>
                     <form onSubmit={handleRequestReset} className="login-form">
-                      <div className="input-group">
-                        <input
-                          type="email"
-                          placeholder="Email"
-                          value={resetEmail}
-                          onChange={(e) => setResetEmail(e.target.value)}
-                          autoFocus
-                        />
-                      </div>
                       <div className="prompt-actions">
-                        <button type="button" className="prompt-btn prompt-btn-back" onClick={() => setStep('password')}>BACK</button>
-                        <button type="submit" className="prompt-btn prompt-btn-primary">REQUEST RESET</button>
+                        <button type="button" className="prompt-btn prompt-btn-back" onClick={() => setStep('password')} disabled={loading}>BACK</button>
+                        <button type="submit" className="prompt-btn prompt-btn-primary" disabled={loading} autoFocus>
+                          {loading ? '...' : 'SEND LINK'}
+                        </button>
                       </div>
                     </form>
                   </>

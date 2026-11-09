@@ -16,6 +16,28 @@ public class StudentService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private EmailService emailService;
+
+    @Autowired
+    private RateLimiter rateLimiter;
+
+    // Password guessing: after this many wrong tries the nickname is paused for the rest of the window.
+    public static final int MAX_WRONG_PASSWORDS = 10;
+    public static final java.time.Duration WRONG_PASSWORD_WINDOW = java.time.Duration.ofMinutes(15);
+    private static final String TOO_MANY_WRONG =
+        "Too many wrong passwords. Please wait {wait} and try again, or ask a grown-up for help.";
+
+    /** Checks a password with guessing protection (used for login and for every "type your password" box). */
+    public boolean passwordMatches(Student student, String password) {
+        String key = "wrong-password:" + student.getId();
+        rateLimiter.check(key, MAX_WRONG_PASSWORDS, WRONG_PASSWORD_WINDOW, TOO_MANY_WRONG);
+        boolean ok = password != null && passwordEncoder.matches(password, student.getPasswordHash());
+        if (ok) rateLimiter.clear(key);
+        else rateLimiter.record(key);
+        return ok;
+    }
+
     // Thrown when a login/password-change attempt supplies the wrong password —
     // the controller turns this into a 401 with a user-facing message.
     public static class WrongPasswordException extends RuntimeException {
@@ -44,10 +66,8 @@ public class StudentService {
         }
 
         Student student = existingStudent.get();
-        if (student.hasPassword()) {
-            if (password == null || !passwordEncoder.matches(password, student.getPasswordHash())) {
-                throw new WrongPasswordException("Incorrect password.");
-            }
+        if (student.hasPassword() && !passwordMatches(student, password)) {
+            throw new WrongPasswordException("Incorrect password.");
         }
         student.setLastLoginAt(LocalDateTime.now());
         return studentRepository.save(student);
@@ -78,14 +98,20 @@ public class StudentService {
         Student student = studentRepository.findById(studentId)
             .orElseThrow(() -> new IllegalArgumentException("Student not found"));
 
-        if (student.hasPassword()) {
-            if (currentPassword == null || !passwordEncoder.matches(currentPassword, student.getPasswordHash())) {
-                throw new WrongPasswordException("Current password is incorrect.");
-            }
+        if (student.hasPassword() && !passwordMatches(student, currentPassword)) {
+            throw new WrongPasswordException("Current password is incorrect.");
         }
 
         student.setPasswordHash(passwordEncoder.encode(newPassword));
-        return studentRepository.save(student);
+        Student saved = studentRepository.save(student);
+
+        if (saved.isEmailVerified()) {
+            emailService.sendNoticeInBackground(saved.getEmail(), saved.getNickname(),
+                "Your WizardFrac password was changed",
+                "The password for your wizard " + saved.getNickname() + " was just changed. If this was you, you're all set!"
+                    + " If this wasn't you, tell a grown-up or your teacher right away.");
+        }
+        return saved;
     }
 
     // Get student by ID

@@ -39,11 +39,13 @@ const SettingsPage = ({
   onBack, onLogout, onNicknameChanged, onMasterVolumeChanged,
   volumeOnly = false, exitLabel = 'Logout', onExit,
   hideExit = false,   // Title Volume: just the volume sliders, nothing to exit from
+  showAccount = false, // Island Selection only: the Email + Reset Password cards
 }) => {
   const handleExit = onExit || onLogout;
   const fileInputRef = useRef(null);
   const profileSectionRef = useRef(null);
   const passwordSectionRef = useRef(null);
+  const emailSectionRef = useRef(null);
   const volumeSectionRef = useRef(null);
   const logoutSectionRef = useRef(null);
 
@@ -66,13 +68,55 @@ const SettingsPage = ({
   const [passwordError, setPasswordError] = useState('');
   const [passwordSaved, setPasswordSaved] = useState(false);
 
+  // Email verification. `savedEmail` = the verified address, `pendingEmail` = one waiting for its link
+  // (both masked by the server, e.g. "jo•••@gmail.com"). A verified email keeps working while a new one is pending.
+  const [savedEmail, setSavedEmail] = useState(null);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState(null);
+  const [editingEmail, setEditingEmail] = useState(false); // "Change Email" pressed
+  const [emailInput, setEmailInput] = useState('');
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailCooldown, setEmailCooldown] = useState(0); // seconds until Verify can be pressed again
+  // Password check pop-up before Verify / Remove: null | 'verify' | 'remove'
+  const [emailConfirm, setEmailConfirm] = useState(null);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [confirmError, setConfirmError] = useState('');
+
   useEffect(() => {
     if (!studentId) return;
-    fetch(`${API_BASE}/api/students/${studentId}`)
+    const load = () => fetch(`${API_BASE}/api/students/${studentId}`)
       .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data) setHasPassword(!!data.hasPassword); })
+      .then(data => {
+        if (!data) return;
+        setHasPassword(!!data.hasPassword);
+        setEmailVerified(!!data.emailVerified);
+        setSavedEmail(data.emailVerified ? data.email : null);
+        setPendingEmail(data.pendingEmail || null);
+      })
       .catch(() => {});
-  }, [studentId]);
+    load();
+    if (!showAccount) return;
+    // Live status: email-verified.html (other tab) announces success instantly on this channel;
+    // focus covers coming back to the tab; the poll below covers verifying on another device.
+    window.addEventListener('focus', load);
+    let channel = null;
+    if ('BroadcastChannel' in window) {
+      channel = new BroadcastChannel('wizardfrac-email');
+      channel.onmessage = load;
+    }
+    return () => {
+      window.removeEventListener('focus', load);
+      channel?.close();
+    };
+  }, [studentId, showAccount]);
+
+
+  useEffect(() => {
+    if (emailCooldown <= 0) return;
+    const t = setTimeout(() => setEmailCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [emailCooldown]);
 
   const [masterVolume, setMasterVolume] = useState(() => readStoredVolume(MASTER_VOLUME_KEY, 80));
   const [sfxVolume, setSfxVolume] = useState(() => readStoredVolume(SFX_VOLUME_KEY, 70));
@@ -86,6 +130,24 @@ const SettingsPage = ({
     setToastKey(k => k + 1);
     setTimeout(() => setToastMessage(null), 2500);
   };
+
+  // While a link is waiting to be clicked, check every few seconds (e.g. it was opened on a phone).
+  useEffect(() => {
+    if (!studentId || !showAccount || !pendingEmail) return;
+    const poll = setInterval(() => {
+      fetch(`${API_BASE}/api/students/${studentId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (!data || data.pendingEmail) return;
+          setEmailVerified(!!data.emailVerified);
+          setSavedEmail(data.emailVerified ? data.email : null);
+          setPendingEmail(null);
+          if (data.emailVerified) showToast('Email verified!');
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => clearInterval(poll);
+  }, [studentId, showAccount, pendingEmail]);
 
   const characterFallbackAvatar = selectedCharacter?.name?.toLowerCase().includes('girl') ? '/Female.png' : '/Male.png';
   const pictureUrl = studentId
@@ -192,6 +254,55 @@ const SettingsPage = ({
     }
   };
 
+  const closeEmailConfirm = () => {
+    setEmailConfirm(null);
+    setConfirmPassword('');
+    setConfirmError('');
+  };
+
+  // Verify pressed: check the email, then ask for the password (if the account has one) before sending.
+  const handleVerifyClick = () => {
+    setEmailError('');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.trim())) {
+      setEmailError('Please type a real email address.');
+      return;
+    }
+    if (hasPassword) setEmailConfirm('verify');
+    else runEmailAction('verify');
+  };
+
+  // Sends the verification link, or removes the email. Errors show in the pop-up when it is open.
+  const runEmailAction = async (action, password) => {
+    const showError = (msg) => (emailConfirm ? setConfirmError : setEmailError)(msg);
+    setEmailBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/students/${studentId}/email${action === 'remove' ? '/remove' : ''}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(action === 'remove' ? { password } : { email: emailInput.trim(), password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
+      if (action === 'remove') {
+        setSavedEmail(null);
+        setEmailVerified(false);
+        setPendingEmail(null);
+        showToast('Email removed.');
+      } else {
+        setPendingEmail(data.pendingEmail || null);
+        setEmailCooldown(data.cooldownSeconds || 60);
+        showToast('Link sent! Check your email.');
+      }
+      setEmailInput('');
+      setEditingEmail(false);
+      closeEmailConfirm();
+    } catch (err) {
+      showError(err.message === 'Failed to fetch' ? 'Cannot reach the server.' : err.message);
+    } finally {
+      setEmailBusy(false);
+    }
+  };
+
   const handleChangePassword = async () => {
     setPasswordError('');
     setPasswordSaved(false);
@@ -253,10 +364,15 @@ const SettingsPage = ({
             <button className={`settings-nav-item${volumeOnly ? ' active' : ''}`} onClick={() => scrollTo(volumeSectionRef)}>
               <span>🔊</span> Volume
             </button>
-            {!volumeOnly && (
-              <button className="settings-nav-item" onClick={() => scrollTo(passwordSectionRef)}>
-                <span>🔒</span> Reset Password
-              </button>
+            {!volumeOnly && showAccount && (
+              <>
+                <button className="settings-nav-item" onClick={() => scrollTo(emailSectionRef)}>
+                  <span>✉️</span> Email
+                </button>
+                <button className="settings-nav-item" onClick={() => scrollTo(passwordSectionRef)}>
+                  <span>🔒</span> Reset Password
+                </button>
+              </>
             )}
             {!hideExit && (
               <button className="settings-nav-item danger" onClick={() => setShowLogoutConfirm(true)}>
@@ -389,7 +505,77 @@ const SettingsPage = ({
             </div>
           </section>
 
-          {!volumeOnly && (
+          {!volumeOnly && showAccount && (
+          <section className="settings-card" ref={emailSectionRef}>
+            {pixelCorners('var(--st-border)')}
+            <h3 className="settings-card-title">Email Verification</h3>
+            <p className="settings-card-subtitle">
+              {editingEmail
+                ? 'Type your new email. Your old one keeps working until you verify the new one.'
+                : emailVerified
+                  ? 'Your email is verified. You can use it to reset your password if you forget it.'
+                  : 'Add your (or a grown-up\'s) email so you can reset your password if you ever forget it.'}
+            </p>
+            {pendingEmail && (
+              <p className="settings-card-subtitle settings-email-pending">
+                ✉️ We sent a link to {pendingEmail}. Open your email and click it!
+                {emailVerified ? '' : ' Wrong email? Type the right one below.'}
+              </p>
+            )}
+            <div className="settings-password-fields">
+              {emailVerified && !editingEmail ? (
+                <>
+                  <input className="settings-input" type="email" value={savedEmail || ''} disabled readOnly />
+                  <p className="settings-success settings-email-verified">✔ Verified</p>
+                  <div className="settings-email-actions">
+                    <button type="button" className="settings-btn" onClick={() => { setEmailError(''); setEditingEmail(true); }}>
+                      Change Email
+                    </button>
+                    <button type="button" className="settings-btn settings-btn-danger" onClick={() => setEmailConfirm('remove')}>
+                      Remove Email
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <input
+                    className="settings-input"
+                    type="email"
+                    placeholder={editingEmail ? 'New email address' : 'Email address'}
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && emailInput.trim() && emailCooldown <= 0 && !emailBusy && handleVerifyClick()}
+                    maxLength={254}
+                    disabled={emailBusy}
+                  />
+                  <div className="settings-email-actions">
+                    <button
+                      type="button"
+                      className="settings-btn"
+                      onClick={handleVerifyClick}
+                      disabled={emailBusy || !emailInput.trim() || emailCooldown > 0}
+                    >
+                      {emailBusy && !emailConfirm ? 'Sending…' : emailCooldown > 0 ? `Verify again in ${emailCooldown}s` : 'Verify'}
+                    </button>
+                    {editingEmail && (
+                      <button
+                        type="button"
+                        className="settings-btn settings-btn-ghost"
+                        onClick={() => { setEditingEmail(false); setEmailInput(''); setEmailError(''); }}
+                        disabled={emailBusy}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+            {emailError && <p className="settings-error">{emailError}</p>}
+          </section>
+          )}
+
+          {!volumeOnly && showAccount && (
           <section className="settings-card" ref={passwordSectionRef}>
             {pixelCorners('var(--st-border)')}
             <h3 className="settings-card-title">Reset Password</h3>
@@ -458,6 +644,51 @@ const SettingsPage = ({
       </div>
       </div>
       </div>
+
+      {emailConfirm && (
+        <GameMenuModal
+          title={emailConfirm === 'remove' ? 'Remove Your Email?' : 'Is It Really You?'}
+          onClose={emailBusy ? undefined : closeEmailConfirm}
+        >
+          <p className="wizard-menu-message">
+            {emailConfirm === 'remove'
+              ? 'You won\'t be able to reset your password by email until you add one again.'
+              : 'Type your password to send the link.'}
+            {emailConfirm === 'remove' && hasPassword ? ' Type your password to remove it.' : ''}
+          </p>
+          {hasPassword && (
+            <input
+              className="settings-input settings-confirm-input"
+              type="password"
+              placeholder="Your password"
+              value={confirmPassword}
+              autoFocus
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && confirmPassword && !emailBusy && runEmailAction(emailConfirm, confirmPassword)}
+              disabled={emailBusy}
+            />
+          )}
+          {confirmError && <p className="settings-error">{confirmError}</p>}
+          <div className="wizard-menu-actions">
+            <button
+              type="button"
+              className="wizard-menu-btn wizard-menu-btn-secondary"
+              onClick={closeEmailConfirm}
+              disabled={emailBusy}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="wizard-menu-btn wizard-menu-btn-primary"
+              onClick={() => runEmailAction(emailConfirm, confirmPassword)}
+              disabled={emailBusy || (hasPassword && !confirmPassword)}
+            >
+              {emailBusy ? (emailConfirm === 'remove' ? 'Removing…' : 'Sending…') : emailConfirm === 'remove' ? 'Yes, Remove' : 'Send Link'}
+            </button>
+          </div>
+        </GameMenuModal>
+      )}
 
       {pendingPreview && (
         <GameMenuModal

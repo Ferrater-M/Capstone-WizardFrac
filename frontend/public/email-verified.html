@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WizardFrac Email Verification</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <style>
+    /* Same theme as the island selection screen (pages/game-lobby.css), without its animations:
+       the moving galaxy is swapped for a still star field. */
+    :root {
+      --gl-bg1: #08051C;
+      --gl-bg2: #12082F;
+      --gl-panel: #211044;
+      --gl-panel2: #32175E;
+      --gl-primary: #7C3AED;
+      --gl-glow: #A855F7;
+      --gl-gold: #FBBF24;
+      --gl-text: #F8F7FF;
+      --gl-text2: #C4B5FD;
+      --gl-border: #6D28D9;
+      --gl-font: 'Press Start 2P', 'Segoe UI', monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      min-height: 100vh;
+      background-color: var(--gl-bg1);
+      background-image:
+        radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,0.8), transparent 60%),
+        radial-gradient(1px 1px at 28% 72%, rgba(255,255,255,0.7), transparent 60%),
+        radial-gradient(2px 2px at 46% 34%, rgba(196,181,253,0.8), transparent 60%),
+        radial-gradient(1px 1px at 63% 12%, rgba(255,255,255,0.7), transparent 60%),
+        radial-gradient(1.5px 1.5px at 78% 58%, rgba(255,255,255,0.8), transparent 60%),
+        radial-gradient(1px 1px at 88% 26%, rgba(196,181,253,0.7), transparent 60%),
+        radial-gradient(2px 2px at 8% 88%, rgba(251,191,36,0.6), transparent 60%),
+        radial-gradient(1px 1px at 54% 92%, rgba(255,255,255,0.6), transparent 60%),
+        radial-gradient(1.5px 1.5px at 94% 84%, rgba(255,255,255,0.7), transparent 60%),
+        linear-gradient(160deg, var(--gl-bg2) 0%, var(--gl-bg1) 70%);
+      background-attachment: fixed;
+      color: var(--gl-text);
+      font-family: var(--gl-font);
+      font-size: 11px;
+      line-height: 2;
+      padding: 24px 16px 48px;
+    }
+    .wrap { max-width: 820px; margin: 0 auto; }
+
+    /* Panels: square 4px border, thin inner line and pixel corner squares (pixelCorners() in game-lobby.jsx) */
+    .panel {
+      position: relative;
+      background-color: var(--gl-panel);
+      background-image: linear-gradient(165deg, var(--gl-panel) 0%, #170a34 100%);
+      border: 4px solid var(--gl-border);
+      border-radius: 0;
+      box-shadow: 0 0 24px rgba(168, 85, 247, 0.15), 0 20px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+    .panel::before {
+      content: '';
+      position: absolute;
+      inset: 5px;
+      border: 1px solid var(--gl-border);
+      pointer-events: none;
+    }
+    .corner { position: absolute; width: 12px; height: 12px; background: var(--gl-border); z-index: 1; }
+    .corner.tl { top: -6px; left: -6px; }
+    .corner.tr { top: -6px; right: -6px; }
+    .corner.bl { bottom: -6px; left: -6px; }
+    .corner.br { bottom: -6px; right: -6px; }
+
+    /* Back button — the lobby's square "icon-pill" */
+    .header { margin-bottom: 36px; }
+    .back-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      height: 54px;
+      padding: 0 26px;
+      background: var(--gl-panel2);
+      color: var(--gl-text);
+      border: 4px solid var(--gl-border);
+      border-radius: 0;
+      font-family: var(--gl-font);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      text-decoration: none;
+      box-shadow: 0 0 14px rgba(168, 85, 247, 0.18);
+    }
+
+    /* Title box — the lobby's "WIZARD ISLANDS" box, gem included */
+    .title-row { display: flex; justify-content: center; margin-bottom: 40px; }
+    .title-box { padding: 30px 48px 22px; text-align: center; max-width: 100%; }
+    .title-gem {
+      position: absolute;
+      top: -22px;
+      left: 50%;
+      transform: translateX(-50%) rotate(45deg);
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--gl-glow) 0%, var(--gl-primary) 100%);
+      border: 2px solid var(--gl-gold);
+      box-shadow: 0 0 18px rgba(168, 85, 247, 0.6);
+      z-index: 2;
+    }
+    .title-gem::after {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      background: rgba(255, 255, 255, 0.35);
+    }
+    .title {
+      margin: 4px 0 8px;
+      color: var(--gl-gold);
+      font-size: clamp(16px, 3.2vw, 28px);
+      font-weight: 400;
+      line-height: 1.5;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      text-shadow: 0 0 18px rgba(251, 191, 36, 0.5), 2px 2px 0 rgba(0, 0, 0, 0.4);
+    }
+    .subtitle {
+      margin: 0 0 4px;
+      color: var(--gl-text2);
+      font-size: clamp(9px, 1.3vw, 12px);
+      letter-spacing: 1px;
+    }
+    .star { color: var(--gl-gold); }
+
+    .section { padding: 24px 28px; margin-bottom: 26px; }
+    .section-title {
+      position: relative;
+      margin: 0 0 14px;
+      color: var(--gl-gold);
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-shadow: 0 0 14px rgba(251, 191, 36, 0.35);
+    }
+    .section p, .section ul { position: relative; margin: 0; color: var(--gl-text); }
+    .section p + p { margin-top: 10px; }
+    .section ul { padding-left: 22px; }
+    .section li { margin-bottom: 10px; }
+    .section li:last-child { margin-bottom: 0; }
+    .section li::marker { color: var(--gl-gold); content: '★  '; }
+    strong { color: var(--gl-gold); font-weight: 400; }
+
+    @media (max-width: 600px) {
+      body { font-size: 10px; padding: 18px 16px 36px; }
+      .title-box { padding: 26px 20px 18px; }
+      .title { letter-spacing: 1px; }
+      .section { padding: 20px 18px; }
+      .back-btn { height: 46px; padding: 0 16px; font-size: 9px; }
+    }
+  
+    /* Email verification result — one centred panel, title box reused from the privacy page */
+    .wrap.center { min-height: calc(100vh - 72px); display: flex; flex-direction: column; justify-content: center; }
+    .result { padding: 30px 28px; text-align: center; }
+    .result p { position: relative; margin: 0; color: var(--gl-text); }
+    .result p + p { margin-top: 10px; }
+    .badge {
+      position: relative;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 72px; height: 72px; margin-bottom: 18px;
+      background: var(--gl-panel2);
+      border: 4px solid var(--gl-gold);
+      color: var(--gl-gold);
+      font-size: 30px;
+      box-shadow: 0 0 22px rgba(251, 191, 36, 0.35);
+    }
+    .result.bad .badge { border-color: #F87171; color: #F87171; box-shadow: 0 0 22px rgba(248, 113, 113, 0.35); }
+    .result.bad .title { color: #FCA5A5; text-shadow: 0 0 18px rgba(248, 113, 113, 0.45), 2px 2px 0 rgba(0, 0, 0, 0.4); }
+    .header.center { display: flex; justify-content: center; margin: 36px 0 0; }
+    .result.waiting .badge { font-size: 26px; }
+    .verify-btn {
+      position: relative;
+      margin-top: 24px;
+      height: 58px;
+      padding: 0 30px;
+      background: var(--gl-primary);
+      color: var(--gl-text);
+      border: 4px solid var(--gl-gold);
+      border-radius: 0;
+      font-family: var(--gl-font);
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 0 18px rgba(251, 191, 36, 0.35);
+    }
+    .verify-btn:hover:not(:disabled) { background: var(--gl-glow); }
+    .verify-btn:disabled { opacity: 0.6; cursor: wait; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <!-- Opened from the link in the verification email (?api=<backend>&token=<one-time token>).
+       Nothing is verified until the player presses the button: some email systems open links
+       automatically to scan them, and that must not count as the player verifying. -->
+  <div class="wrap center">
+    <section class="panel result waiting" id="result">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div class="badge" id="badge">&#9993;</div>
+      <h1 class="title" id="title">One More Step!</h1>
+      <p class="subtitle" id="line1"><span class="star">&#9733;</span> Press the button to verify your email <span class="star">&#9733;</span></p>
+      <p id="line2">Then you can reset your password if you ever forget it.</p>
+      <button type="button" class="verify-btn" id="verify">Verify My Email</button>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var token = params.get('token');
+      var api = params.get('api') || '';
+      var el = function (id) { return document.getElementById(id); };
+      var button = el('verify');
+
+      var pages = {
+        success: {
+          good: true, badge: '&#10003;',
+          title: 'Email Successfully Verified!',
+          line1: 'Your email is now linked to your wizard',
+          line2: 'If you ever forget your password, you can reset it with this email. You can close this page now.'
+        },
+        expired: {
+          badge: '&#10007;',
+          title: 'Link Expired',
+          line1: 'This link was older than 24 hours',
+          line2: 'Open Settings in the game and press Verify again to get a new link.'
+        },
+        taken: {
+          badge: '&#10007;',
+          title: 'Email Already Used',
+          line1: 'Another wizard verified this email first',
+          line2: 'Each email can only belong to one account. Open Settings in the game and use a different email.'
+        },
+        invalid: {
+          badge: '&#10007;',
+          title: 'Link Not Valid',
+          line1: 'This link is broken or was replaced by a newer one',
+          line2: 'Use the newest email we sent, or press Verify again in the game Settings.'
+        }
+      };
+
+      function show(status) {
+        var page = pages[status] || pages.invalid;
+        el('result').className = 'panel result' + (page.good ? '' : ' bad');
+        el('badge').innerHTML = page.badge;
+        el('title').textContent = page.title;
+        el('line1').textContent = page.line1;
+        el('line2').textContent = page.line2;
+        button.className = 'verify-btn hidden';
+        document.title = 'WizardFrac ' + page.title;
+        // Tell the game (if it's open in another tab) right away, so Settings turns "Verified" live.
+        if (page.good && 'BroadcastChannel' in window) {
+          try { new BroadcastChannel('wizardfrac-email').postMessage('verified'); } catch (e) { /* ignore */ }
+        }
+      }
+
+      if (!token || !/^https?:\/\//.test(api)) { show('invalid'); return; }
+
+      button.addEventListener('click', function () {
+        button.disabled = true;
+        button.textContent = 'Verifying...';
+        // The free server can be asleep; waking it takes up to a minute.
+        var slow = setTimeout(function () {
+          el('line2').textContent = 'Waking up the magic server... this can take up to a minute.';
+        }, 4000);
+        fetch(api.replace(/\/+$/, '') + '/api/students/verify-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token })
+        })
+          .then(function (res) { return res.ok ? res.json() : Promise.reject(); })
+          .then(function (data) { clearTimeout(slow); show(data.status); })
+          .catch(function () {
+            clearTimeout(slow);
+            button.disabled = false;
+            button.textContent = 'Try Again';
+            el('line2').textContent = "Couldn't reach the server. Check your internet and press the button again.";
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

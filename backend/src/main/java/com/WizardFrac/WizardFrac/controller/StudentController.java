@@ -1,11 +1,15 @@
 package com.WizardFrac.WizardFrac.controller;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -19,7 +23,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.regex.Pattern;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
 import com.WizardFrac.WizardFrac.entity.Student;
+import com.WizardFrac.WizardFrac.service.AuthService;
+import com.WizardFrac.WizardFrac.service.EmailVerificationService;
+import com.WizardFrac.WizardFrac.service.PasswordResetService;
+import com.WizardFrac.WizardFrac.service.RateLimiter;
 import com.WizardFrac.WizardFrac.service.StudentService;
 
 @RestController
@@ -28,26 +40,58 @@ import com.WizardFrac.WizardFrac.service.StudentService;
 public class StudentController {
     private static final long MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
     private static final int MAX_NICKNAME_LENGTH = 30;
+    private static final Pattern LOCAL_ORIGIN = Pattern.compile("^http://(localhost|127\\.0\\.0\\.1)(:\\d{1,5})?$");
 
     @Autowired
     private StudentService studentService;
 
+    @Autowired
+    private EmailVerificationService emailVerificationService;
+
+    @Autowired
+    private AuthService authService;
+
+    @Autowired
+    private PasswordResetService passwordResetService;
+
+    @Autowired
+    private RateLimiter rateLimiter;
+
+    // New players per network per hour — roomy, since a whole class can share one school network.
+    private static final int MAX_NEW_PLAYERS_PER_IP = 60;
+
+    // Where the email link's page lives (frontend/public/email-verified.html).
+    @Value("${app.frontend-url:https://capstone-wizard-frac.vercel.app}")
+    private String frontendUrl;
+
+    // Public address of this backend, used inside the emailed link. Blank = work it out from the request.
+    @Value("${app.backend-url:}")
+    private String backendUrl;
+
     // Login/Create student endpoint. `password` is only required once the nickname
     // is claimed (see /check-nickname) — an unclaimed nickname logs in regardless.
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> login(@RequestBody Map<String, String> request, HttpServletRequest http) {
         String nickname = request.get("nickname");
         if (nickname == null || nickname.trim().isEmpty()) {
             return ResponseEntity.badRequest().body("Nickname is required");
         }
 
         Student student;
+        Map<String, String> error = new HashMap<>();
         try {
+            // A nickname nobody has used yet creates a new player, so it counts toward the new-player limit.
+            if (studentService.getStudentByNickname(nickname.trim()).isEmpty()) {
+                rateLimiter.hit("new-player-ip:" + RateLimiter.clientIp(http), MAX_NEW_PLAYERS_PER_IP, Duration.ofHours(1),
+                    "Too many new players were made from this network. Please wait {wait}.");
+            }
             student = studentService.login(nickname.trim(), request.get("password"));
         } catch (StudentService.WrongPasswordException e) {
-            Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.status(401).body(error);
+        } catch (RateLimiter.LimitException e) {
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(429).body(error);
         }
 
         return ResponseEntity.ok(loginResponse(student));
@@ -56,7 +100,7 @@ public class StudentController {
     // Register a new player in one request: create the nickname and set its password together
     // (the old flow needed /login and then /{id}/password — two trips to the server).
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> register(@RequestBody Map<String, String> request, HttpServletRequest http) {
         String nickname = request.get("nickname");
         String password = request.get("password");
         Map<String, String> error = new HashMap<>();
@@ -69,11 +113,25 @@ public class StudentController {
             return ResponseEntity.badRequest().body(error);
         }
         try {
+            rateLimiter.hit("new-player-ip:" + RateLimiter.clientIp(http), MAX_NEW_PLAYERS_PER_IP, Duration.ofHours(1),
+                "Too many new players were made from this network. Please wait {wait}.");
             return ResponseEntity.ok(loginResponse(studentService.register(nickname.trim(), password)));
         } catch (StudentService.NicknameTakenException e) {
             error.put("error", e.getMessage());
             return ResponseEntity.status(409).body(error);
+        } catch (RateLimiter.LimitException e) {
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(429).body(error);
         }
+    }
+
+    // Log out: the game's login pass stops working.
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest http) {
+        authService.revoke(AuthService.bearerToken(http));
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Logged out.");
+        return ResponseEntity.ok(response);
     }
 
     // What the frontend gets after logging in or registering
@@ -85,6 +143,8 @@ public class StudentController {
         response.put("selectedCharacterName", student.getSelectedCharacterName());
         response.put("createdAt", student.getCreatedAt());
         response.put("hasPassword", student.hasPassword());
+        // The login pass: the game sends it back with every request (see AuthInterceptor).
+        response.put("token", authService.createSession(student.getId()));
         return response;
     }
 
@@ -102,7 +162,8 @@ public class StudentController {
 
     // Set (claim) or change a student's password.
     @PutMapping("/{studentId}/password")
-    public ResponseEntity<?> updatePassword(@PathVariable Long studentId, @RequestBody Map<String, String> request) {
+    public ResponseEntity<?> updatePassword(@PathVariable Long studentId, @RequestBody Map<String, String> request,
+                                            HttpServletRequest http) {
         Map<String, String> error = new HashMap<>();
         String newPassword = request.get("newPassword");
 
@@ -113,12 +174,17 @@ public class StudentController {
 
         try {
             studentService.setPassword(studentId, request.get("currentPassword"), newPassword);
+            // Anyone else logged in as this player (e.g. someone who knew the old password) is logged out.
+            authService.revokeOthers(studentId, AuthService.bearerToken(http));
             Map<String, String> response = new HashMap<>();
             response.put("message", "Password updated.");
             return ResponseEntity.ok(response);
         } catch (StudentService.WrongPasswordException e) {
             error.put("error", e.getMessage());
             return ResponseEntity.status(401).body(error);
+        } catch (RateLimiter.LimitException e) {
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(429).body(error);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
@@ -141,8 +207,114 @@ public class StudentController {
         response.put("lastLoginAt", s.getLastLoginAt());
         response.put("hasProfilePicture", s.getProfilePicture() != null);
         response.put("hasPassword", s.hasPassword());
+        // Masked: shown on screen, so a passer-by doesn't see the whole address.
+        response.put("email", EmailVerificationService.mask(s.getEmail()));
+        response.put("emailVerified", s.isEmailVerified());
+        response.put("pendingEmail", EmailVerificationService.mask(s.getPendingEmail()));
 
         return ResponseEntity.ok(response);
+    }
+
+    // Settings → Email → Verify (first email, or changing a verified one). Needs the player's password.
+    @PostMapping("/{studentId}/email")
+    public ResponseEntity<?> requestEmailVerification(@PathVariable Long studentId, @RequestBody Map<String, String> request,
+                                                      HttpServletRequest http) {
+        Map<String, Object> body = new HashMap<>();
+        String linkPrefix = pageLinkPrefix(http, "email-verified.html");
+        try {
+            String email = emailVerificationService.requestVerification(
+                studentId, request.get("email"), request.get("password"), linkPrefix, RateLimiter.clientIp(http));
+            body.put("message", "Verification link sent.");
+            body.put("pendingEmail", EmailVerificationService.mask(email));
+            body.put("cooldownSeconds", EmailVerificationService.RESEND_COOLDOWN.getSeconds());
+            return ResponseEntity.ok(body);
+        } catch (EmailVerificationService.VerificationException e) {
+            body.put("error", e.getMessage());
+            return ResponseEntity.status(e.getStatus()).body(body);
+        } catch (RateLimiter.LimitException e) {
+            body.put("error", e.getMessage());
+            return ResponseEntity.status(429).body(body);
+        } catch (IllegalStateException e) {
+            body.put("error", "Email sending isn't set up on the server yet.");
+            return ResponseEntity.status(503).body(body);
+        } catch (Exception e) {
+            body.put("error", "Couldn't send the email. Please try again.");
+            return ResponseEntity.status(500).body(body);
+        }
+    }
+
+    // Settings → Email → Remove Email. Needs the player's password.
+    @PostMapping("/{studentId}/email/remove")
+    public ResponseEntity<?> removeEmail(@PathVariable Long studentId, @RequestBody Map<String, String> request) {
+        Map<String, Object> body = new HashMap<>();
+        try {
+            emailVerificationService.removeEmail(studentId, request.get("password"));
+            body.put("message", "Email removed.");
+            return ResponseEntity.ok(body);
+        } catch (EmailVerificationService.VerificationException e) {
+            body.put("error", e.getMessage());
+            return ResponseEntity.status(e.getStatus()).body(body);
+        } catch (RateLimiter.LimitException e) {
+            body.put("error", e.getMessage());
+            return ResponseEntity.status(429).body(body);
+        }
+    }
+
+    // Called by email-verified.html when the player presses its button (a POST, so email scanners that
+    // merely open the link can't verify it). status: success | expired | invalid
+    @PostMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestBody Map<String, String> request) {
+        EmailVerificationService.VerifyResult result = emailVerificationService.verify(request.get("token"));
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", result.name().toLowerCase());
+        return ResponseEntity.ok(body);
+    }
+
+    // The site the email link should open. When testing locally (the game runs on localhost), use that
+    // local site — the Vercel site only has email-verified.html after a push. Anything else gets the
+    // configured FRONTEND_URL, so a stranger can't make our emails link to their own website.
+    private String frontendFor(HttpServletRequest http) {
+        String origin = http.getHeader("Origin");
+        if (origin != null && LOCAL_ORIGIN.matcher(origin).matches()) return origin;
+        return frontendUrl;
+    }
+
+    // I FORGOT on the login screen. Always the same answer, so it can't be used to find out which
+    // nicknames have an email (the email itself is sent in the background, so timing doesn't tell either).
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request, HttpServletRequest http) {
+        Map<String, Object> body = new HashMap<>();
+        try {
+            passwordResetService.requestReset(request.get("nickname"), pageLinkPrefix(http, "reset-password.html"),
+                RateLimiter.clientIp(http));
+        } catch (RateLimiter.LimitException e) {
+            body.put("error", e.getMessage());
+            return ResponseEntity.status(429).body(body);
+        }
+        body.put("message", "If this wizard has a verified email, a reset link was sent to it.");
+        return ResponseEntity.ok(body);
+    }
+
+    // The button on reset-password.html. status: success | expired | invalid | weak
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", passwordResetService.resetPassword(request.get("token"), request.get("password")).name().toLowerCase());
+        return ResponseEntity.ok(body);
+    }
+
+    // Start of an emailed link: <frontend>/<page>?api=<this backend>&token=  (the page sends the token
+    // back to the backend named in `api` when the player presses its button).
+    private String pageLinkPrefix(HttpServletRequest http, String page) {
+        String backend = (backendUrl == null || backendUrl.isBlank())
+            ? ServletUriComponentsBuilder.fromCurrentContextPath().toUriString()
+            : backendUrl.trim();
+        return trimSlash(frontendFor(http)) + "/" + page + "?api="
+            + URLEncoder.encode(trimSlash(backend), StandardCharsets.UTF_8) + "&token=";
+    }
+
+    private static String trimSlash(String url) {
+        return url.trim().replaceAll("/+$", "");
     }
 
     // Update nickname — nickname doubles as the login key, so it must stay unique

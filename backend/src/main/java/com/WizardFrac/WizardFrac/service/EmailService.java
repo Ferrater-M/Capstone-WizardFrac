@@ -25,6 +25,8 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Sends WizardFrac's emails.
@@ -53,6 +55,13 @@ public class EmailService {
     @Autowired
     private JavaMailSender mailSender;
 
+    @Autowired
+    private RateLimiter rateLimiter;
+
+    // Google limits how much a normal Gmail account may send per day; staying well under it keeps the
+    // account from being blocked (which would stop every WizardFrac email, password resets included).
+    public static final int MAX_EMAILS_PER_DAY = 300;
+
     @Value("${spring.mail.username:}")
     private String fromAddress;
 
@@ -67,6 +76,13 @@ public class EmailService {
 
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final ObjectMapper json = new ObjectMapper();
+
+    // One background thread for notice emails (they are rare; order doesn't matter).
+    private final ExecutorService background = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "email-notices");
+        t.setDaemon(true);
+        return t;
+    });
 
     // Access tokens last about an hour; reuse one until shortly before it expires.
     private String accessToken;
@@ -90,6 +106,111 @@ public class EmailService {
         send(message);
     }
 
+    /** The "click to verify your email" message from Settings (see EmailVerificationService). */
+    public void sendVerificationEmail(String toEmail, String nickname, String link) throws MessagingException, IOException {
+        String name = displayName(nickname);
+        String plain =
+            "Hello " + name + ",\n\n" +
+            "Open this link and press the button to verify your email for WizardFrac:\n" + link + "\n\n" +
+            "With a verified email you can reset your password if you ever forget it.\n" +
+            "The link works for 24 hours.\n\n" +
+            "Didn't ask for this? You can ignore this email.\n" +
+            "— WizardFrac";
+        String html = themedHtml(name,
+            "Click the button to verify your email. Then you can reset your password if you ever forget it.",
+            link, "VERIFY MY EMAIL",
+            "The link works for 24 hours. Didn't ask for this? You can ignore this email.");
+        sendHtml(toEmail, "Verify your WizardFrac email", plain, html);
+    }
+
+    /** Forgot password: the "click to choose a new password" message (see PasswordResetService). */
+    public void sendPasswordResetEmail(String toEmail, String nickname, String link) throws MessagingException, IOException {
+        String name = displayName(nickname);
+        String plain =
+            "Hello " + name + ",\n\n" +
+            "Someone asked to reset the password for your wizard " + name + ".\n" +
+            "Open this link to choose a new password:\n" + link + "\n\n" +
+            "The link works for 1 hour and only once.\n\n" +
+            "Didn't ask for this? You can ignore this email. Your password stays the same.\n" +
+            "— WizardFrac";
+        String html = themedHtml(name,
+            "Forgot your password? No problem! Click the button to choose a new one.",
+            link, "RESET MY PASSWORD",
+            "The link works for 1 hour and only once. Didn't ask for this? Ignore this email and your password stays the same.");
+        sendHtml(toEmail, "Reset your WizardFrac password", plain, html);
+    }
+
+    /** Runs an email job off the request thread; failures are logged, never shown to the player. */
+    public void runInBackground(String what, EmailJob job) {
+        background.submit(() -> {
+            try {
+                job.run();
+            } catch (Exception e) {
+                log.warn("Email: could not send {} — {}", what, e.getMessage());
+            }
+        });
+    }
+
+    @FunctionalInterface
+    public interface EmailJob {
+        void run() throws Exception;
+    }
+
+    /** A short "something changed on your account" email (password changed, email changed/removed). */
+    public void sendNotice(String toEmail, String nickname, String subject, String text) throws MessagingException, IOException {
+        String name = displayName(nickname);
+        String plain = "Hello " + name + ",\n\n" + text + "\n\n— WizardFrac";
+        sendHtml(toEmail, subject, plain, themedHtml(name, text, null, null, "This is an automatic message from WizardFrac."));
+    }
+
+    /**
+     * Same as {@link #sendNotice}, but off the request thread: the player doesn't wait for Gmail, and a
+     * failed notice never undoes the change it is reporting.
+     */
+    public void sendNoticeInBackground(String toEmail, String nickname, String subject, String text) {
+        background.submit(() -> {
+            try {
+                sendNotice(toEmail, nickname, subject, text);
+            } catch (Exception e) {
+                log.warn("Email: could not send notice \"{}\" — {}", subject, e.getMessage());
+            }
+        });
+    }
+
+    private void sendHtml(String toEmail, String subject, String plain, String html) throws MessagingException, IOException {
+        MimeMessage message = createMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+        helper.setFrom(fromAddress);
+        helper.setTo(toEmail);
+        helper.setSubject(subject);
+        helper.setText(plain, html);
+        send(message);
+    }
+
+    // Purple/gold card in the game's island-selection colours. buttonLink/buttonText may be null.
+    private static String themedHtml(String name, String text, String buttonLink, String buttonText, String footer) {
+        String button = buttonLink == null ? "" :
+            "<a href=\"" + escapeHtml(buttonLink) + "\" style=\"display:inline-block;background:#7C3AED;color:#ffffff;"
+            + "text-decoration:none;font-weight:bold;font-size:16px;padding:14px 28px;border:3px solid #A855F7;\">"
+            + escapeHtml(buttonText) + "</a>";
+        return "<div style=\"font-family:Segoe UI,Arial,sans-serif;background:#12082F;color:#F8F7FF;padding:32px;\">"
+            + "<div style=\"max-width:480px;margin:0 auto;background:#211044;border:4px solid #6D28D9;padding:28px;text-align:center;\">"
+            + "<h1 style=\"color:#FBBF24;font-size:22px;margin:0 0 16px;letter-spacing:2px;\">&#9733; WIZARDFRAC &#9733;</h1>"
+            + "<p style=\"font-size:16px;margin:0 0 12px;\">Hello <b>" + escapeHtml(name) + "</b>!</p>"
+            + "<p style=\"font-size:15px;color:#C4B5FD;margin:0 0 24px;\">" + escapeHtml(text) + "</p>"
+            + button
+            + "<p style=\"font-size:12px;color:#C4B5FD;margin:24px 0 0;\">" + escapeHtml(footer) + "</p>"
+            + "</div></div>";
+    }
+
+    private static String displayName(String nickname) {
+        return nickname == null || nickname.isBlank() ? "Wizard" : nickname;
+    }
+
+    private static String escapeHtml(String s) {
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
     /** A blank message to fill in (with MimeMessageHelper) and pass to {@link #send}. */
     public MimeMessage createMessage() {
         if (fromAddress == null || fromAddress.isBlank()) {
@@ -100,6 +221,8 @@ public class EmailService {
 
     /** Sends a message through the Gmail API when it is configured, otherwise through SMTP. */
     public void send(MimeMessage message) throws MessagingException, IOException {
+        rateLimiter.hit("email-global", MAX_EMAILS_PER_DAY, Duration.ofDays(1),
+            "WizardFrac has sent a lot of emails today. Please try again in {wait}.");
         if (!gmailApiConfigured()) {
             mailSender.send(message);
             return;

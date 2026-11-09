@@ -364,6 +364,35 @@
   box-sizing: border-box;
 }
 
+/* Email card: "Verified" sits under the input, buttons in a row that hug their labels */
+.settings-email-verified {
+  margin: 0;
+}
+
+.settings-email-pending {
+  margin-top: 8px;
+  color: var(--st-text);
+}
+
+.settings-email-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.settings-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--st-border);
+}
+
+/* Password box inside the "Is It Really You?" pop-up */
+.settings-confirm-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 4px 0 8px;
+}
+
 /* Shared buttons */
 .settings-btn {
   display: inline-flex;
