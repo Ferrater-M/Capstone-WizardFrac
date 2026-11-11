@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { shouldAutoShowTutorial, markTutorialSeen } from '../utils/tutorialSeen';
 import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
@@ -11,8 +11,7 @@ import DrawingCanvas from '../components/DrawingCanvas';
 import ButterflyTutorial from '../components/ButterflyTutorial';
 import SettingsPage from './SettingsPage';
 import './game.css';
-import '../components/components.css';
-import { getDissimilarTier, TIMING, getFeedbackDuration, scoreProblem, dissimilarSteps, MAX_HEARTS, HEART_LOSS, healHearts, heartsToSave } from '../utils/gameUtils';
+import { getDissimilarTier, RECENT_PROBLEM_MEMORY, getFeedbackDuration, scoreProblem, dissimilarSteps, MAX_HEARTS, HEART_LOSS, healHearts, heartsToSave } from '../utils/gameUtils';
 import ImproperToMixedGame from '../components/ImproperToMixedGame';
 import EdgeBurst, { triggerEdgeBurst } from '../components/EdgeBurst';
 import { triggerScreenShake } from '../utils/screenShake';
@@ -65,6 +64,8 @@ const DissimilarIslandGame = ({
 
   const problemKey = (p) => `${p.numerator1}-${p.denominator1}-${p.operator}-${p.numerator2}-${p.denominator2}`;
   const lastFailedProblemKey = useRef(null);
+  // The last few problems shown, so the next one is never a repeat (RECENT_PROBLEM_MEMORY)
+  const recentProblemKeys = useRef([]);
 
   // ── Problem generation ─────────────────────────────────────────────────────
   // Difficulty is fixed per level (see getDissimilarTier); every level, the boss included, goes
@@ -75,7 +76,8 @@ const DissimilarIslandGame = ({
     } = getDissimilarTier(gameSession.level ?? 1);
     const dens = Array.from({ length: maxDen - minDen + 1 }, (_, i) => minDen + i);
     const mk = (d1, n1, operator, d2, n2) => ({ whole1: 0, numerator1: n1, denominator1: d1, whole2: 0, numerator2: n2, denominator2: d2, operator, isMixed: false });
-    const isRepeat = (c) => lastFailedProblemKey.current && problemKey(c) === lastFailedProblemKey.current;
+    const isRepeat = (c) => recentProblemKeys.current.includes(problemKey(c))
+      || (lastFailedProblemKey.current && problemKey(c) === lastFailedProblemKey.current);
 
     // Every addition whose sum is exactly `wholes` wholes and a bit, one whole uses proper
     // fractions, more use improper ones. Which leftover numerator (shards outside the jar) it
@@ -131,6 +133,8 @@ const DissimilarIslandGame = ({
       } while (!ok && attempts < 200);
     }
     lastFailedProblemKey.current = null; // clear after generating a new problem
+    recentProblemKeys.current.push(problemKey(candidate));
+    while (recentProblemKeys.current.length > RECENT_PROBLEM_MEMORY) recentProblemKeys.current.shift();
     return candidate;
   };
 
@@ -149,7 +153,6 @@ const DissimilarIslandGame = ({
   const [showTutorial, setShowTutorial] = useState(() => shouldAutoShowTutorial('Dissimilar', studentId, gameSession.level));
   // Intro Phase (player VERSUS enemy) plays first; the music, tutorial and timers start after it
   const [introDone, setIntroDone] = useState(false);
-  const butterflyPanelRef = useRef(null);
 
   // ── Game state ─────────────────────────────────────────────────────────────
   const [lives, setLives] = useState(gameSession.lives ?? 3);
@@ -174,7 +177,6 @@ const DissimilarIslandGame = ({
   const [enemyAttacking, setEnemyAttacking] = useState(false);
   const [enemyFlashing, setEnemyFlashing] = useState(false);
   const [playerFlashing, setPlayerFlashing] = useState(false);
-  const [gameOver, setGameOver] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [bgShift, setBgShift] = useState(null);
   const lastBgShiftRef = useRef(null);
@@ -572,7 +574,7 @@ const DissimilarIslandGame = ({
         analyserRef.current.connect(audioCtxRef.current.destination);
       }
       audioCtxRef.current.createMediaElementSource(audio).connect(analyserRef.current);
-    } catch (_) {}
+    } catch { /* audio visualiser is optional; music still plays */ }
     audio.play().then(() => audioCtxRef.current?.resume()).catch(() => {});
     ostRef.current = audio;
   };
@@ -898,7 +900,7 @@ const DissimilarIslandGame = ({
   const denCombining = ['glowing', 'to-sd', 'arc-returning'].includes(denominatorPhase);
   const canDragDen = !denCombining && crossExplosion === null && !(sdCorrect && n1CrossCorrect && n2CrossCorrect);
   const guideEligible = circleDetected && interactableVisible && n1Visible && d1Visible && n2Visible && d2Visible
-    && !showTutorial && !showSettings && !showHintConfirm && !feedback && !gameOver
+    && !showTutorial && !showSettings && !showHintConfirm && !feedback
     && !circleFailSequence && !carryPhase && !finalAnswerPhase && !centerPhase && !crossExplosion && !dragScreenPos
     && (!denominatorPhase || confirmPressed) && !crossInputPending && guideActions.length > 0;
   const guideKey = guideActions.map(a => `${a.from}${a.to}`).join('|');
@@ -1279,9 +1281,9 @@ const DissimilarIslandGame = ({
     || !interactableVisible || !!feedback || bgShift !== null                    // answer submitted: attack, feedback, next problem sliding in
     || fireball !== null || defeatTarget !== null
     || animHeld;                                                                 // header hint sliding in
-  const sessionEnded = defeatTarget !== null || gameOver;
+  const sessionEnded = defeatTarget !== null;
   // Enter = the main action button (Cast Spell / Confirm / Check …), when nothing else is in the way
-  useEnterToConfirm(introDone && !showTutorial && !showSettings && !showHintConfirm && !feedback && !gameOver);
+  useEnterToConfirm(introDone && !showTutorial && !showSettings && !showHintConfirm && !feedback);
   const sessionRunning = introDone && !showTutorial && !showSettings && !sessionEnded && !animating;
   const solveRunning = sessionRunning && answeredProblem !== problem;
   // getMs() on these gives the exact time for saving.
@@ -2177,7 +2179,7 @@ const DissimilarIslandGame = ({
                     {/* Idle guide for typing steps: pulses at the bottom right of an empty input */}
                     <InputGuideCursor
                       containerRef={circleContainerRef}
-                      enabled={circleDetected && interactableVisible && !showTutorial && !showSettings && !showHintConfirm && !feedback && !gameOver && !circleFailSequence}
+                      enabled={circleDetected && interactableVisible && !showTutorial && !showSettings && !showHintConfirm && !feedback && !circleFailSequence}
                     />
 
                     {/* Improper → mixed conversion (gem/jar game), before simplifying */}
@@ -2308,20 +2310,6 @@ const DissimilarIslandGame = ({
         </div>
       )}
 
-      {/* Game over */}
-      {gameOver && (
-        <div style={{ position:'fixed', inset:0, zIndex:1000, backgroundImage:'url(/PostMatchBackground.jpg)', backgroundSize:'cover', backgroundPosition:'center', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'12px' }}>
-          <div style={{ position:'relative', background:'#e8d5b4', border:'4px solid #703737', borderRadius:'12px', padding:'36px 56px 28px', textAlign:'center' }}>
-            <div style={{ position:'absolute', top:8, right:8, bottom:8, left:8, border:'1px solid #703737', borderRadius:'6px', pointerEvents:'none' }} />
-            <h1 style={{ fontSize:'clamp(2.5em,6vw,5em)', fontWeight:900, margin:0, color:'#ef4444', letterSpacing:'6px', textTransform:'uppercase' }}>DEFEAT!</h1>
-            <p style={{ color:'#333', margin:'36px 0 0', fontWeight:500 }}>You ran out of hearts!</p>
-            <p style={{ color:'#333', margin:'12px 0 0', fontWeight:700 }}>Score: {score}</p>
-          </div>
-          <button onClick={onExitToLobby} style={{ padding:'12px 28px', fontSize:'15px', fontWeight:700, background:'rgba(40,40,40,0.8)', color:'#fff', border:'1px solid rgba(255,255,255,0.3)', borderRadius:'10px', cursor:'pointer' }}>
-            Return to Island Selection
-          </button>
-        </div>
-      )}
 
       {/* Defeat particles */}
       {defeatParticles.map(p => (

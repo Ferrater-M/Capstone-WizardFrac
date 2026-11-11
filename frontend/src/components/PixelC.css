@@ -1,0 +1,73 @@
+/* Wider opening for the logo's C (see PixelC.jsx).
+   Geometry is in em, measured from Pixelify Sans 700: the C's hole spans
+   x 0.189–0.415em, y 0.319–0.695em; its right stroke spans x 0.415–0.5425em.
+   The parent logo sets the shadow sizes:
+     --pc-white: white under-edge drop   --pc-orange: orange 3D drop
+     --pc-blur-y / --pc-blur: soft shadow offset / blur std-dev (half the text-shadow radius) */
+.pixel-c {
+  --pc-top: 0.40em;     /* opening starts below the upper arm */
+  --pc-bottom: 0.615em; /* and ends above the lower arm */
+  --pc-left: calc(0.415em - 3px); /* past the hole edge's 1px outline */
+  --pc-edge: 0.415em;   /* hole's right edge, where the cut-edge lines start */
+  --pc-right: 0.5425em; /* outer edge of the right stroke */
+  display: inline-block;
+  position: relative;
+}
+
+.pixel-c-cut {
+  clip-path: polygon(
+    -1em -1em, 2em -1em,
+    2em var(--pc-top), var(--pc-left) var(--pc-top),
+    var(--pc-left) var(--pc-bottom), 2em var(--pc-bottom),
+    2em 2em, -1em 2em
+  );
+}
+
+/* Same layers as the logo's text-shadow, minus the soft shadow (drawn below) */
+.pixel-c-glyph {
+  display: inline-block;
+  text-shadow:
+    0 var(--pc-white, 3px) 0 #fff,
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff,
+    0 var(--pc-orange, 8px) 0 #b35900;
+}
+
+/* Soft drop shadow of the opened C; z-index -1 puts it under the whole logo's text */
+.pixel-c-blur {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  color: rgba(0, 0, 0, 0.5);
+  transform: translateY(var(--pc-blur-y, 15px));
+  filter: blur(var(--pc-blur, 10px));
+  pointer-events: none;
+  user-select: none;
+}
+.pixel-c-blur .pixel-c-cut { display: inline-block; text-shadow: none; }
+
+/* Under the upper arm: white edge, then the orange 3D drop */
+.pixel-c::before,
+.pixel-c::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+.pixel-c::before {
+  left: var(--pc-edge);
+  width: calc(var(--pc-right) - var(--pc-edge));
+  top: var(--pc-top);
+  height: var(--pc-orange, 8px);
+  background: linear-gradient(#fff 0 var(--pc-white, 3px), #b35900 var(--pc-white, 3px));
+}
+/* Above the lower arm: 1px white outline */
+.pixel-c::after {
+  left: calc(var(--pc-edge) - 1px);
+  width: calc(var(--pc-right) - var(--pc-edge) + 2px);
+  top: calc(var(--pc-bottom) - 1px);
+  height: 1px;
+  background: #fff;
+}

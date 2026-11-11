@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { playSfx, getSfxVolume } from '../utils/audio';
 import { triggerScreenShake } from '../utils/screenShake';
 import './game-lobby.css';
@@ -7,8 +7,7 @@ import GalaxyBackground from '../components/GalaxyBackground';
 import IslandInterior from './IslandInterior';
 import GameMechanicsIntro from '../components/GameMechanicsIntro';
 import SettingsPage from './SettingsPage';
-import Leaderboard from './Leaderboard';
-import { API_BASE_URL, SHOW_LEADERBOARD } from '../config';
+import { API_BASE_URL } from '../config';
 import { countEnemiesPerIsland } from '../utils/islandStages';
 
 const MECHANICS_INTRO_KEY = 'wizardfrac_seen_mechanics_intro';
@@ -64,7 +63,6 @@ const pixelCorners = (color, edgeOffset = -6) => (
 const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onEnterIslandInterior, onLeaveIslandInterior, onIslandInteriorLoaded, onLogout, onNicknameChanged, onMasterVolumeChanged }) => {
   const [gameProgress, setGameProgress] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [stageStars, setStageStars] = useState({});
   const [selectedIsland, setSelectedIsland] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState(1);
@@ -451,15 +449,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   // instead of guessing a number, so the UI can show "null" for it.
   const getIslandStageCount = (islandName) => islandStageCounts[islandName] || null;
 
-  const islandStarTotal = (islandName) => {
-    const stageCount = getIslandStageCount(islandName);
-    if (!stageCount) return 0;
-    let total = 0;
-    for (let stage = 1; stage <= stageCount; stage++) {
-      total += stageStars[`${islandName}_${stage}`] || 0;
-    }
-    return total;
-  };
 
   const islands = [
     {
@@ -472,7 +461,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       totalStages: getIslandStageCount('Similar'),
       color: '#22C55E',
       icon: '🌿',
-      image: '/SimilarIsland.png',
+      image: '/InteractableUI/SimilarIsland.png',
     },
     {
       name: 'Dissimilar',
@@ -484,7 +473,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       totalStages: getIslandStageCount('Dissimilar'),
       color: '#F59E0B',
       icon: '🦋',
-      image: '/DisimilarIsland.png',
+      image: '/InteractableUI/DisimilarIsland.png',
     },
     {
       name: 'Hybrid',
@@ -496,7 +485,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       totalStages: getIslandStageCount('Hybrid'),
       color: '#7C3AED',
       icon: '🌀',
-      image: '/HybridIsland.png',
+      image: '/InteractableUI/HybridIsland.png',
     },
   ];
 
@@ -681,9 +670,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
           <nav className="lobby-sidebar">
             {pixelCorners('var(--gl-border)')}
             <button className="sidebar-item active" onClick={onOpenDashboard}><span>🏠</span>Dashboard</button>
-            {SHOW_LEADERBOARD && (
-              <button className="sidebar-item" onClick={() => setShowLeaderboard(true)}><span>👑</span>Leaderboard</button>
-            )}
             <button className="sidebar-item" onClick={() => setShowSettings(true)}><span>⚙️</span>Settings</button>
           </nav>
         </div>
@@ -711,7 +697,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
         <div className="lobby-islands-area">
           <div className="islands-grid" style={{ pointerEvents: animPhase ? 'none' : 'auto' }}>
             {islands.map(island => {
-              const stars = islandStarTotal(island.name);
               return (
                 <div
                   key={island.name}
@@ -830,13 +815,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
           onLogout={onLogout}
           onNicknameChanged={onNicknameChanged}
           onMasterVolumeChanged={onMasterVolumeChanged}
-        />
-      )}
-
-      {showLeaderboard && (
-        <Leaderboard
-          studentId={studentId}
-          onBack={() => setShowLeaderboard(false)}
         />
       )}
     </div>

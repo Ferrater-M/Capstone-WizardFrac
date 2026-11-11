@@ -1,4 +1,3 @@
-import React from 'react';
 import './GameMenuModal.css';
 
 const GameMenuModal = ({ title, message, icon, onClose, children, panelClassName }) => (

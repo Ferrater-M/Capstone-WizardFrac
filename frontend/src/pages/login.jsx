@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import './login.css';
+import PixelC from '../components/PixelC';
 import GalaxyBackground from '../components/GalaxyBackground';
 import { API_BASE_URL } from '../config';
 
@@ -132,7 +133,7 @@ const LandingPage = ({ onLoginSuccess, onBack }) => {
 
       {/* Top Left Logo */}
       <div className="logo-area">
-        <h1 className="logo-text">WIZARDFRAC</h1>
+        <h1 className="logo-text">WIZARDFRA<PixelC /></h1>
         <div className="logo-banner">
           <span>MASTER FRACTIONS. CAST SPELLS. SAVE THE ISLANDS!</span>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { shouldAutoShowTutorial, markTutorialSeen } from '../utils/tutorialSeen';
 import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
@@ -6,7 +6,6 @@ import IntroPhase from '../components/IntroPhase';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import './game.css';
 import DrawingCanvas from '../components/DrawingCanvas';
-import FractionPattern from '../components/FractionPattern';
 import SimilarFractionTutorial from '../components/SimilarFractionTutorial';
 import ImproperToMixedGame from '../components/ImproperToMixedGame';
 import EdgeBurst, { triggerEdgeBurst } from '../components/EdgeBurst';
@@ -14,10 +13,9 @@ import { triggerScreenShake } from '../utils/screenShake';
 import InputGuideCursor from '../components/InputGuideCursor';
 import SettingsPage from './SettingsPage';
 import GameStopwatches from '../components/GameStopwatches';
-import '../components/components.css';
 import { useStopwatch, useHalfWidth, useAnimationHold } from '../utils/stopwatch';
 
-import { buildProblem, buildProblemDissimilar, buildProblemHybrid, getDifficultyParams, TIMING, getFeedbackDuration, scoreProblem, similarSteps, MAX_HEARTS, HEART_LOSS, healHearts, heartsToSave } from '../utils/gameUtils';
+import { buildProblem, pickFreshProblem, getFeedbackDuration, scoreProblem, similarSteps, MAX_HEARTS, HEART_LOSS, healHearts, heartsToSave } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
 
 // Falling square particles along the bottom of a box — same set/timing as the
@@ -63,8 +61,11 @@ const detectFrameCount = (width, height) => {
 };
 
 const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, gameSession, onGameEnd, onExitToLobby }) => {
-  const [currentProblem, setCurrentProblem] = useState(() => buildProblem(gameSession.level));
-  const [mechanicType, setMechanicType] = useState(gameSession.mechanicType);
+  // The last few problems shown, so the next one is never a repeat (see pickFreshProblem)
+  const recentProblemsRef = useRef([]);
+  const nextProblem = () => pickFreshProblem(() => buildProblem(gameSession.level), p => p, recentProblemsRef.current);
+  const [currentProblem, setCurrentProblem] = useState(nextProblem);
+  const [mechanicType] = useState(gameSession.mechanicType);
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState('');
   const [bgShift, setBgShift] = useState(null);
@@ -80,13 +81,11 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [feedbackClickable, setFeedbackClickable] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enemyAttacking, setEnemyAttacking] = useState(false);
-  const [gameOver, setGameOver] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   // Opens by itself only on level 1, until it's been finished or skipped once (Help still opens it)
   const [showTutorial, setShowTutorial] = useState(() => shouldAutoShowTutorial('Similar', studentId, gameSession.level));
   // Intro Phase (player VERSUS enemy) plays first; the music, tutorial and timers start after it
   const [introDone, setIntroDone] = useState(false);
-  const [currentHint, setCurrentHint] = useState('');
   const [circleDetected, setCircleDetected] = useState(false);
   const [magicN, setMagicN] = useState('');
   const [checkPhase, setCheckPhase] = useState(false);
@@ -135,8 +134,6 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const enemyRef     = useRef(null);
   const playerBoxRef = useRef(null);
   const enemyBoxRef  = useRef(null);
-  const fireballRef = useRef(null);
-  const fireballAnimRef = useRef(null);
   const onHitRef = useRef(null);
   const feedbackTimeoutRef = useRef(null);
   const feedbackClickableTimeoutRef = useRef(null);
@@ -169,7 +166,6 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const animationFrameRef = useRef(null);
   const directionRef = useRef({ x: 1, y: 1 });
   const speedRef = useRef(2);
-  const fractionPatternRef = useRef(null);
   const den1Ref = useRef(null);
   const den2Ref = useRef(null);
   const circleContainerRef = useRef(null);
@@ -214,7 +210,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       }
       const src_ = audioCtxRef.current.createMediaElementSource(audio);
       src_.connect(analyserRef.current);
-    } catch (_) {}
+    } catch { /* audio visualiser is optional; music still plays */ }
 
     audio.play().then(() => audioCtxRef.current?.resume()).catch(() => {});
     ostRef.current = audio;
@@ -497,80 +493,6 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     setDenAnimating(true);
   };
 
-  const handleWrongAnswer = async (hint, submittedValue) => {
-    const newLives = lives - HEART_LOSS;
-    setLives(newLives);
-    setEnemyAttacking(true);
-    setFeedback(hint ? `Wrong! ${hint}` : 'Wrong answer! You lost a heart.');
-    setFeedbackType('incorrect');
-    if (hint) setCurrentHint(hint);
-
-    const match = currentProblem.match(/(\d+)\/(\d+)\s*([+-])\s*(\d+)\/(\d+)/);
-    let correctAnswerStr = '?';
-    if (match) {
-      const resNum = match[3] === '+' ? parseInt(match[1]) + parseInt(match[4]) : parseInt(match[1]) - parseInt(match[4]);
-      const resDen = parseInt(match[2]);
-      const divisor = gcd(Math.abs(resNum), resDen);
-      const sn = resNum / divisor, sd = resDen / divisor;
-      correctAnswerStr = sd === 1
-        ? `${sn}`
-        : sn > sd
-          ? `${Math.floor(sn / sd)} ${sn % sd}/${sd}`
-          : `${sn}/${sd}`;
-    }
-
-    const attempt = {
-      gameSessionId: gameSession.sessionId,
-      mechanicType: mechanicType,
-      problemStatement: currentProblem,
-      answerSubmitted: String(submittedValue ?? ''),
-      correctAnswer: correctAnswerStr,
-      isCorrect: false,
-      errorType: 'INCORRECT_ANSWER',
-      remainingLives: heartsToSave(newLives),
-      streakCount: 0,
-      multiplierValue: 1.0,
-      enemyHealthBefore: enemyHealth,
-      enemyHealthAfter: enemyHealth,
-      pointsEarned: 0,
-    };
-    saveSpellAttempt(attempt);
-
-    if (newLives <= 0) {
-      await saveGameEnd('FAILED', false);
-      setTimeout(() => setGameOver(true), 800);
-    }
-  };
-
-  const handleRequestNewProblem = () => {
-    setEnemyAttacking(false);
-    setFeedback('');
-    setFeedbackType('');
-    setCircleDetected(false);
-    setCurrentHint('');
-    setMagicN('');
-    setDenVisible(false);
-    setNVisible(false);
-    setHintUsed(false);
-    setPhase2HintUsed(false);
-    setCarryHintUsed(false);
-    setUnsimplified(null);
-    setFormulaVisible(false);
-    setCheckPhase(false);
-    setSimplifiedInput('');
-    setSimplifiedDenInput('');
-    setSimplifiedWholeInput('');
-    setCarryPhase(false);
-    setCarryUi({ stage: 'none', canSubmit: false, prompt: '' });
-    setCarryFinal(false);
-    setFinalInputsShown(false);
-    setFinalAnswerVisible(false);
-    setCheckButtonReady(false);
-    setShowNSparkle(false);
-    setDBubble(null);
-    generateNextProblem();
-  };
-
   const saveGameEnd = async (status, isWon) => {
     try {
       const res = await fetch(
@@ -711,7 +633,9 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       solveTimeMs: Math.round(solveWatch.getMs()),
     };
 
-    await saveSpellAttempt(attempt);
+    // Saved in the background (like Dissimilar/Hybrid): waiting on the server here delayed the
+    // feedback, the hit and the defeat animation by however long the request took.
+    saveSpellAttempt(attempt);
 
     setEnemyHealth(newEnemyHealth);
     setEnemyLives(newEnemyLives);
@@ -875,7 +799,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     if (arcAnimRef.current) { cancelAnimationFrame(arcAnimRef.current); arcAnimRef.current = null; }
     setProblemAnswered(false);
     solveWatch.reset();
-    setCurrentProblem(buildProblem(gameSession.level));
+    setCurrentProblem(nextProblem());
   };
 
   const revealFinalAnswer = () => {
@@ -953,9 +877,9 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
     || !interactableVisible || !!feedback || bgShift !== null          // answer submitted: attack, feedback, next problem sliding in
     || fireball !== null || defeatTarget !== null
     || animHeld;                                                       // short one-offs (hint reveal)
-  const sessionEnded = defeatTarget !== null || gameOver;
+  const sessionEnded = defeatTarget !== null;
   // Enter = the main action button (Cast Spell / Confirm / Check …), when nothing else is in the way
-  useEnterToConfirm(introDone && !showTutorial && !showSettings && !showHintConfirm && !feedback && !gameOver);
+  useEnterToConfirm(introDone && !showTutorial && !showSettings && !showHintConfirm && !feedback);
   const sessionRunning = introDone && !showTutorial && !showSettings && !sessionEnded && !animating;
   const solveRunning = sessionRunning && !problemAnswered;
   // getMs() on these gives the exact time for saving.
@@ -2134,7 +2058,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
                   <InputGuideCursor
                     containerRef={circleContainerRef}
                     waitForAppear
-                    enabled={circleDetected && interactableVisible && !showTutorial && !showSettings && !showHintConfirm && !feedback && !gameOver}
+                    enabled={circleDetected && interactableVisible && !showTutorial && !showSettings && !showHintConfirm && !feedback}
                   />
 
                   {carryPhase && (
@@ -2369,33 +2293,6 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         </div>
       )}
 
-      {gameOver && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          backgroundImage: 'url(/PostMatchBackground.jpg)',
-          backgroundSize: 'cover', backgroundPosition: 'center',
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: '12px',
-          fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        }}>
-          <div style={{
-            position: 'relative', background: '#e8d5b4',
-            border: '4px solid #703737', borderRadius: '12px',
-            boxShadow: 'none, 0 20px 40px rgba(0,0,0,0.6)',
-            padding: '36px 56px 28px', textAlign: 'center',
-          }}>
-            <div style={{ position: 'absolute', top: 8, right: 8, bottom: 8, left: 8, border: '1px solid #703737', borderRadius: '6px', pointerEvents: 'none' }} />
-            <h1 style={{ fontSize: 'clamp(2.5em, 6vw, 5em)', fontWeight: 900, margin: 0, color: '#ef4444', textShadow: '0 0 20px rgba(0,0,0,0.6), 2px 2px 6px rgba(0,0,0,0.8)', letterSpacing: '6px', textTransform: 'uppercase' }}>DEFEAT!</h1>
-            <p style={{ fontSize: 'clamp(1em, 2vw, 1.3em)', color: '#fff', margin: '36px 0 0', fontWeight: 500 }}>You ran out of hearts!</p>
-            <p style={{ fontSize: 'clamp(1.1em, 2vw, 1.6em)', color: '#fff', margin: '12px 0 0', fontWeight: 700 }}>Score: {score}</p>
-          </div>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-            <button onClick={onExitToLobby} style={{ padding: '12px 28px', fontSize: '15px', fontWeight: 700, background: 'rgba(40,40,40,0.8)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '10px', cursor: 'pointer', backdropFilter: 'blur(10px)' }}>
-              Return to Island Selection
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Defeat burst particles */}
       {defeatParticles.map(p => (

@@ -50,36 +50,16 @@ public class GameLobbyService {
         session.setPlayerNickname(student.getNickname());
         GameSession savedSession = gameSessionRepository.save(session);
 
-        // Generate first problem (placeholder - actual implementation would generate real problems)
-        String firstProblem = generateFractionProblem(islandType);
         String mechanicType = getMechanicType(islandType);
 
         return new GameLobbyInitDTO(
             savedSession.getId(),
             islandType,
             stageNumber,
-            firstProblem,
             mechanicType,
             savedSession.getEnemyHealth(),
             savedSession.getCurrentLives()
         );
-    }
-
-    // Restore last saved session state (UC-1.2 - session restoration)
-    public Optional<GameSession> getLastActiveSession(Long studentId) {
-        return gameSessionRepository.findTopByStudentIdAndStatusOrderByStartedAtDesc(studentId, "ACTIVE");
-    }
-
-    // Generate a random fraction problem
-    private String generateFractionProblem(String islandType) {
-        // Placeholder - actual implementation would generate real fraction problems
-        if ("Similar".equalsIgnoreCase(islandType)) {
-            return "1/2 + 1/4 = ?";
-        } else if ("Dissimilar".equalsIgnoreCase(islandType)) {
-            return "2/3 + 3/5 = ?";
-        } else {
-            return "1 1/2 + 2/3 = ?";
-        }
     }
 
     // Get mechanic type based on island

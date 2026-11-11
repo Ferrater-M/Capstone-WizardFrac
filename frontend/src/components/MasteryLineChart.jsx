@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 // Accuracy over a competency's recent games, 0–100% on one fixed scale so the three charts compare fairly.
 // compact: a bare line for the carousel card. Full: gridlines, axis labels, latest value, and a hover

@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect, useRef } from 'react';
+import { useState, useLayoutEffect, useRef } from 'react';
 import DissimilarCircleDiagram from './DissimilarCircleDiagram';
 
 const BROWN = '#703737';

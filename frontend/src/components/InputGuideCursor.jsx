@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const IDLE_MS = 2000;   // no interaction with an input for this long -> the cursor appears
 const DWELL_MS = 2000;  // how long it stays pulsing at an input

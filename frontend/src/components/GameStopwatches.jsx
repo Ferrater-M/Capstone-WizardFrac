@@ -1,4 +1,3 @@
-import React from 'react';
 import { formatStopwatch } from '../utils/stopwatch';
 
 const C = '#703737';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 
 const ButterflyStepPanel = forwardRef(({ problem, onAnswerSubmit, onWrongAnswer, onStepCorrect, onStepChange }, ref) => {
   const [inputValue, setInputValue] = useState('');

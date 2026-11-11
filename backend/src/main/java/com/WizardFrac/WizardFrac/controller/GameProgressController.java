@@ -5,13 +5,11 @@ import com.WizardFrac.WizardFrac.service.GameProgressService;
 import com.WizardFrac.WizardFrac.dto.SpellAttemptDTO;
 import com.WizardFrac.WizardFrac.dto.DiagnosticsDTO;
 import com.WizardFrac.WizardFrac.dto.GameProgressDTO;
-import com.WizardFrac.WizardFrac.dto.LeaderboardEntryDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -110,11 +108,5 @@ public class GameProgressController {
     @GetMapping("/stars/{studentId}")
     public ResponseEntity<?> getStageStars(@PathVariable Long studentId) {
         return ResponseEntity.ok(gameProgressService.getStageStars(studentId));
-    }
-
-    // All-time leaderboard, ranked by total score across all students
-    @GetMapping("/leaderboard")
-    public ResponseEntity<List<LeaderboardEntryDTO>> getLeaderboard() {
-        return ResponseEntity.ok(gameProgressService.getLeaderboard());
     }
 }

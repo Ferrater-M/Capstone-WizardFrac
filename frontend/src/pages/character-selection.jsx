@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './character-selection.css';
+import PixelC from '../components/PixelC';
 import LoadingScreen from '../components/LoadingScreen';
 import GalaxyBackground from '../components/GalaxyBackground';
 import MagicFloatLayer from '../components/MagicFloatLayer';
@@ -137,7 +138,7 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack, onMasterVo
       <MagicFloatLayer />
       <div className="nav-bar">
         {/* The Title Page / login logo */}
-        <h2 className="cs-logo">WIZARDFRAC</h2>
+        <h2 className="cs-logo">WIZARDFRA<PixelC /></h2>
         <div className="nav-buttons">
           <button type="button" className="menu-btn" onClick={onBack}>
             <PixelCorners />

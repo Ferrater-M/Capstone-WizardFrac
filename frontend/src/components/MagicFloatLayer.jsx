@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 // Background layer from the title page (MainPage.jsx): the four island magic circles spin in place at the
 // screen sides while random pixel fractions float upward, with white lightning chaining between them.

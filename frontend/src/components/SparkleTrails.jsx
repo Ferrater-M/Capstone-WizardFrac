@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 // Every blue sparkle (OtherEffects/BlueSparkle.png) that travels across the screen — the island
 // selection's star, the numbers flying to their places in battle, the gem game's shards — leaves a

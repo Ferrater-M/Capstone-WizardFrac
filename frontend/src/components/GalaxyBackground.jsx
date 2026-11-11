@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 // The animated galaxy behind the island selection screen (nebulae, drifting pixel clouds, twinkling stars,
 // shooting stars), drawn on a full-screen canvas. Shared by the island selection screen, the login and the dashboard.

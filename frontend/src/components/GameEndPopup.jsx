@@ -1,4 +1,3 @@
-import React from 'react';
 import './GameEndPopup.css';
 
 // After a battle: a pop-up in the same style as the Correct/Incorrect pop-ups (black box, thick white

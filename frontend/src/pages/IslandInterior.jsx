@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './IslandInterior.css';
 import LoadingScreen from '../components/LoadingScreen';
 import { playSfx } from '../utils/audio';
@@ -13,9 +13,9 @@ const PLAYER_SIZE = 124;
 
 const walkableSrc = (name) => {
   switch (name) {
-    case 'Similar':    return '/SimilarWalkableArea.png';
-    case 'Dissimilar': return '/DissimilarWalkableArea.png';
-    case 'Hybrid':     return '/HybridWalkableArea.png';
+    case 'Similar':    return '/InteractableUI/SimilarWalkableArea.png';
+    case 'Dissimilar': return '/InteractableUI/DissimilarWalkableArea.png';
+    case 'Hybrid':     return '/InteractableUI/HybridWalkableArea.png';
     default:           return null;
   }
 };
@@ -537,7 +537,7 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, character, paused = 
         <h1 className="ii-title">{island.title}</h1>
       </div>
 
-      <PixelSky src="/WalkableAreaBackground.jpg" />
+      <PixelSky src="/InteractableUI/WalkableAreaBackground.jpg" />
       {!introDone && <CloudIntro onDone={() => setIntroDone(true)} />}
 
       <KeyGuide pressed={pressedCaps} canFight={!!nearEnemy} />

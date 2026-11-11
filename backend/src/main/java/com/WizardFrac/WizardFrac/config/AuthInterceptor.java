@@ -44,8 +44,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         new String[] {"GET", "/api/students/{studentId}/profile-picture"},
         new String[] {"GET", "/api/health"},
         new String[] {"GET", "/api/characters"},
-        new String[] {"GET", "/api/characters/{characterId:\\d+}"},
-        new String[] {"GET", "/api/game-progress/leaderboard"}
+        new String[] {"GET", "/api/characters/{characterId:\\d+}"}
     );
 
     private final AntPathMatcher matcher = new AntPathMatcher();

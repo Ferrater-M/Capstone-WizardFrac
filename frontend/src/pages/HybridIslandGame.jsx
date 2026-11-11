@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { shouldAutoShowTutorial, markTutorialSeen } from '../utils/tutorialSeen';
 import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
@@ -14,10 +14,9 @@ import ImproperToMixedGame, {
 import EdgeBurst, { triggerEdgeBurst } from '../components/EdgeBurst';
 import { triggerScreenShake } from '../utils/screenShake';
 import HybridFractionTutorial from '../components/HybridFractionTutorial';
-import GameMenuModal from '../components/GameMenuModal';
 import SettingsPage from './SettingsPage';
 import './game.css';
-import { getFeedbackDuration, getDifficultyParamsHybrid, scoreProblem, hybridSteps, MAX_HEARTS, HEART_LOSS, healHearts, heartsToSave } from '../utils/gameUtils';
+import { getFeedbackDuration, getDifficultyParamsHybrid, RECENT_PROBLEM_MEMORY, scoreProblem, hybridSteps, MAX_HEARTS, HEART_LOSS, healHearts, heartsToSave } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
 import GameStopwatches from '../components/GameStopwatches';
 import { useStopwatch, useHalfWidth, useAnimationHold, useReportBusy } from '../utils/stopwatch';
@@ -178,382 +177,6 @@ const finalAnswerParticles = () => FALL_PARTICLES.map((p, i) => (
     animation: `particleFall ${p.dur} ease-out ${p.delay} infinite`,
   }} />
 ));
-
-// Raw pixel offsets inside the floating wrapper (top:32 within the 400×440 circle
-// box) — identical to Similar Island's own layout. Fly-in destinations and the
-// D-bubble travel use fractions of the container instead, since those are
-// position:fixed and computed from the container's real rendered rect.
-const SIMILAR_DEN_DEST_FY = 255 / 440;
-const SIMILAR_DBUBBLE_START_FY = 252 / 440;
-const SIMILAR_DBUBBLE_END_FY = (32 + 129) / 440;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimilarCircleStage — inlined local component
-// The "similar" route — used once the two forged fractions share a denominator.
-// Draw a circle → SimilarMagicCircle appears → the (shared) denominator flies in
-// from both fractions and lands once → combine the numerators (Cast Spell) →
-// the landed denominator bubble travels up to the numerator slot → simplify the
-// result (Check). Ported faithfully from SimilarIslandGame.jsx: same positions,
-// timings, bubble/sparkle visuals, and — notably — no soft-strike system here,
-// since Similar Island costs a life immediately on any wrong answer, matching
-// Hybrid's own onWrongAnswer already.
-//
-// Props:
-//   problem        – the forged pair of improper fractions, equal denominators:
-//                     {numerator1, numerator2, denominator1, operator}
-//   onAnswerSubmit – ({numerator, denominator}) called once the simplified answer is correct
-//   onWrongAnswer  – (hint, submittedValue, errorType) called on any wrong answer
-// ─────────────────────────────────────────────────────────────────────────────
-const SimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onRequestHint, onGestureStart }) => {
-  const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
-  const { numerator1: n1, numerator2: n2, denominator1: d, operator } = problem;
-  const rawResult = operator === '+' ? n1 + n2 : n1 - n2;
-  const divisor = gcd(Math.abs(rawResult), d) || 1;
-  const simplifiedNum = rawResult / divisor;
-  const simplifiedDen = d / divisor;
-  const isWhole = simplifiedDen === 1;
-
-  const [showHint, setShowHint] = useState(true);
-  const [circleDetected, setCircleDetected] = useState(false);
-
-  const [bubbles, setBubbles] = useState(null);
-  const [denVisible, setDenVisible] = useState(false);
-  const [nVisible, setNVisible] = useState(false);
-  const [showDenSparkle, setShowDenSparkle] = useState(false);
-  const [showNSparkle, setShowNSparkle] = useState(false);
-  const [dBubble, setDBubble] = useState(null);
-
-  const [magicN, setMagicN] = useState('');
-  const [finalAnswerVisible, setFinalAnswerVisible] = useState(false);
-  const [checkButtonReady, setCheckButtonReady] = useState(false);
-  const [simplifiedInput, setSimplifiedInput] = useState('');
-  const [simplifiedDenInput, setSimplifiedDenInput] = useState('');
-
-  const circleRef = useRef(null);
-  const bubble1Ref = useRef(null);
-  const bubble2Ref = useRef(null);
-  const dBubbleRef = useRef(null);
-  const actionLocked = useRef(false);
-
-  const handleCircleDetected = () => {
-    playSfx('/SoundEffects/circleAppear.wav');
-    setCircleDetected(true);
-    onGestureStart?.();
-  };
-
-  // circleRef only mounts once circleDetected flips and the magic circle renders —
-  // an effect (unlike the click handler itself) runs after that commit, so the
-  // ref is guaranteed real by the time this fires. Mirrors ButterflyCircleStage's
-  // own triggerNumberFlyIn/useEffect pairing exactly.
-  const triggerDenominatorFlyIn = () => {
-    if (!circleRef.current) return;
-    const SIZE = 48;
-    const cRect = circleRef.current.getBoundingClientRect();
-    const getSrc = (tag) => {
-      const el = document.querySelector(`[data-fly="${tag}"]`);
-      if (!el) return { left: cRect.left, top: cRect.top };
-      const r = el.getBoundingClientRect();
-      return { left: r.left + r.width / 2 - SIZE / 2, top: r.top + r.height / 2 - SIZE / 2 };
-    };
-    const s1 = getSrc('conv0-d');
-    const s2 = getSrc('conv1-d');
-    const dLeft = cRect.left + cRect.width * 0.5 - SIZE / 2;
-    const dTop  = cRect.top + SIMILAR_DEN_DEST_FY * cRect.height - SIZE / 2;
-
-    const rndCtrl = (sx, sy) => ({
-      x: (sx + dLeft) / 2 + (Math.random() - 0.5) * 400,
-      y: (sy + dTop) / 2 - 80 - Math.random() * 200,
-    });
-    const ctrl1 = rndCtrl(s1.left, s1.top);
-    const ctrl2 = rndCtrl(s2.left, s2.top);
-
-    setBubbles({ b1: { ...s1, opacity: 0 }, b2: { ...s2, opacity: 0 } });
-
-    setTimeout(() => {
-      setBubbles(prev => prev && ({ b1: { ...s1, opacity: 1 }, b2: { ...s2, opacity: 1 } }));
-      playSfx('/SoundEffects/sparkleSound.wav');
-    }, 250);
-
-    setTimeout(() => {
-      playSfx('/SoundEffects/numberMove.wav');
-      const duration = 650, start = performance.now();
-      const bezier = (t, p0, cp, p1) => (1 - t) ** 2 * p0 + 2 * (1 - t) * t * cp + t ** 2 * p1;
-      const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
-
-      const frame = (now) => {
-        const raw = Math.min((now - start) / duration, 1);
-        const t = easeInOut(raw);
-        if (bubble1Ref.current) { bubble1Ref.current.style.left = bezier(t, s1.left, ctrl1.x, dLeft) + 'px'; bubble1Ref.current.style.top = bezier(t, s1.top, ctrl1.y, dTop) + 'px'; }
-        if (bubble2Ref.current) { bubble2Ref.current.style.left = bezier(t, s2.left, ctrl2.x, dLeft) + 'px'; bubble2Ref.current.style.top = bezier(t, s2.top, ctrl2.y, dTop) + 'px'; }
-        if (raw < 1) {
-          requestAnimationFrame(frame);
-        } else {
-          setBubbles(null);
-          setDenVisible(true);
-          setShowDenSparkle(true);
-          setTimeout(() => setShowDenSparkle(false), 800);
-          const explodeSound = new Audio('/SoundEffects/sparkleExplode.wav');
-          explodeSound.volume = getSfxVolume();
-          explodeSound.play().catch(() => {});
-          // N appears partway into the explosion sound instead of after it ends
-          setTimeout(() => {
-            setNVisible(true);
-            playSfx('/SoundEffects/circleAppear.wav');
-          }, 650);
-        }
-      };
-      requestAnimationFrame(frame);
-    }, 1000);
-  };
-
-  useEffect(() => {
-    if (!circleDetected) return;
-    const t = setTimeout(triggerDenominatorFlyIn, 600);
-    return () => clearTimeout(t);
-  }, [circleDetected]);
-
-  const checkCombine = () => {
-    if (actionLocked.current || !magicN) return;
-    actionLocked.current = true;
-    const val = parseInt(magicN);
-    if (val === rawResult) {
-      // Travel the landed denominator bubble up to the numerator slot
-      if (circleRef.current) {
-        const cRect = circleRef.current.getBoundingClientRect();
-        const SZ = 44;
-        const sx = cRect.left + cRect.width * 0.5 - SZ / 2;
-        const sy = cRect.top + SIMILAR_DBUBBLE_START_FY * cRect.height - SZ / 2;
-        const ex = sx;
-        const ey = cRect.top + SIMILAR_DBUBBLE_END_FY * cRect.height - SZ / 2;
-        // Shine first (fade in + sparkle sound), then a short pause before it
-        // actually starts traveling — matching the fly-in bubbles elsewhere,
-        // instead of snapping straight into motion the instant it appears.
-        setDBubble({ x: sx, y: sy, opacity: 0 });
-        setTimeout(() => {
-          setDBubble(prev => prev && ({ ...prev, opacity: 1 }));
-          playSfx('/SoundEffects/sparkleSound.wav');
-        }, 50);
-
-        setTimeout(() => {
-          playSfx('/SoundEffects/numberMove.wav');
-          const dur = 560, t0 = performance.now();
-          const ease = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
-          const anim = (now) => {
-            const raw = Math.min((now - t0) / dur, 1);
-            const t = ease(raw);
-            if (dBubbleRef.current) { dBubbleRef.current.style.left = ex + 'px'; dBubbleRef.current.style.top = (sy + (ey - sy) * t) + 'px'; }
-            if (raw < 1) {
-              requestAnimationFrame(anim);
-            } else {
-              setShowNSparkle(true);
-              setTimeout(() => setShowNSparkle(false), 800);
-              const explode = new Audio('/SoundEffects/sparkleExplode.wav');
-              explode.volume = getSfxVolume();
-              explode.play().catch(() => {});
-              setTimeout(() => {
-                setDBubble(null);
-                setFinalAnswerVisible(true);
-                setTimeout(() => { setCheckButtonReady(true); actionLocked.current = false; }, 350);
-                playSfx('/SoundEffects/circleAppear.wav');
-              }, 650);
-            }
-          };
-          requestAnimationFrame(anim);
-        }, 300);
-      } else {
-        actionLocked.current = false;1
-      }
-    } else {
-      setMagicN('');
-      onWrongAnswer?.(`${n1} ${operator} ${n2} = ${rawResult}, not ${val}.`, String(val), 'WRONG_COMBINE');
-      actionLocked.current = false;
-    }
-  };
-
-  const checkSimplify = () => {
-    if (actionLocked.current || !checkButtonReady) return;
-    if (isWhole ? !simplifiedInput : !(simplifiedInput && simplifiedDenInput)) return;
-    actionLocked.current = true;
-    const numOk = parseInt(simplifiedInput) === simplifiedNum;
-    const denOk = isWhole || parseInt(simplifiedDenInput) === simplifiedDen;
-    const submitted = isWhole ? simplifiedInput : `${simplifiedInput}/${simplifiedDenInput}`;
-    setSimplifiedInput(''); setSimplifiedDenInput('');
-    if (numOk && denOk) {
-      onAnswerSubmit({ numerator: simplifiedNum, denominator: simplifiedDen });
-    } else {
-      const target = isWhole ? `${simplifiedNum}` : `${simplifiedNum}/${simplifiedDen}`;
-      onWrongAnswer?.(`Simplify ${rawResult}/${d} to ${target}.`, submitted, 'WRONG_SIMPLIFY');
-    }
-    actionLocked.current = false;
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();   // handled here, so the Enter-to-confirm shortcut doesn't fire as well
-    if (!finalAnswerVisible) checkCombine();
-    else checkSimplify();
-  };
-
-  // Matches Similar Island's own magicN/simplified-answer inputs exactly — dashed
-  // border on a grey field, same grey/white-dashed treatment used for the token
-  // boxes elsewhere in Hybrid.
-  const magicNFieldStyle = {
-    width: 90, height: 64, fontSize: 32, fontWeight: 800, textAlign: 'center',
-    border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', color: '#ffffff',
-    textShadow: '0 0 8px rgba(0,0,0,0.9)',
-    outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace',
-    WebkitAppearance: 'none', MozAppearance: 'none',
-  };
-  const wholeFieldStyle = {
-    width: 90, height: 64, fontSize: 28, fontWeight: 800, textAlign: 'center',
-    border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', color: '#ffffff',
-    outline: 'none', appearance: 'none', fontFamily: '"Press Start 2P", monospace',
-    WebkitAppearance: 'none', MozAppearance: 'none',
-    boxShadow: '0 4px 16px rgba(0,0,0,0.7)', textShadow: '0 0 8px rgba(0,0,0,0.9)',
-  };
-  const fracFieldStyle = { ...wholeFieldStyle, height: 54 };
-
-  return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      {riseParticles()}
-      {/* nAreaFadeIn (shared/global) bakes in its own translateX(-50%), meant for an
-          element that isn't already explicitly centered — using it here on top of
-          this component's own centering transform double-shifts the input left.
-          This local variant keeps the same fade/slide without that extra shift. */}
-      <style>{`
-        @keyframes similarNFadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-      <img
-        src="/InteractableUI/BookUI.png"
-        alt="book"
-        style={{
-          position: 'absolute', bottom: 14, left: '50%',
-          width: '140%', objectFit: 'contain',
-          pointerEvents: 'none', zIndex: 1,
-          animation: 'bookFloat 6s ease-in-out infinite',
-        }}
-      />
-
-      {!circleDetected ? (
-        <>
-          {showHint && (
-            <p style={{
-              position: 'absolute', bottom: 16, left: '50%',
-              transform: 'translateX(-50%)', margin: 0,
-              color: '#ffffff', fontSize: '13px', fontWeight: 900, whiteSpace: 'nowrap',
-              textShadow: '0 0 8px rgba(0,0,0,1), 0 0 16px rgba(0,0,0,1), 3px 3px 0px rgba(0,0,0,1)',
-              zIndex: 3, pointerEvents: 'none',
-            }}>Draw a circle to continue!</p>
-          )}
-          <div style={{ position: 'absolute', inset: 0, zIndex: 3 }} onPointerDown={() => { if (showHint) setShowHint(false); }}>
-            <DrawingCanvas mode="circle" onCircleDetected={handleCircleDetected} />
-          </div>
-        </>
-      ) : (
-        <div ref={circleRef} style={{ position: 'absolute', inset: 0, zIndex: 2 }}>
-          <div style={{
-            position: 'absolute', top: 32, left: 0, right: 0, height: '300px',
-            animation: 'magicFloat 4s ease-in-out infinite', zIndex: 2,
-          }}>
-            <img
-              src="/InteractableUI/SimilarMagicCircle.png"
-              alt="magic circle"
-              style={{ position: 'absolute', top: 0, left: 0, right: 0, width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none', animation: 'problemFadeIn 0.35s ease-out' }}
-            />
-
-            {/* Landed denominator */}
-            <div style={{
-              position: 'absolute', left: '50%', top: '235px', transform: 'translateX(-50%)',
-              width: 40, height: 36, fontSize: 14, fontWeight: 900, textAlign: 'center',
-              background: 'transparent', color: '#ffffff', zIndex: 2,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              opacity: denVisible && !finalAnswerVisible && !dBubble ? 1 : 0,
-              transition: 'opacity 0.3s ease',
-            }}>
-              {denVisible ? d : ''}
-            </div>
-
-            {showDenSparkle && <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', left: '50%', top: '249px', width: 72, height: 72, pointerEvents: 'none', zIndex: 3, animation: 'sparkBurst 0.8s ease-out forwards' }} />}
-            {showNSparkle && <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', left: '50%', top: '129px', width: 72, height: 72, pointerEvents: 'none', zIndex: 3, animation: 'sparkBurst 0.8s ease-out forwards' }} />}
-
-            {nVisible && (
-              <div style={{
-                position: 'absolute', left: '50%', transform: 'translateX(-50%)',
-                top: !finalAnswerVisible ? '98px' : (isWhole ? '82px' : '56px'),
-                zIndex: 2, opacity: dBubble ? 0 : 1, transition: 'opacity 0.3s ease',
-                pointerEvents: dBubble ? 'none' : 'auto',
-              }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'similarNFadeIn 0.5s ease-out forwards' }}>
-                  {!finalAnswerVisible ? (
-                    <input
-                      autoFocus type="text" inputMode="numeric" value={magicN}
-                      onChange={e => setMagicN(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleKeyDown}
-                      placeholder="?" style={magicNFieldStyle}
-                    />
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', animation: 'problemFadeIn 0.3s ease-out' }}>
-                      {isWhole ? (
-                        <input autoFocus type="text" inputMode="numeric" value={simplifiedInput} onChange={e => setSimplifiedInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleKeyDown} style={wholeFieldStyle} />
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                          <input autoFocus type="text" inputMode="numeric" value={simplifiedInput} onChange={e => setSimplifiedInput(e.target.value.replace(/[^0-9-]/g, ''))} onKeyDown={handleKeyDown} style={fracFieldStyle} />
-                          <div style={{ width: 110, height: 3, background: '#333333', borderRadius: 2 }} />
-                          <input type="text" inputMode="numeric" value={simplifiedDenInput} onChange={e => setSimplifiedDenInput(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown} style={fracFieldStyle} />
-                        </div>
-                      )}
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', fontFamily: '"Press Start 2P", monospace', textShadow: '1px 1px 4px rgba(0,0,0,0.7)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.5, maxWidth: 330, padding: '6px 14px', border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333333', animation: 'finalAnswerPulse 1.6s ease-in-out infinite' }}>Final Answer</span>
-                      {finalAnswerParticles()}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {createPortal(
-        <>
-          {bubbles && (['b1', 'b2']).map(key => {
-            const b = bubbles[key];
-            if (!b) return null;
-            return (
-              <div key={key} ref={key === 'b1' ? bubble1Ref : bubble2Ref} style={{
-                position: 'fixed', left: b.left, top: b.top, width: 48, height: 48,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                zIndex: 9999, pointerEvents: 'none', opacity: b.opacity, transition: 'opacity 0.3s ease',
-              }}>
-                <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite', pointerEvents: 'none' }} />
-                <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '0 0 6px rgba(0,0,0,0.9)', fontFamily: '"Press Start 2P", monospace' }}>{d}</span>
-              </div>
-            );
-          })}
-          {dBubble && (
-            <div ref={dBubbleRef} style={{ position: 'fixed', left: dBubble.x, top: dBubble.y, width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, pointerEvents: 'none', opacity: dBubble.opacity, transition: 'opacity 0.3s ease' }}>
-              <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite' }} />
-              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '0 0 6px rgba(0,0,0,0.9)', fontFamily: '"Press Start 2P", monospace' }}>{d}</span>
-            </div>
-          )}
-        </>,
-        document.body
-      )}
-
-      {circleDetected && nVisible && (
-        <SolveButtonRow
-          label={!finalAnswerVisible ? 'Cast Spell' : 'Check'}
-          onConfirm={!finalAnswerVisible ? checkCombine : checkSimplify}
-          confirmEnabled={!finalAnswerVisible ? !!magicN : (checkButtonReady && (isWhole ? !!simplifiedInput : !!(simplifiedInput && simplifiedDenInput)))}
-          onHint={onRequestHint ? () => onRequestHint(
-            !finalAnswerVisible ? `${n1} ${operator} ${n2} = ?` : `Simplify ${rawResult}/${d}.`
-          ) : undefined}
-        />
-      )}
-    </div>
-  );
-};
 
 // Node positions for the "mixed similar" route's own magic circle
 // (SimilarMagicCircleMixed.png — has an extra W notch vs. the plain
@@ -1624,7 +1247,7 @@ const NODE_POS = {
 //   problem         – full problem object
 //   onForgeComplete – ({ imp1: {n,d}, imp2: {n,d} }) called when both fractions are done
 // ─────────────────────────────────────────────────────────────────────────────
-const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onRequestHint, onUseHint, onGestureStart, guidesPaused = false, onBusyChange }) => {
+const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onUseHint, onGestureStart, guidesPaused = false, onBusyChange }) => {
   const [showHint, setShowHint] = useState(true);
   const [gestureDone, setGestureDone] = useState(false);
   const [fracIndex, setFracIndex] = useState(0);
@@ -3815,13 +3438,14 @@ const HybridIslandGame = ({
   const feedbackClickableTimeoutRef = useRef(null);
   const [currentHint,    setCurrentHint]    = useState('');
   const [enemyAttacking, setEnemyAttacking] = useState(false);
-  const [gameOver,       setGameOver]       = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   // Opens by itself only on level 1, until it's been finished or skipped once (Help still opens it)
   const [showTutorial, setShowTutorial] = useState(() => shouldAutoShowTutorial('Hybrid', studentId, gameSession.level));
   // Intro Phase (player VERSUS enemy) plays first; the music, tutorial and timers start after it
   const [introDone, setIntroDone] = useState(false);
 
+  // The last few problems shown, so the next one is never a repeat (RECENT_PROBLEM_MEMORY)
+  const recentProblemKeys = useRef([]);
   const [problem,          setProblem]          = useState(() => generateProblem());
   // Bumped every time a new problem is generated — used as a React `key` on
   // whichever stage component is mounted so back-to-back rounds that land on
@@ -4105,10 +3729,25 @@ const HybridIslandGame = ({
   // ── helpers ──
   // Different-denominator problems whose improper result needs more shards than the gem game can show are re-rolled
   // (see HYBRID_MAX_SHARDS). Same-denominator problems use the mixed-native carry and are unaffected.
+  // Also re-rolled: a subtraction whose answer is 0 (e.g. 1 1/2 − 1 1/2), and any of the last few
+  // problems shown (only for the first 200 tries, so a re-roll can never get stuck).
   function generateProblem() {
+    const recent = recentProblemKeys.current;
     let p, tries = 0;
-    do { p = generateProblemOnce(); tries += 1; } while (!withinShardLimit(p) && tries < 300);
+    do { p = generateProblemOnce(); tries += 1; }
+    while ((!withinShardLimit(p) || isZeroAnswer(p) || (tries < 200 && recent.includes(hybridProblemKey(p)))) && tries < 300);
+    recent.push(hybridProblemKey(p));
+    while (recent.length > RECENT_PROBLEM_MEMORY) recent.shift();
     return p;
+  }
+  function hybridProblemKey(p) {
+    return `${p.whole1}-${p.numerator1}-${p.denominator1}-${p.operator}-${p.whole2}-${p.numerator2}-${p.denominator2}`;
+  }
+  function isZeroAnswer(p) {
+    if (p.operator !== '-') return false;
+    const imp1 = p.whole1 * p.denominator1 + p.numerator1;
+    const imp2 = p.whole2 * p.denominator2 + p.numerator2;
+    return imp1 * p.denominator2 === imp2 * p.denominator1;
   }
   function withinShardLimit(p) {
     if (p.denominator1 === p.denominator2) return true;
@@ -4392,8 +4031,9 @@ const HybridIslandGame = ({
     });
 
     if (newEnemyLives <= 0) {
-      await saveGameEnd('COMPLETED', true);
-      triggerDefeat('enemy', () => onGameEnd({ isWon: true, score: newScore }));
+      // Defeat plays right away; the session is saved while it runs, before the result pop-up
+      // (same as Similar/Dissimilar — waiting on the server first delayed the animation).
+      triggerDefeat('enemy', async () => { await saveGameEnd('COMPLETED', true); onGameEnd({ isWon: true, score: newScore }); });
       return;
     }
 
@@ -4470,8 +4110,7 @@ const HybridIslandGame = ({
     });
 
     if (newLives <= 0) {
-      await saveGameEnd('FAILED', false);
-      triggerDefeat('player', () => onGameEnd({ isWon: false, score }));
+      triggerDefeat('player', async () => { await saveGameEnd('FAILED', false); onGameEnd({ isWon: false, score }); });
     } else {
       const resolveFeedback = () => {
         feedbackTimeoutRef.current = null;
@@ -4524,9 +4163,9 @@ const HybridIslandGame = ({
     || !uiVisible || !!feedback || bgShift !== null  // answer submitted: attack, feedback, next problem sliding in
     || fireball !== null || defeatTarget !== null
     || animHeld;                                     // header hint sliding in
-  const sessionEnded = gameOver || enemyLives <= 0 || playerHealth <= 0;
+  const sessionEnded = enemyLives <= 0 || playerHealth <= 0;
   // Enter = the main action button (Cast Spell / Confirm / Check …), when nothing else is in the way
-  useEnterToConfirm(introDone && !showTutorial && !showSettings && !feedback && !gameOver);
+  useEnterToConfirm(introDone && !showTutorial && !showSettings && !feedback);
   const sessionRunning = introDone && !showTutorial && !showSettings && !sessionEnded && !animating;
   const solveRunning = sessionRunning && answeredRound !== roundKey;
   // getMs() on these gives the exact time for saving.
@@ -4829,7 +4468,7 @@ const HybridIslandGame = ({
                 }}>
                   {corners('#703737')}
                   {stage === 'forge' ? (
-                    <ForgeCircleStage key={`forge-${roundKey}`} problem={problem} onBusyChange={setStageBusy} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onUseHint={handleUseHint} onGestureStart={() => setGestureActive(true)} guidesPaused={showTutorial || showSettings || !!feedback || gameOver} />
+                    <ForgeCircleStage key={`forge-${roundKey}`} problem={problem} onBusyChange={setStageBusy} onForgeComplete={handleForgeComplete} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onUseHint={handleUseHint} onGestureStart={() => setGestureActive(true)} guidesPaused={showTutorial || showSettings || !!feedback} />
                   ) : stage === 'butterfly' ? (
                     <ButterflyCircleStage
                       key={`butterfly-${roundKey}`}
@@ -4841,13 +4480,13 @@ const HybridIslandGame = ({
                       onRequestHint={setCurrentHint}
                       onUseHint={handleUseHint}
                       onGestureStart={() => setGestureActive(true)}
-                      guidesPaused={showTutorial || showSettings || !!feedback || gameOver}
+                      guidesPaused={showTutorial || showSettings || !!feedback}
                       onSdSolvedChange={setSdSolved}
                       onEnlargeChange={handleEnlargeChange}
                       panelScale={panelBig ? bigScale : 1}
                     />
                   ) : (
-                    <MixedSimilarCircleStage key={`mixed-${roundKey}`} problem={problem} onBusyChange={setStageBusy} onAnswerSubmit={handleAnswerSubmit} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onUseHint={handleUseHint} onGestureStart={() => setGestureActive(true)} guidesPaused={showTutorial || showSettings || !!feedback || gameOver} />
+                    <MixedSimilarCircleStage key={`mixed-${roundKey}`} problem={problem} onBusyChange={setStageBusy} onAnswerSubmit={handleAnswerSubmit} onWrongAnswer={handleWrongAnswer} onRequestHint={setCurrentHint} onUseHint={handleUseHint} onGestureStart={() => setGestureActive(true)} guidesPaused={showTutorial || showSettings || !!feedback} />
                   )}
                 </div>
               </div>
@@ -5027,34 +4666,6 @@ const HybridIslandGame = ({
 
       {showTutorial && introDone && <HybridFractionTutorial onComplete={() => { markTutorialSeen('Hybrid', studentId); setShowTutorial(false); }} />}
 
-      {/* Game Over */}
-      {gameOver && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          backgroundImage: 'url(/PostMatchBackground.jpg)',
-          backgroundSize: 'cover', backgroundPosition: 'center',
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: '12px',
-          fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        }}>
-          <div style={{
-            position: 'relative', background: '#e8d5b4',
-            border: '4px solid #703737', borderRadius: '12px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
-            padding: '36px 56px 28px', textAlign: 'center',
-          }}>
-            <div style={{ position: 'absolute', top: 8, right: 8, bottom: 8, left: 8, border: '1px solid #703737', borderRadius: '6px', pointerEvents: 'none' }} />
-            <h1 style={{ fontSize: 'clamp(2.5em, 6vw, 5em)', fontWeight: 900, margin: 0, color: '#ef4444', textShadow: '0 0 20px rgba(0,0,0,0.6), 2px 2px 6px rgba(0,0,0,0.8)', letterSpacing: '6px', textTransform: 'uppercase' }}>DEFEAT!</h1>
-            <p style={{ fontSize: 'clamp(1em, 2vw, 1.3em)', color: '#333', margin: '36px 0 0', fontWeight: 500 }}>You ran out of hearts!</p>
-            <p style={{ fontSize: 'clamp(1.1em, 2vw, 1.6em)', color: '#333', margin: '12px 0 0', fontWeight: 700 }}>Score: {score}</p>
-          </div>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-            <button onClick={onExitToLobby} style={{ padding: '12px 28px', fontSize: '15px', fontWeight: 700, background: 'rgba(40,40,40,0.8)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '10px', cursor: 'pointer', backdropFilter: 'blur(10px)' }}>
-              Return to Island Selection
-            </button>
-          </div>
-        </div>
-      )}
 
       {showSettings && (
         <SettingsPage

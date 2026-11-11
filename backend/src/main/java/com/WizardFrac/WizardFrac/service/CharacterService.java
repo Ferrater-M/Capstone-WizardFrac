@@ -53,10 +53,4 @@ public class CharacterService {
         }
         return Optional.empty();
     }
-
-    // Create/seed characters (for initialization)
-    public Character createCharacter(String name, String description, String imageUrl, String rarity) {
-        Character character = new Character(name, description, imageUrl, rarity);
-        return characterRepository.save(character);
-    }
 }

@@ -6,7 +6,6 @@ import com.WizardFrac.WizardFrac.dto.SpellAttemptDTO;
 import com.WizardFrac.WizardFrac.dto.DiagnosticsDTO;
 import com.WizardFrac.WizardFrac.dto.GameplayHistoryDTO;
 import com.WizardFrac.WizardFrac.dto.StageStarsDTO;
-import com.WizardFrac.WizardFrac.dto.LeaderboardEntryDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -465,48 +464,6 @@ public class GameProgressService {
 
     public int getXpForNextLevel(int totalScore) {
         return xpRequiredForLevel(getLevel(totalScore));
-    }
-
-    // Rank every student who has played (has a GameProgress row) by total score, all-time
-    public List<LeaderboardEntryDTO> getLeaderboard() {
-        List<GameProgress> all = gameProgressRepository.findAll();
-        all.sort((a, b) -> b.getTotalScore() - a.getTotalScore());
-
-        List<LeaderboardEntryDTO> result = new ArrayList<>();
-        int rank = 0;
-        for (GameProgress p : all) {
-            if (p.getStudent() == null) continue;
-            rank++;
-            int score = p.getTotalScore();
-            result.add(new LeaderboardEntryDTO(
-                rank,
-                p.getStudent().getId(),
-                p.getStudent().getNickname(),
-                score,
-                getLevel(score),
-                getWizardRank(score),
-                getTopIslandLabel(p)
-            ));
-        }
-        return result;
-    }
-
-    // Which island a student has progressed furthest in, for the leaderboard subtitle
-    private String getTopIslandLabel(GameProgress p) {
-        int similar = p.getSimilarIslandMaxStage();
-        int dissimilar = p.getDissimilarIslandMaxStage();
-        int hybrid = p.getHybridIslandMaxStage();
-
-        if (similar == 0 && dissimilar == 0 && hybrid == 0) {
-            return "New wizard";
-        }
-        if (hybrid >= similar && hybrid >= dissimilar) {
-            return "Mixed fractions";
-        }
-        if (dissimilar >= similar) {
-            return "Dissimilar";
-        }
-        return "Similar";
     }
 
     // Cumulative player title based on total score across all islands/sessions

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import GameEndPopup from './components/GameEndPopup';
 import SparkleTrails from './components/SparkleTrails';
 import { countEnemiesPerIsland } from './utils/islandStages';
@@ -9,13 +9,28 @@ import MainPage from './pages/MainPage';
 import LandingPage from './pages/login';
 import CharacterSelection from './pages/character-selection';
 import GameLobby from './pages/game-lobby';
-import SimilarIslandGame from './pages/SimilarIslandGame';
-import DissimilarIslandGame from './pages/DissimilarIslandGame';
-import HybridIslandGame from './pages/HybridIslandGame';
-import StudentDashboard from './pages/StudentDashboard';
+// The battles and the dashboard are the heaviest screens (the dashboard carries the PDF
+// and chart code), so their code downloads on its own instead of with the Title Page.
+// Their stylesheets still load up front, in the same order as before: other screens
+// share some of these rules (e.g. the lobby's sparkleSpin lives in game.css).
+import './components/IntroPhase.css';
+import './pages/game.css';
+import './pages/StudentDashboard.css';
 import { getMasterVolume } from './utils/audio';
 import { API_BASE_URL } from './config';
 import { getAuthToken, setAuthToken, setAuthExpiredHandler } from './utils/authFetch';
+
+const loadSimilarIsland    = () => import('./pages/SimilarIslandGame');
+const loadDissimilarIsland = () => import('./pages/DissimilarIslandGame');
+const loadHybridIsland     = () => import('./pages/HybridIslandGame');
+const loadDashboard        = () => import('./pages/StudentDashboard');
+const SimilarIslandGame    = lazy(loadSimilarIsland);
+const DissimilarIslandGame = lazy(loadDissimilarIsland);
+const HybridIslandGame     = lazy(loadHybridIsland);
+const StudentDashboard     = lazy(loadDashboard);
+
+// Shown only if a lazy screen is opened before its code has arrived (rare: they preload).
+const ScreenFallback = () => <div style={{ position: 'fixed', inset: 0, background: '#000' }} />;
 
 // Screens with the title music. The Title Page itself ('/') is silent; the music starts at the login.
 const LOBBY_PATHS = ['/login', '/character-selection', '/game-lobby'];
@@ -60,7 +75,7 @@ function App() {
   const [gameSession, setGameSession] = useState(null);
   const [gameResult, setGameResult] = useState(null);
   const [lobbyKey, setLobbyKey] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted] = useState(false);
   const audioRef = useRef(null);
   const endActionLocked = useRef(false);
   const [endError, setEndError] = useState('');
@@ -181,13 +196,6 @@ function App() {
     if (!isMuted) playMainTheme();
   };
 
-  const toggleMute = () => {
-    if (!audioRef.current) return;
-    const volume = isMuted ? getMasterVolume() * MUSIC_VOLUME : 0;
-    audioRef.current.volume = volume;
-    if (islandAudioRef.current) islandAudioRef.current.volume = volume;
-    setIsMuted(m => !m);
-  };
 
   // Live-update the currently playing background music when the Master
   // Volume slider on the Settings page moves, without waiting for a reload.
@@ -347,79 +355,94 @@ function App() {
     }
   };
 
+  // Once the player is past the Title Page, fetch the battle and dashboard code in the
+  // background, so entering an island or the dashboard never waits on a download.
+  const preloadedRef = useRef(false);
+  useEffect(() => {
+    if (preloadedRef.current || location.pathname === '/') return;
+    preloadedRef.current = true;
+    const preload = () => {
+      [loadSimilarIsland, loadDissimilarIsland, loadHybridIsland, loadDashboard].forEach(load => load().catch(() => {}));
+    };
+    if ('requestIdleCallback' in window) window.requestIdleCallback(preload, { timeout: 3000 });
+    else setTimeout(preload, 1000);
+  }, [location.pathname]);
+
   return (
     <div className="app">
       {/* Trails behind every moving blue sparkle, on every screen */}
       <SparkleTrails />
-      <Routes>
-        <Route path="/" element={<MainPage onStart={() => navigate('/login')} onMasterVolumeChanged={handleMasterVolumeChanged} />} />
+      <Suspense fallback={<ScreenFallback />}>
+        <Routes>
+          <Route path="/" element={<MainPage onStart={() => navigate('/login')} onMasterVolumeChanged={handleMasterVolumeChanged} />} />
 
-        <Route path="/login" element={<LandingPage onLoginSuccess={handleLogin} onBack={() => navigate('/')} />} />
+          <Route path="/login" element={<LandingPage onLoginSuccess={handleLogin} onBack={() => navigate('/')} />} />
 
-        <Route path="/character-selection" element={
-          studentId
-            ? <CharacterSelection studentId={studentId} onCharacterSelected={handleCharacterSelected} onBack={handleReturnToLogin} onMasterVolumeChanged={handleMasterVolumeChanged} />
-            : <Navigate to="/login" replace />
-        } />
+          <Route path="/character-selection" element={
+            studentId
+              ? <CharacterSelection studentId={studentId} onCharacterSelected={handleCharacterSelected} onBack={handleReturnToLogin} onMasterVolumeChanged={handleMasterVolumeChanged} />
+              : <Navigate to="/login" replace />
+          } />
 
-        <Route path="/game-lobby" element={
-          studentId
-            ? <GameLobby
-                key={lobbyKey}
-                studentId={studentId}
-                studentNickname={studentNickname}
-                selectedCharacter={selectedCharacter}
-                onGameStart={handleGameStart}
-                onOpenDashboard={handleOpenDashboard}
-                onEnterIslandInterior={pauseMusic}
-                onLeaveIslandInterior={resumeMusic}
-                onIslandInteriorLoaded={playIslandTheme}
-                onLogout={handleReturnToLogin}
-                onNicknameChanged={handleNicknameChanged}
-                onMasterVolumeChanged={handleMasterVolumeChanged}
-              />
-            : <Navigate to="/login" replace />
-        } />
+          <Route path="/game-lobby" element={
+            studentId
+              ? <GameLobby
+                  key={lobbyKey}
+                  studentId={studentId}
+                  studentNickname={studentNickname}
+                  selectedCharacter={selectedCharacter}
+                  onGameStart={handleGameStart}
+                  onOpenDashboard={handleOpenDashboard}
+                  onEnterIslandInterior={pauseMusic}
+                  onLeaveIslandInterior={resumeMusic}
+                  onIslandInteriorLoaded={playIslandTheme}
+                  onLogout={handleReturnToLogin}
+                  onNicknameChanged={handleNicknameChanged}
+                  onMasterVolumeChanged={handleMasterVolumeChanged}
+                />
+              : <Navigate to="/login" replace />
+          } />
 
-        <Route path="/dashboard" element={
-          studentId
-            ? <StudentDashboard
-                studentId={studentId}
-                studentNickname={studentNickname}
-                selectedCharacter={selectedCharacter}
-                onBack={handleBackToLobbyFromDashboard}
-              />
-            : <Navigate to="/login" replace />
-        } />
+          <Route path="/dashboard" element={
+            studentId
+              ? <StudentDashboard
+                  studentId={studentId}
+                  studentNickname={studentNickname}
+                  selectedCharacter={selectedCharacter}
+                  onBack={handleBackToLobbyFromDashboard}
+                />
+              : <Navigate to="/login" replace />
+          } />
 
-        <Route path="/game" element={
-          studentId && gameSession
-            ? (
-              <>
-                {renderGame()}
-                {/* Result pop-up, inside the battle (the battle stays behind it, darkened) */}
-                {gameResult && (
-                  <GameEndPopup
-                    isWon={gameResult.isWon}
-                    score={gameResult.score}
-                    bonus={gameSession.isBoss ? 500 : 0}
-                    hasNextLevel={!!(gameResult.isWon && stageCounts[gameSession.islandType] > (gameSession.level || 1))}
-                    error={endError}
-                    onNextLevel={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleNextLevel(); }}
-                    onLobby={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleReturnToLobby(); }}
-                    onLogin={() => { if (endActionLocked.current) return; handleReturnToLogin(); }}
-                  />
-                )}
-              </>
-            )
-            : <Navigate to={studentId ? '/game-lobby' : '/login'} replace />
-        } />
+          <Route path="/game" element={
+            studentId && gameSession
+              ? (
+                <>
+                  {renderGame()}
+                  {/* Result pop-up, inside the battle (the battle stays behind it, darkened) */}
+                  {gameResult && (
+                    <GameEndPopup
+                      isWon={gameResult.isWon}
+                      score={gameResult.score}
+                      bonus={gameSession.isBoss ? 500 : 0}
+                      hasNextLevel={!!(gameResult.isWon && stageCounts[gameSession.islandType] > (gameSession.level || 1))}
+                      error={endError}
+                      onNextLevel={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleNextLevel(); }}
+                      onLobby={() => { if (endActionLocked.current) return; endActionLocked.current = true; handleReturnToLobby(); }}
+                      onLogin={() => { if (endActionLocked.current) return; handleReturnToLogin(); }}
+                    />
+                  )}
+                </>
+              )
+              : <Navigate to={studentId ? '/game-lobby' : '/login'} replace />
+          } />
 
-        {/* Old separate results page — the pop-up now lives inside the battle */}
-        <Route path="/game-end" element={<Navigate to={studentId && gameSession ? '/game' : '/game-lobby'} replace />} />
+          {/* Old separate results page — the pop-up now lives inside the battle */}
+          <Route path="/game-end" element={<Navigate to={studentId && gameSession ? '/game' : '/game-lobby'} replace />} />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
 
     </div>
   );

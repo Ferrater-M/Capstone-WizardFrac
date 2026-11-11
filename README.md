@@ -51,7 +51,6 @@ Team Code: 20
 - Step-level error tracking and diagnostic reporting
 - Character selection, lobby flow, and island progression
 - Student progress monitoring and gameplay history
-- Leaderboard and score-based progression
 
 ## Tech Stack
 

@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './MainPage.css';
+import PixelC from '../components/PixelC';
 import SettingsPage from './SettingsPage';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 
@@ -284,7 +285,6 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
 
     const isEvening   = timeOfDay === 'evening';
     const isMorning   = timeOfDay === 'morning';
-    const isAfternoon = timeOfDay === 'afternoon';
 
     // Stars only belong to the night sky
     const stars = isEvening
@@ -856,7 +856,7 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
       <div className="main-content" ref={contentRef}>
         <div className="main-title-group">
           <div className="main-title-wrap">
-            <h1 className={`main-title${introOn ? (titleIn ? ' intro-shine' : ' intro-hidden') : ''}`}>WIZARDFRAC</h1>
+            <h1 className={`main-title${introOn ? (titleIn ? ' intro-shine' : ' intro-hidden') : ''}`}>WIZARDFRA<PixelC /></h1>
             <div className="main-greeting">{GREETINGS[timeOfDay]}</div>
           </div>
           {/* Subtitle banner, same as the login page */}

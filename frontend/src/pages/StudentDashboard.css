@@ -878,6 +878,9 @@
   line-height: 2;
   margin: 2rem auto;
   max-width: 640px;
+  /* Rounded, bold error boxes on every screen (this is the last .error-message rule loaded, so it wins) */
+  border-radius: 10px;
+  font-weight: 700;
 }
 
 .empty-state {

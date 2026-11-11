@@ -90,6 +90,13 @@
     1px 1px 0 #fff,
     0 5px 0 #b35900,
     0 10px 14px rgba(0, 0, 0, 0.5);
+  /* Shadow sizes for the logo's opened C (PixelC), matching the text-shadow above */
+  --pc-white: 2px;
+  --pc-orange: 5px;
+  --pc-blur-y: 10px;
+  --pc-blur: 7px;
+  position: relative;   /* own stacking context so the C's soft shadow stays visible */
+  z-index: 0;
 }
 
 .nav-buttons {

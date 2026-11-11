@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './StudentDashboard.css';
@@ -242,7 +242,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
     try {
       const pdf = await buildPdf();
       pdf.save('wizardfrac-progress.pdf');
-    } catch (err) {
+    } catch {
       setSendStatus('error');
       setSendError('Failed to generate PDF.');
     } finally {

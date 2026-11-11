@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect, useRef } from 'react';
+import { useState, useLayoutEffect, useRef } from 'react';
 import ForgeDiagram from './ForgeDiagram';
 import MixedSimilarCircleDiagram from './MixedSimilarCircleDiagram';
 import DissimilarCircleDiagram from './DissimilarCircleDiagram';

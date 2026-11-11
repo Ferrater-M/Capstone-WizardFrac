@@ -1,4 +1,3 @@
-import React from 'react';
 
 const W = 460, H = 210;
 const leftCX = 110, rightCX = 350;
@@ -83,9 +82,6 @@ const ButterflyDiagramCanvas = ({ problem, currentStep }) => {
   // doesn't jump when the whole number disappears after conversion.
   const leftGroupLeft = isMixed ? leftCX - 45 - WHOLE_RESERVE : leftCX - 45;
   const rightGroupLeft = isMixed ? rightCX - 45 - WHOLE_RESERVE : rightCX - 45;
-
-  // Vertical center of the fraction (for whole-number alignment)
-  const fracMidY = FRAC_TOP + (BOX_H + GAP + BOX_H) / 2;
 
   return (
     <div style={{ position: 'relative', width: W, height: H, userSelect: 'none' }}>

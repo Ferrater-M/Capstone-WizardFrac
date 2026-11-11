@@ -1,4 +1,3 @@
-import React from 'react';
 
 // The battle's heart row, with half hearts: each heart shows its filled share (full, half or empty) by
 // laying the coloured heart, cut to that share from the left, over a faded grey one.

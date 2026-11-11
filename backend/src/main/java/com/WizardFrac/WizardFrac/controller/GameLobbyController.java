@@ -1,6 +1,5 @@
 package com.WizardFrac.WizardFrac.controller;
 
-import com.WizardFrac.WizardFrac.entity.GameSession;
 import com.WizardFrac.WizardFrac.service.GameLobbyService;
 import com.WizardFrac.WizardFrac.dto.GameLobbyInitDTO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,7 +8,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/game-lobby")
@@ -36,15 +34,5 @@ public class GameLobbyController {
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
-    }
-
-    // Get last active session (for session restoration - UC-1.2)
-    @GetMapping("/last-session/{studentId}")
-    public ResponseEntity<?> getLastSession(@PathVariable Long studentId) {
-        Optional<GameSession> session = gameLobbyService.getLastActiveSession(studentId);
-        if (session.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(session.get());
     }
 }

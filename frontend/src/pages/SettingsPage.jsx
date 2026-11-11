@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import GameMenuModal from '../components/GameMenuModal';
 import Toast from '../components/Toast';
 import { MASTER_VOLUME_KEY, SFX_VOLUME_KEY } from '../utils/audio';

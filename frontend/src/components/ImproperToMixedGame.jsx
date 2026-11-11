@@ -5,8 +5,6 @@ import { triggerEdgeBurst } from './EdgeBurst';
 import { triggerScreenShake } from '../utils/screenShake';
 
 const FONT = '"Press Start 2P", monospace';
-const BROWN = '#703737';
-const CREAM = '#e8d5b4';
 
 // Interactable UI inner size (400x440 box minus its 4px border). The stage can be given MORE ROOM (stageW / stageH)
 // without anything growing: the division, the jars and the shards keep their sizes and just get more area.
@@ -188,7 +186,7 @@ const ImproperToMixedGame = ({ numerator, denominator, onComplete, onWrong, onUi
     };
   }, [numerator, denominator, stageW, stageH]);
 
-  const { wholes, shardW, shardH, gemW, gemH, jarW, jarH, jarLefts, midTop, bottomTop, slotW, slotH, slots, targets } = layout;
+  const { wholes, shardW, shardH, gemW, gemH, jarW, jarH, jarLefts, midTop, bottomTop, slotW, slotH, slots } = layout;
   // The timers started when the quotient is answered run long after that render; they must read the CURRENT layout
   // (the stage may have been given more room in between), not the one they were created with.
   const layoutRef = useRef(layout);

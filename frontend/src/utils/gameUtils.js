@@ -7,8 +7,39 @@ export const getDifficultyParams = (level = 1) => ({
 
 // ── Problem builders ───────────────────────────────────────────────────────
 
+// ── No repeats ─────────────────────────────────────────────────────────────
+// How many of the most recent problems an island remembers and won't show again.
+export const RECENT_PROBLEM_MEMORY = 3;
+
+// Generates a problem that isn't one of the last few shown (recent = that island's own list of keys,
+// kept in a ref), then remembers it. Gives up after `tries` and keeps the last pick, so a very
+// small pool can never hang the game.
+export const pickFreshProblem = (generate, keyOf, recent, tries = 40) => {
+  let p = generate();
+  for (let i = 1; i < tries && recent.includes(keyOf(p)); i++) p = generate();
+  recent.push(keyOf(p));
+  while (recent.length > RECENT_PROBLEM_MEMORY) recent.shift();
+  return p;
+};
+
 export const buildProblem = (level = 1) => {
   const { minDen, maxDen, subChance } = getDifficultyParams(level);
+
+  // Level 1's pool is tiny (denominators 2-4, and every halves problem has a whole-number answer),
+  // so picking a denominator first made 1/3 + 1/3 and 2/3 + 2/3 show up about 1 time in 5 each.
+  // Here every valid level-1 problem is equally likely instead. Levels 2+ keep the original picker.
+  if (level <= 1) {
+    const op = Math.random() < subChance ? '-' : '+';
+    const pool = [];
+    for (let den = minDen; den <= maxDen; den++) {
+      for (let a = 1; a < den; a++) for (let b = 1; b < den; b++) {
+        if (op === '-' && a <= b) continue;
+        const res = op === '+' ? a + b : a - b;
+        if (res % den !== 0) pool.push(`${a}/${den} ${op} ${b}/${den} = ?`);
+      }
+    }
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
 
   // From level 2 on, some sums reach 2-3 wholes (the addends themselves are improper),
   // so students also practise turning a bigger improper fraction into a mixed number.
@@ -36,20 +67,6 @@ export const buildProblem = (level = 1) => {
     attempts++;
   } while (resNum % den === 0 && attempts < 20);
   return `${n1}/${den} ${op} ${n2}/${den} = ?`;
-};
-
-export const buildProblemDissimilar = (level = 1) => {
-  const minDen    = Math.min(2 + Math.floor((level - 1) / 2), 4);
-  const maxDen    = Math.min(3 + level * 2, 14);
-  const subChance = Math.min(0.1 + (level - 1) * 0.1, 0.6);
-  let d1 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
-  let d2 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
-  while (d2 === d1) d2 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
-  const n1 = Math.floor(Math.random() * (d1 - 1)) + 1;
-  const n2 = Math.floor(Math.random() * (d2 - 1)) + 1;
-  const op = Math.random() < subChance ? '-' : '+';
-  if (op === '-' && n1 * d2 < n2 * d1) return `${n2}/${d2} ${op} ${n1}/${d1} = ?`;
-  return `${n1}/${d1} ${op} ${n2}/${d2} = ?`;
 };
 
 // Dissimilar Island difficulty is fixed per level (the game has 4: easy, medium, hard, boss)
@@ -84,39 +101,6 @@ export const getDifficultyParamsHybrid = (level = 1) => ({
   maxWhole:  Math.min(1 + Math.floor(level / 2), 5),
   subChance: Math.min(0.1 + (level - 1) * 0.1, 0.55),
 });
-
-export const buildProblemHybrid = (level = 1) => {
-  const { minDen, maxDen, maxWhole, subChance } = getDifficultyParamsHybrid(level);
-  let d1 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
-  let d2 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
-  while (d2 === d1) d2 = Math.floor(Math.random() * (maxDen - minDen + 1)) + minDen;
-  const w1 = Math.floor(Math.random() * maxWhole) + 1;
-  const w2 = Math.floor(Math.random() * maxWhole) + 1;
-  const n1 = Math.floor(Math.random() * (d1 - 1)) + 1;
-  const n2 = Math.floor(Math.random() * (d2 - 1)) + 1;
-  const op = Math.random() < subChance ? '-' : '+';
-  if (op === '-' && w1 + n1 / d1 < w2 + n2 / d2)
-    return `${w2} ${n2}/${d2} ${op} ${w1} ${n1}/${d1} = ?`;
-  return `${w1} ${n1}/${d1} ${op} ${w2} ${n2}/${d2} = ?`;
-};
-
-// ── Shared animation timing (ms) ─────────────────────────────────────────
-export const TIMING = {
-  FIREBALL_HOLD:       800,
-  FIREBALL_ARC:        650,
-  ATTACK_TO_FIREBALL:  500,
-  MARGIN_TRANSITION:   500,
-  BG_SHIFT:            600,
-  BG_RETURN:           700,
-  INTERACTABLE_FADE:   400,
-  LEVEL_RESET_DELAY:  1500,
-  FEEDBACK_CLEAR:     4000,
-  SPARKLE_SPIN:       1200,
-  MAGIC_FLOAT_PLAYER:  3000,
-  MAGIC_FLOAT_CIRCLE:  4000,
-  BOOK_FLOAT:          6000,
-  BG_BOB:             12000,
-};
 
 // ── Feedback popup duration ──────────────────────────────────────────────
 // Starts at 6s for short messages, then grows with how much text there is to read.
