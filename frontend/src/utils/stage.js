@@ -53,7 +53,17 @@ export const skipAmbientFrame = (state, now) => {
 // The real window size, read with the browser's own getters (the patched ones say 1920×1080).
 const realSize = { w: () => document.documentElement.clientWidth, h: () => document.documentElement.clientHeight };
 
-function fit() {
+// Phones: is the keyboard up? (a box that types with the phone keyboard has the focus)
+const typing = () => {
+  if (!isTouchDevice()) return false;
+  const a = document.activeElement;
+  return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && a.getAttribute('inputmode') !== 'none';
+};
+
+function fit(force = false) {
+  // While the phone keyboard is up the window "shrinks" (Android) or its visible part does
+  // (iPhone). Keep the game exactly as it was instead of shrinking/jumping; re-fit once it closes.
+  if (!force && typing()) return;
   const w = realSize.w() || STAGE_W;
   const h = realSize.h() || STAGE_H;
   scale = Math.min(w / STAGE_W, h / STAGE_H);
@@ -111,8 +121,11 @@ export function installStage(el) {
     return new DOMRect(toX(r.left), toY(r.top), r.width / scale, r.height / scale);
   };
 
-  fit();
-  window.addEventListener('resize', fit);
-  window.addEventListener('orientationchange', fit);
-  window.visualViewport?.addEventListener('resize', fit);
+  fit(true);
+  const refit = () => fit();
+  window.addEventListener('resize', refit);
+  window.addEventListener('orientationchange', () => fit(true));
+  window.visualViewport?.addEventListener('resize', refit);
+  // Keyboard closed → fit to the (full again) screen, once it has finished sliding away
+  document.addEventListener('focusout', () => setTimeout(refit, 350));
 }

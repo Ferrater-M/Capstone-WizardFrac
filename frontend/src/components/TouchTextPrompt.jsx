@@ -10,7 +10,7 @@ import { createPortal } from 'react-dom';
 // password, email, …), a pop-up input bar opens at the very top of the screen, above the
 // keyboard, with an X on its right to close it.
 //   • What's typed there goes straight into the real box (its own checks and limits still run).
-//   • Enter (the keyboard's Go / Done / Return) closes it and does what Enter does in the real
+//   • ✓ (left of the X) or the keyboard's Return closes it and does what Enter does in the real
 //     box: submits the login form, saves the nickname, …
 //   • X, tapping outside, or the phone hiding its keyboard just closes it (the text stays).
 // Battle answer boxes are not touched: they use the battle keypad (TouchKeypad, inputmode="none").
@@ -33,6 +33,7 @@ const TouchTextPrompt = () => {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState('');
   const inputRef = useRef(null);
+  const barRef = useRef(null);
   const targetRef = useRef(null);
   const openRef = useRef(false);
 
@@ -47,9 +48,7 @@ const TouchTextPrompt = () => {
   useEffect(() => {
     // A tap on a box that needs the keyboard → open the pop-up and move the typing there. This runs
     // inside the tap itself, so the phone is allowed to bring up its keyboard for the pop-up's box.
-    const onTap = (e) => {
-      const el = e.target;
-      if (!needsKeyboard(el) || openRef.current) return;
+    const openFor = (el) => {
       const input = inputRef.current;
       if (!input) return;
       targetRef.current = el;
@@ -66,8 +65,42 @@ const TouchTextPrompt = () => {
       const end = input.value.length;
       try { input.setSelectionRange(end, end); } catch { /* email/number boxes don't support it */ }
     };
-    document.addEventListener('click', onTap, true);
-    return () => document.removeEventListener('click', onTap, true);
+    // Open as the finger lifts, and cancel the browser's own focusing of the small game box: an
+    // iPhone zooms in on any box with text under 16px, so it must never be focused.
+    let touchStart = null;
+    const onTouchStart = (e) => {
+      const t = e.touches[0];
+      touchStart = t ? { x: t.clientX, y: t.clientY, el: e.target } : null;
+    };
+    const onTouchEnd = (e) => {
+      const start = touchStart;
+      touchStart = null;
+      const el = e.target;
+      if (!start || start.el !== el || !needsKeyboard(el) || openRef.current) return;
+      const t = e.changedTouches[0];
+      if (t && Math.hypot(t.clientX - start.x, t.clientY - start.y) > 12) return;   // a swipe, not a tap
+      e.preventDefault();
+      openFor(el);
+    };
+    // Backup for taps that arrive as clicks only (e.g. desktop phone emulation)
+    const onClick = (e) => { if (needsKeyboard(e.target) && !openRef.current) openFor(e.target); };
+    document.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+    document.addEventListener('touchend', onTouchEnd, { capture: true, passive: false });
+    document.addEventListener('click', onClick, true);
+
+    // The keyboard must never push the page around. If the phone still shifts what's visible
+    // (an iPhone can slide its view up), the bar follows the top of the visible part of the screen.
+    const vv = window.visualViewport;
+    const pinBar = () => { if (barRef.current) barRef.current.style.top = `${vv ? Math.max(0, vv.offsetTop) : 0}px`; };
+    vv?.addEventListener('resize', pinBar);
+    vv?.addEventListener('scroll', pinBar);
+    return () => {
+      vv?.removeEventListener('resize', pinBar);
+      vv?.removeEventListener('scroll', pinBar);
+      document.removeEventListener('touchstart', onTouchStart, { capture: true });
+      document.removeEventListener('touchend', onTouchEnd, { capture: true });
+      document.removeEventListener('click', onClick, true);
+    };
   }, []);
 
   // Typing in the pop-up → the real box, exactly as if typed there (React's onChange runs)
@@ -80,9 +113,8 @@ const TouchTextPrompt = () => {
     input.value = el.value;            // the box may refuse/trim characters: show what it kept
   };
 
-  const onKeyDown = (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
+  // ✓ button or the keyboard's Return: close, then do what Enter does in the real box
+  const confirm = () => {
     const el = targetRef.current;
     close();
     if (!el) return;
@@ -91,17 +123,22 @@ const TouchTextPrompt = () => {
     if (!ev.defaultPrevented && el.form) el.form.requestSubmit();
   };
 
+  const onKeyDown = (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    confirm();
+  };
+
   return createPortal(
     <div id="wf-text-prompt" className={open ? 'is-open' : ''} aria-hidden={!open}>
       <div className="wf-tp-backdrop" onPointerDown={(e) => { e.preventDefault(); close(); }} />
-      <div className="wf-tp-bar">
+      <div className="wf-tp-bar" ref={barRef}>
         <label className="wf-tp-label" htmlFor="wf-tp-input">{label}</label>
         <div className="wf-tp-row">
           <input
             id="wf-tp-input"
             ref={inputRef}
             className="wf-tp-input"
-            enterKeyHint="done"
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
@@ -109,6 +146,16 @@ const TouchTextPrompt = () => {
             onKeyDown={onKeyDown}
             onBlur={close}
           />
+          <button
+            type="button"
+            className="wf-tp-close wf-tp-ok"
+            aria-label="Confirm"
+            onPointerDown={(e) => { e.preventDefault(); confirm(); }}
+          >
+            <svg viewBox="0 0 8 7" width="21" height="18" shapeRendering="crispEdges" aria-hidden="true">
+              <path fill="currentColor" d="M6 0h2v2H7v1H6v1H5v1H4v1H3v1H2V6H1V5H0V3h2v1h1V3h1V2h1V1h1z" />
+            </svg>
+          </button>
           <button
             type="button"
             className="wf-tp-close"

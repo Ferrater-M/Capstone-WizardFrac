@@ -200,6 +200,27 @@ input[data-wf-selected] {
   caret-color: transparent;
 }
 
+/* Phones (utils/device.js adds .wf-touch): no zooming and no long-press magnifier or menu.
+   pan-x pan-y = scrolling lists still work, but pinch and double-tap zoom don't. Only the typing
+   pop-up's own box can select text. */
+html.wf-touch,
+html.wf-touch body {
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;    /* no rubber-band pull of the whole page */
+}
+html.wf-touch *,
+html.wf-touch input,
+html.wf-touch textarea {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+html.wf-touch #wf-tp-input {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* Phone typing pop-up (components/TouchTextPrompt.jsx): an input bar pinned to the top of the
    real screen, above the phone keyboard, with an X on its right. Black and white, pixel style.
    While closed it's invisible but still focusable, so a tap can hand the keyboard to it at once.
