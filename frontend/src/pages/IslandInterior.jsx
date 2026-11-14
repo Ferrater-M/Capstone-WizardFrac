@@ -3,6 +3,7 @@ import './IslandInterior.css';
 import LoadingScreen from '../components/LoadingScreen';
 import { playSfx } from '../utils/audio';
 import { isTouchDevice } from '../utils/device';
+import { skipAmbientFrame } from '../utils/stage';
 
 const SQUARE  = 380;
 const P_RAD   = 18;
@@ -206,7 +207,9 @@ const PixelSky = ({ src }) => {
     });
 
     let frame = 0, last = performance.now();
+    const ambient = {};
     const draw = (now) => {
+      if (skipAmbientFrame(ambient, now)) { frame = requestAnimationFrame(draw); return; }   // phones: 30 fps
       const dt = Math.min(50, now - last); last = now;
       const lw = low.width, lh = low.height;
       lctx.imageSmoothingEnabled = true;

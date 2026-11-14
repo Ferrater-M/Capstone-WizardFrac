@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { getCanvasRatio, skipAmbientFrame } from '../utils/stage';
 
 // Background layer from the title page (MainPage.jsx): the four island magic circles spin in place at the
 // screen sides while random pixel fractions float upward, with white lightning chaining between them.
@@ -83,7 +84,7 @@ const MagicFloatLayer = ({ opacity = 0.55 }) => {
 
     let w = 0, h = 0;
     const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = getCanvasRatio();   // the screen's real detail, not ×3 of a canvas shown shrunk
       w = window.innerWidth;
       h = window.innerHeight;
       canvas.width = Math.round(w * dpr);
@@ -183,7 +184,9 @@ const MagicFloatLayer = ({ opacity = 0.55 }) => {
 
     let last = performance.now();
     let frame = 0;
+    const ambient = {};
     const tick = now => {
+      if (skipAmbientFrame(ambient, now)) { frame = requestAnimationFrame(tick); return; }   // phones: 30 fps
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       ctx.clearRect(0, 0, w, h);

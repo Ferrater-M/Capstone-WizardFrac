@@ -33,6 +33,23 @@ let offY = 0;
 
 export const getStageEl = () => stageEl || document.body;
 
+// How many real screen pixels one stage pixel covers. Full-screen canvases use this as their
+// resolution: a 1920×1080 canvas on a phone is shown much smaller, so drawing it at the phone's
+// full pixel density (×3 on an iPhone) wastes most of the work and heats the phone up.
+// Never below 1 (keeps canvases crisp on desktops), never above 2.
+export const getCanvasRatio = () => Math.min(2, Math.max(1, (window.devicePixelRatio || 1) * scale));
+
+// Phones and tablets: the always-running background animations (skies, stars, drifting
+// clouds/fractions) draw at 30 frames a second instead of 60. They're slow drifts, so it looks
+// the same, and the phone does half the work. Use: if (skipAmbientFrame(state, now)) return;
+const AMBIENT_MS = isTouchDevice() ? 1000 / 30 : 0;
+export const skipAmbientFrame = (state, now) => {
+  if (!AMBIENT_MS) return false;
+  if (now - (state.last || 0) < AMBIENT_MS - 2) return true;
+  state.last = now;
+  return false;
+};
+
 // The real window size, read with the browser's own getters (the patched ones say 1920×1080).
 const realSize = { w: () => document.documentElement.clientWidth, h: () => document.documentElement.clientHeight };
 

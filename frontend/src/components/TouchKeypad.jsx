@@ -132,8 +132,14 @@ const TouchKeypad = () => {
   useEffect(() => {
     let frame;
     let last = '';
-    const tick = () => {
+    let nextLook = 0;
+    const tick = (now = performance.now()) => {
       frame = requestAnimationFrame(tick);
+      // While hidden, look for answer boxes ~8 times a second instead of every frame (lighter on phones)
+      if (!last) {
+        if (now < nextLook) return;
+        nextLook = now + 120;
+      }
       const fields = document.querySelector(BLOCKERS) ? [] : findFields();
       fieldsRef.current = fields;
       const card = document.querySelector('[data-tutorial="interactable"]');

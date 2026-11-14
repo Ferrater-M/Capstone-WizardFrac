@@ -3,6 +3,7 @@ import './MainPage.css';
 import PixelC from '../components/PixelC';
 import SettingsPage from './SettingsPage';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
+import { getCanvasRatio, skipAmbientFrame } from '../utils/stage';
 
 const ABOUT_SECTIONS = [
   {
@@ -390,9 +391,15 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
       ctx.restore();
     }
 
+    const ambient = {};
     const draw = () => {
+      // Phones: 30 frames a second (utils/stage.js); everything moves by elapsed time, so same speed
+      if (skipAmbientFrame(ambient, performance.now())) { frameRef.current = requestAnimationFrame(draw); return; }
       const w = canvas.width, h = canvas.height;
       ctx.clearRect(0, 0, w, h);
+      const nowT = performance.now();
+      const step = Math.min(3, (nowT - (lastCloudT || nowT)) / (1000 / 60));   // same speed on any screen
+      lastCloudT = nowT;
 
       // Sky: dark storm at night, pale grey-blue gloom in the morning,
       // bright blue in the afternoon
@@ -422,16 +429,16 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
         gg.addColorStop(1, 'rgba(50, 80, 200, 0)');
         ctx.fillStyle = gg;
         ctx.fillRect(0, 0, w, h);
-        lt.glowA = Math.max(0, lt.glowA - 0.007);
+        lt.glowA = Math.max(0, lt.glowA - 0.007 * step);
       }
 
       // Stars (evening only, below cloud layer)
       stars.forEach(p => {
-        p.alpha += p.twinkleSpeed * p.twinkleDir;
+        p.alpha += p.twinkleSpeed * p.twinkleDir * step;
         if (p.alpha > 0.35)  { p.alpha = 0.35; p.twinkleDir = -1; }
         if (p.alpha < 0.04)  { p.alpha = 0.04; p.twinkleDir =  1; }
-        p.x = (p.x + p.vx + 1) % 1;
-        p.y = (p.y + p.vy + 1) % 1;
+        p.x = (p.x + p.vx * step + 1) % 1;
+        p.y = (p.y + p.vy * step + 1) % 1;
         if (p.y < 0.30) return;
         ctx.save();
         ctx.globalAlpha = p.alpha;
@@ -443,9 +450,6 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
       });
 
       // Pixel cloud layer (far to near), behind the rain
-      const nowT = performance.now();
-      const step = Math.min(3, (nowT - (lastCloudT || nowT)) / (1000 / 60));   // same speed on any screen
-      lastCloudT = nowT;
       pixelClouds.forEach(c => {
         c.x += c.speed * step;
         if (c.x > 1.25) { c.x = -0.25; c.y = Math.random() * 0.95; }
@@ -456,8 +460,8 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
       if (isEvening) {
         const SLANT = 0.30;
         rain.forEach(r => {
-          r.y += r.speed;
-          r.x += r.speed * SLANT;
+          r.y += r.speed * step;
+          r.x += r.speed * SLANT * step;
           if (r.y > 1.05) { r.y = -r.len - 0.02; r.x = Math.random(); }
           if (r.x > 1.08) { r.x = Math.random() - 0.1; }
           ctx.save();
@@ -567,7 +571,7 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
       textBox = contentRef.current?.getBoundingClientRect() ?? null;
     };
     const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = getCanvasRatio();   // the screen's real detail, not ×3 of a canvas shown shrunk
       w = window.innerWidth;
       h = window.innerHeight;
       canvas.width  = Math.round(w * dpr);
@@ -692,7 +696,9 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
     };
 
     let last = performance.now();
+    const ambientFx = {};
     const tick = now => {
+      if (skipAmbientFrame(ambientFx, now)) { fxFrame = requestAnimationFrame(tick); return; }
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       ctx.clearRect(0, 0, w, h);

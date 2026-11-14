@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { getCanvasRatio } from '../utils/stage';
 
 // Every blue sparkle (OtherEffects/BlueSparkle.png) that travels across the screen — the island
 // selection's star, the numbers flying to their places in battle, the gem game's shards — leaves a
@@ -9,6 +10,7 @@ const EDGE = [104, 136, 216];   // its deeper blue edge
 const LIFE_MS = 480;            // how long a trail piece lasts
 const STEP_PX = 5;              // spacing between trail pieces along the path
 const MIN_MOVE = 1.5;           // px per frame before it counts as moving (spinning wobble stays below this)
+const IDLE_LOOK_MS = 100;       // with no sparkle around, look for new ones only this often (not every frame)
 
 const isShown = (el) => {
   if (el.checkVisibility) return el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
@@ -26,9 +28,12 @@ const SparkleTrails = () => {
     const last = new WeakMap();   // sparkle element → its centre last frame
     let pieces = [];
     let frame = 0;
+    let sparklesSeen = false;     // any sparkle on screen last time we looked
+    let nextIdleLook = 0;
+    let canvasDirty = false;      // something is drawn and will need clearing
 
     const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = getCanvasRatio();   // the screen's real detail, not ×3 of a canvas shown shrunk
       canvas.width = Math.round(window.innerWidth * dpr);
       canvas.height = Math.round(window.innerHeight * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -37,8 +42,16 @@ const SparkleTrails = () => {
     window.addEventListener('resize', resize);
 
     const tick = (now) => {
+      frame = requestAnimationFrame(tick);
+      // Nothing to follow and nothing left to fade: rest, and only peek for new sparkles now and then
+      if (!sparklesSeen && !pieces.length && !canvasDirty) {
+        if (now < nextIdleLook) return;
+        nextIdleLook = now + IDLE_LOOK_MS;
+      }
       // 1. Follow every visible sparkle and drop trail pieces along the way it moved
-      document.querySelectorAll('img[src*="BlueSparkle"]').forEach((el) => {
+      const sparkles = document.querySelectorAll('img[src*="BlueSparkle"]');
+      sparklesSeen = sparkles.length > 0;
+      sparkles.forEach((el) => {
         const r = el.getBoundingClientRect();
         if (!r.width || !isShown(el)) { last.delete(el); return; }
         const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
@@ -63,8 +76,10 @@ const SparkleTrails = () => {
       });
 
       // 2. Draw: each piece is a pixel square that shrinks and fades from pale blue to deep blue
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
       pieces = pieces.filter(p => now - p.born < LIFE_MS);
+      if (!pieces.length && !canvasDirty) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvasDirty = pieces.length > 0;
       for (const p of pieces) {
         const k = (now - p.born) / LIFE_MS;          // 0 new → 1 gone
         const c = CORE.map((v, i) => Math.round(v + (EDGE[i] - v) * k));
@@ -74,7 +89,6 @@ const SparkleTrails = () => {
         ctx.fillRect(Math.round(p.x - s / 2), Math.round(p.y - s / 2), s, s);
       }
       ctx.globalAlpha = 1;
-      frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
 

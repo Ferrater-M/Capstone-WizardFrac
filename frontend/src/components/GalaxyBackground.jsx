@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { skipAmbientFrame } from '../utils/stage';
 
 // The animated galaxy behind the island selection screen (nebulae, drifting pixel clouds, twinkling stars,
 // shooting stars), drawn on a full-screen canvas. Shared by the island selection screen, the login and the dashboard.
@@ -127,10 +128,19 @@ const GalaxyBackground = ({ pixelClouds = false }) => {
         color: i < 3 ? 'rgba(180,130,255,1)' : 'rgba(60,20,120,1)',
       }));
 
+      const ambient = {};
       const draw = () => {
+        // Phones: 30 frames a second (utils/stage.js); everything moves by elapsed time, so same speed
+        if (skipAmbientFrame(ambient, performance.now())) {
+          if (animating) galaxyFrameRef.current = requestAnimationFrame(draw);
+          return;
+        }
         const w = canvas.width;
         const h = canvas.height;
         ctx.clearRect(0, 0, w, h);
+        const nowT = performance.now();
+        const step = Math.min(3, (nowT - (lastT || nowT)) / (1000 / 60));   // same speed on any screen
+        lastT = nowT;
 
         NEBULAE.forEach(n => {
           const gx = n.cx * w, gy = n.cy * h, gr = n.r * Math.max(w, h);
@@ -143,9 +153,6 @@ const GalaxyBackground = ({ pixelClouds = false }) => {
           ctx.fill();
         });
 
-        const nowT = performance.now();
-        const step = Math.min(3, (nowT - (lastT || nowT)) / (1000 / 60));   // same speed on any screen
-        lastT = nowT;
         pixClouds.forEach(c => {
           c.x += c.speed * step;
           if (c.x > 1.25) { c.x = -0.25; c.y = Math.random() * 0.95; }
@@ -153,14 +160,14 @@ const GalaxyBackground = ({ pixelClouds = false }) => {
         });
 
         clouds.forEach(cloud => {
-          cloud.x += cloud.vx;
+          cloud.x += cloud.vx * step;
           if (cloud.x > 1.25) cloud.x = -0.25;
           if (cloud.x < -0.25) cloud.x = 1.25;
           drawCloud(cloud.x * w, cloud.y * h, cloud.scale, cloud.alpha, cloud.color);
         });
 
         dust.forEach(p => {
-          p.alpha += p.twinkleSpeed * p.twinkleDir;
+          p.alpha += p.twinkleSpeed * p.twinkleDir * step;
           if (p.alpha > 0.28) { p.alpha = 0.28; p.twinkleDir = -1; }
           if (p.alpha < 0.02) { p.alpha = 0.02; p.twinkleDir = 1; }
           const px = p.x * w, py = p.y * h;
@@ -174,11 +181,11 @@ const GalaxyBackground = ({ pixelClouds = false }) => {
         });
 
         stars.forEach(p => {
-          p.alpha += p.twinkleSpeed * p.twinkleDir;
+          p.alpha += p.twinkleSpeed * p.twinkleDir * step;
           if (p.alpha > 1)   { p.alpha = 1;   p.twinkleDir = -1; }
           if (p.alpha < 0.2) { p.alpha = 0.2; p.twinkleDir = 1; }
-          p.x = (p.x + p.vx + 1) % 1;
-          p.y = (p.y + p.vy + 1) % 1;
+          p.x = (p.x + p.vx * step + 1) % 1;
+          p.y = (p.y + p.vy * step + 1) % 1;
           ctx.save();
           ctx.globalAlpha = p.alpha;
           ctx.fillStyle = p.color;
@@ -216,10 +223,10 @@ const GalaxyBackground = ({ pixelClouds = false }) => {
         for (let i = shootingStars.length - 1; i >= 0; i--) {
           const s = shootingStars[i];
           s.tail.unshift({ x: s.x, y: s.y });
-          if (s.tail.length > s.tailLen) s.tail.pop();
-          s.x += s.vx;
-          s.y += s.vy;
-          s.alpha -= 0.013;
+          while (s.tail.length > Math.max(2, Math.round(s.tailLen / step))) s.tail.pop();   // same tail length at 30 fps
+          s.x += s.vx * step;
+          s.y += s.vy * step;
+          s.alpha -= 0.013 * step;
           if (s.x > 1.1 || s.y > 1.1 || s.alpha <= 0) {
             shootingStars.splice(i, 1);
             continue;
