@@ -1,319 +1,84 @@
-import { useState, useLayoutEffect, useRef } from 'react';
-import ForgeDiagram from './ForgeDiagram';
-import MixedSimilarCircleDiagram from './MixedSimilarCircleDiagram';
-import DissimilarCircleDiagram from './DissimilarCircleDiagram';
+import TutorialOverlay from './TutorialOverlay';
 
-const BROWN = '#703737';
-const CREAM = '#e8d5b4';
-const DARK  = '#1a0f0f';
-const PAD   = 10; // spotlight padding around target
+// Slides with `video` show a screen recording of that gesture (public/TutorialVideos/Hybrid/...).
+// Slides with `targetId` only point at where to look, so they spotlight that element instead.
+const V = (name) => `/TutorialVideos/Hybrid/${name}.mp4`;
 
-// `diagram` is null (no visual) or { type, step }. `type` is 'forge' (see
-// ForgeDiagram, steps 1-4), 'mixedSimilar' (see MixedSimilarCircleDiagram,
-// steps 1-3), or 'dissimilar' (see DissimilarCircleDiagram, steps 1-6).
-//
-// The two routes below are NOT alternate ways to solve the same problem —
-// each problem takes exactly one, decided purely by whether its two
-// denominators already match (mirrors the `stage` logic in
-// HybridIslandGame.jsx): matching denominators skip Forge entirely and go
-// straight to MixedSimilarCircleStage, since forging a mixed number never
-// changes its denominator. Different denominators go through Forge first,
-// which always lands on ButterflyCircleStage afterward (forging can't make
-// two different denominators match).
 const slides = [
   {
-    targetId: null,
-    diagram: null,
     title: 'HYBRID ISLAND',
-    body: "Hybrid problems mix whole numbers into your fractions — mixed numbers, like 1 1/2. First check the denominators (the bottom numbers):\n\n• Already the same? Combine directly, no conversion needed.\n• Different? Forge each one into an improper fraction first, then cross-multiply the Dissimilar way.",
+    body: 'Hybrid problems use MIXED NUMBERS — a whole number plus a fraction, like 1 1/2.\n\nFirst look at the bottom numbers (denominators):\n• The SAME? Draw a circle.\n• DIFFERENT? Draw a triangle and forge them first.',
   },
   {
     targetId: 'problem-box',
-    diagram: null,
     title: 'READ YOUR PROBLEM',
-    body: 'Look at YOUR problem here. Each side is a mixed number — a whole number plus a fraction, like 1 1/2.',
+    body: 'Your problem appears here. Check: are the bottom numbers the same or different?',
   },
   {
     targetId: 'interactable',
-    diagram: { type: 'mixedSimilar', step: 1 },
-    title: 'SAME DENOMINATORS — DRAW A CIRCLE',
-    body: "If both denominators already match, draw a circle to begin. There's nothing to forge — the shared denominator appears on its own.",
+    title: 'YOUR SPELL BOX',
+    body: 'This is where you cast your spells. Every step happens inside this box.',
+  },
+  // ── Same bottom numbers ──
+  {
+    video: V('01-draw-circle'),
+    title: 'SAME BOTTOMS — DRAW A CIRCLE',
+    body: 'If both bottom numbers are the same, draw a circle inside the spell box.\n\nThe bottom number lands in the circle.',
   },
   {
-    targetId: 'interactable',
-    diagram: { type: 'mixedSimilar', step: 3 },
-    title: 'COMBINE THE WHOLE AND TOP NUMBERS',
-    body: "Add (or subtract) the two whole numbers in one box, and the two numerators in the other, then press Cast Spell.\n\nDemo: 1 + 1 = 2 (whole), 1 + 2 = 3 (numerator)\n\nIf the numerator ends up equal to or bigger than the denominator, you'll simplify it next — drag it onto the whole number, then reduce if it can go further.",
+    video: V('02-combine'),
+    title: 'COMBINE WHOLES AND TOPS',
+    body: 'Add or subtract the two whole numbers in one box, and the two top numbers in the other. Then press Cast Spell.\n\nExample: 1 1/5 + 1 2/5 → wholes 2, tops 3',
   },
   {
-    targetId: 'interactable',
-    diagram: { type: 'forge', step: 1 },
-    title: 'DIFFERENT DENOMINATORS — FORGE FIRST',
-    body: 'If the denominators differ, draw a triangle to forge a mixed number into an improper fraction. You do this once for each side, starting with the left.',
+    video: V('03-final-answer'),
+    title: 'FINAL ANSWER',
+    body: 'Type your final answer and press Check to hit the enemy!\n\nExample: 2 3/5',
   },
   {
-    targetId: 'interactable',
-    diagram: { type: 'forge', step: 2 },
+    video: V('04-jar-game'),
+    title: 'TOO MANY PIECES? THE JAR GAME',
+    body: 'If the top number ends up the same as or bigger than the bottom number:\n\n1. Type how many times the bottom fits into the top, then press Check.\n2. The gem shatters! Drag the shards into the jars.\n3. Press Confirm.\n\nThe new full jars join your whole number!\n\nExample: 2 7/5 → 3 2/5',
+  },
+  // ── Different bottom numbers ──
+  {
+    video: V('05-draw-triangle'),
+    title: 'DIFFERENT BOTTOMS — DRAW A TRIANGLE',
+    body: 'If the bottom numbers are different, draw a triangle inside the spell box.\n\nNow you forge each mixed number into a top-heavy (improper) fraction, starting with the left one.',
+  },
+  {
+    video: V('06-forge-multiply'),
     title: 'FORGE — MULTIPLY',
-    body: 'Drag the denominator onto the whole number to multiply them. Type the product, then press Forge.\n\nDemo: 1 × 2 = 2',
+    body: 'Drag the bottom number onto the whole number. Type what they make when multiplied, then press Forge.\n\nExample: 1 1/2 → 1 × 2 = 2',
   },
   {
-    targetId: 'interactable',
-    diagram: { type: 'forge', step: 3 },
+    video: V('07-forge-add'),
     title: 'FORGE — ADD',
-    body: "Drag that product onto the numerator to add them. Type the sum, then press Forge — that's your improper fraction! Press Next Fraction and repeat for the other side.\n\nDemo: 2 + 1 = 3",
+    body: 'Drag that answer onto the top number. Type the sum, then press Forge.\n\nExample: 2 + 1 = 3 → 3/2',
   },
   {
-    targetId: 'interactable',
-    diagram: { type: 'dissimilar', step: 2 },
-    title: 'AFTER FORGING — CROSS MULTIPLY',
-    body: 'Once both sides are improper fractions, their denominators are guaranteed to differ — so you always finish it the Butterfly way, just like Dissimilar Island: draw the ∞ symbol, then drag pieces to cross-multiply, combine, and simplify.',
+    video: V('08-forge-second'),
+    title: 'FORGE THE OTHER SIDE',
+    body: 'Press Next Fraction and forge the right side the same way. Then press Start Solving.\n\nExample: 1 1/3 → 4/3',
   },
   {
-    targetId: 'interactable',
-    diagram: null,
-    title: 'CAST THE SPELL!',
-    body: 'Type your final answer — a whole number, a fraction, or both, depending on what survived simplifying.\n\nPress Cast Spell (or Check) to deal damage!',
+    video: V('09-butterfly'),
+    title: 'FINISH WITH THE BUTTERFLY',
+    body: 'Draw the ∞ symbol and solve it just like Dissimilar Island: multiply the wings, multiply the bottoms, press Confirm, combine, then Cast Spell!\n\nExample: 3/2 + 4/3 → 17/6 → 2 5/6',
   },
   {
-    targetId: null,
-    diagram: null,
+    video: V('10-simplify'),
+    title: 'SIMPLIFY IT!',
+    body: 'If you see "Can be simplified!", your answer is right but can be made smaller. Divide the top and bottom by the same number and try again.\n\nType the simplest answer on your first try to get a PERFECT!\n\nExample: 2 4/6 → 2 2/3',
+  },
+  {
     title: '⚠ ABOUT THE HINT',
-    body: 'A Hint button appears after you draw the shape.\n\nIf you use it, the formula will be shown — but your answer will NOT be fully recorded and your score for that problem will be reduced.\n\nTry to solve it on your own first!',
+    body: 'A Hint button appears after you draw the shape.\n\nIf you use it, you only get a small part of the points for that step.\n\nTry to solve it on your own first!',
     isWarning: true,
     isLast: true,
   },
 ];
 
-const PixelBtn = ({ onClick, disabled, primary, children }) => (
-  <button onClick={onClick} disabled={disabled} style={{
-    position: 'relative',
-    padding: '10px 20px',
-    background: disabled ? '#4a2a2a' : primary ? BROWN : CREAM,
-    border: `3px solid ${BROWN}`,
-    color: disabled ? '#6b4040' : primary ? CREAM : BROWN,
-    fontFamily: '"Press Start 2P", monospace',
-    fontSize: 11,
-    fontWeight: 700,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    borderRadius: 0,
-    whiteSpace: 'nowrap',
-  }}>
-    {children}
-  </button>
-);
-
-const HybridFractionTutorial = ({ onComplete }) => {
-  const [index, setIndex] = useState(0);
-  const [targetRect, setTargetRect] = useState(null);
-  const tooltipRef = useRef(null);
-  const [tooltipPos, setTooltipPos] = useState({ left: 0, top: 0 });
-  const [arrowSide, setArrowSide] = useState('top'); // which side the arrow is on
-  // 'in' = first appearance (same pop-in as the Menu popup), 'next'/'prev' = which
-  // way the card slides when paging between steps.
-  const [direction, setDirection] = useState('in');
-
-  const slide = slides[index];
-  const total = slides.length;
-
-  // Measure target element position
-  useLayoutEffect(() => {
-    if (!slide.targetId) {
-      setTargetRect(null);
-      return;
-    }
-    const el = document.querySelector(`[data-tutorial="${slide.targetId}"]`);
-    if (el) {
-      setTargetRect(el.getBoundingClientRect());
-    } else {
-      setTargetRect(null);
-    }
-  }, [index, slide.targetId]);
-
-  // Position tooltip near the target
-  useLayoutEffect(() => {
-    if (!targetRect || !tooltipRef.current) return;
-    const tt = tooltipRef.current.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    const spaceBelow = vh - (targetRect.bottom + PAD);
-    const spaceAbove = targetRect.top - PAD;
-    const spaceRight = vw - (targetRect.right + PAD);
-
-    let left = targetRect.left + targetRect.width / 2 - tt.width / 2;
-    let top;
-    let side;
-
-    if (spaceBelow >= tt.height + 20) {
-      // place below target
-      top  = targetRect.bottom + PAD + 16;
-      side = 'top';
-    } else if (spaceAbove >= tt.height + 20) {
-      // place above target
-      top  = targetRect.top - PAD - tt.height - 16;
-      side = 'bottom';
-    } else if (spaceRight >= tt.width + 20) {
-      // place right of target
-      left = targetRect.right + PAD + 16;
-      top  = targetRect.top + targetRect.height / 2 - tt.height / 2;
-      side = 'left';
-    } else {
-      // place left of target
-      left = targetRect.left - PAD - tt.width - 16;
-      top  = targetRect.top + targetRect.height / 2 - tt.height / 2;
-      side = 'right';
-    }
-
-    // Clamp to viewport
-    left = Math.max(8, Math.min(vw - tt.width - 8, left));
-    top  = Math.max(8, Math.min(vh - tt.height - 8, top));
-
-    setTooltipPos({ left, top });
-    setArrowSide(side);
-  }, [targetRect]);
-
-  const next = () => { if (index < total - 1) { setDirection('next'); setIndex(i => i + 1); } else onComplete(); };
-  const prev = () => { if (index > 0) { setDirection('prev'); setIndex(i => i - 1); } };
-
-  // Arrow pointing toward the target
-  const arrowStyle = (side) => {
-    const base = {
-      position: 'absolute',
-      width: 0, height: 0,
-      border: '10px solid transparent',
-    };
-    const color = BROWN;
-    switch (side) {
-      case 'top':    return { ...base, top: -20, left: '50%', transform: 'translateX(-50%)', borderBottomColor: color };
-      case 'bottom': return { ...base, bottom: -20, left: '50%', transform: 'translateX(-50%)', borderTopColor: color };
-      case 'left':   return { ...base, left: -20, top: '50%', transform: 'translateY(-50%)', borderRightColor: color };
-      case 'right':  return { ...base, right: -20, top: '50%', transform: 'translateY(-50%)', borderLeftColor: color };
-      default:       return base;
-    }
-  };
-
-  return (
-    <>
-      {/* Same ease-in pop the in-game Menu popup uses (settingsModalIn), plus a
-          left/right slide when paging with Next/Back. */}
-      <style>{`
-        @keyframes tutModalIn {
-          from { opacity: 0; transform: translateY(12px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes tutSlideInNext {
-          from { opacity: 0; transform: translateX(48px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes tutSlideInPrev {
-          from { opacity: 0; transform: translateX(-48px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
-
-      {/* Spotlight overlays */}
-      {targetRect ? (
-        <>
-          <div style={{ position:'fixed', top:0, left:0, right:0, height: Math.max(0, targetRect.top - PAD), background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
-          <div style={{ position:'fixed', top: targetRect.bottom + PAD, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
-          <div style={{ position:'fixed', top: targetRect.top - PAD, left:0, width: Math.max(0, targetRect.left - PAD), height: targetRect.height + PAD*2, background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
-          <div style={{ position:'fixed', top: targetRect.top - PAD, left: targetRect.right + PAD, right:0, height: targetRect.height + PAD*2, background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
-          {/* Highlight border around target */}
-          <div style={{ position:'fixed', top: targetRect.top - PAD, left: targetRect.left - PAD, width: targetRect.width + PAD*2, height: targetRect.height + PAD*2, border:`3px solid #fbbf24`, boxShadow:'0 0 0 2px #fbbf2488, 0 0 20px 4px #fbbf2466', zIndex:2000, pointerEvents:'none' }} />
-        </>
-      ) : (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.78)', zIndex:1999, pointerEvents:'none' }} />
-      )}
-
-      {/* Tooltip callout — outer div handles fixed positioning/centering only,
-          so the pop-in/slide animation's own `transform` (on the inner card)
-          never clobbers the `translate(-50%,-50%)` centering transform. */}
-      <div
-        ref={tooltipRef}
-        style={{
-          position: 'fixed',
-          left: targetRect ? tooltipPos.left : '50%',
-          top:  targetRect ? tooltipPos.top  : '50%',
-          transform: targetRect ? 'none' : 'translate(-50%,-50%)',
-          zIndex: 20001,
-        }}
-      >
-      <div
-        key={index}
-        style={{
-          position: 'relative',
-          width: 720,
-          maxWidth: '94vw',
-          background: CREAM,
-          border: `4px solid ${BROWN}`,
-          fontFamily: '"Press Start 2P", monospace',
-          animation: `${direction === 'next' ? 'tutSlideInNext' : direction === 'prev' ? 'tutSlideInPrev' : 'tutModalIn'} 0.25s ease both`,
-        }}
-      >
-        {/* Arrow pointing toward target */}
-        {targetRect && <div style={arrowStyle(arrowSide)} />}
-
-        {/* Inner border decoration */}
-        <div style={{ position:'absolute', inset:5, border:`1px solid ${BROWN}`, pointerEvents:'none' }} />
-        {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i)=>(
-          <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:12, height:12, background:BROWN,
-            ...(t!==null?{top:t}:{bottom:-6}), ...(l!==null?{left:l}:{right:-6}) }}/>
-        ))}
-
-        {/* Header */}
-        <div style={{ background: slide.isWarning ? '#7f1d1d' : BROWN, padding:'10px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <span style={{ fontSize:12, color:CREAM, letterSpacing:1 }}>{slide.title}</span>
-          <button onClick={onComplete} style={{ fontSize:10, color:CREAM, background:'transparent', border:`1px solid ${CREAM}`, padding:'4px 9px', fontFamily:'"Press Start 2P", monospace', cursor:'pointer' }}>SKIP</button>
-        </div>
-
-        {/* Gameplay-accurate diagram(s) */}
-        {slide.diagram?.type === 'forge' && (
-          <div style={{ background: DARK, borderBottom:`3px solid ${BROWN}`, display:'flex', justifyContent:'center', alignItems:'center', padding:'12px 8px', overflowX:'auto' }}>
-            <ForgeDiagram step={slide.diagram.step} width={220} />
-          </div>
-        )}
-        {slide.diagram?.type === 'mixedSimilar' && (
-          <div style={{ background: DARK, borderBottom:`3px solid ${BROWN}`, display:'flex', justifyContent:'center', alignItems:'center', padding:'12px 8px', overflowX:'auto' }}>
-            <MixedSimilarCircleDiagram step={slide.diagram.step} width={220} />
-          </div>
-        )}
-        {slide.diagram?.type === 'dissimilar' && (
-          <div style={{ background: DARK, borderBottom:`3px solid ${BROWN}`, display:'flex', justifyContent:'center', alignItems:'center', padding:'14px 8px 10px', overflowX:'auto' }}>
-            <DissimilarCircleDiagram step={slide.diagram.step} width={280} />
-          </div>
-        )}
-
-        {/* Body */}
-        <div style={{ padding:'16px 16px 12px', fontSize:13, color: DARK, lineHeight:1.7, whiteSpace:'pre-line' }}>
-          {slide.isWarning ? (
-            <>
-              {slide.body.split('\n\n').map((para, i) => (
-                <p key={i} style={{ margin: i === 0 ? '0 0 10px' : '0 0 10px', color: i === 1 ? '#b91c1c' : DARK, fontWeight: i === 1 ? 700 : 400 }}>
-                  {para}
-                </p>
-              ))}
-            </>
-          ) : slide.body}
-        </div>
-
-        {/* Footer */}
-        <div style={{ padding:'10px 14px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', borderTop:`2px solid ${BROWN}` }}>
-          {/* Dot indicators */}
-          <div style={{ display:'flex', gap:5 }}>
-            {slides.map((_,i)=>(
-              <div key={i} style={{ width: i===index?14:7, height:7, background: i===index?BROWN:'#b09090', transition:'all 0.2s' }} />
-            ))}
-          </div>
-          <div style={{ display:'flex', gap:8 }}>
-            <PixelBtn onClick={prev} disabled={index===0}>← BACK</PixelBtn>
-            <PixelBtn onClick={next} primary>{slide.isLast ? 'PLAY! →' : 'NEXT →'}</PixelBtn>
-          </div>
-        </div>
-      </div>
-      </div>
-    </>
-  );
-};
+const HybridFractionTutorial = ({ onComplete }) => <TutorialOverlay slides={slides} onComplete={onComplete} />;
 
 export default HybridFractionTutorial;
