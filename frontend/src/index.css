@@ -14,7 +14,7 @@
 
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
-  color-scheme: light dark;
+  color-scheme: only light;   /* opts out of browsers' forced dark mode (see index.html) */
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;

@@ -1,4 +1,5 @@
 import { useState, useLayoutEffect, useRef } from 'react';
+import { guardMedia } from '../utils/lockMedia';
 
 // Shared battle-tutorial shell used by every island (SimilarFractionTutorial, ButterflyTutorial,
 // HybridFractionTutorial). Each island only supplies its slides:
@@ -36,13 +37,31 @@ const PixelBtn = ({ onClick, disabled, primary, children }) => (
 // no controls, so the player can't unmute it either.
 const forceSilent = (el) => { if (el) { el.muted = true; el.volume = 0; } };
 
+// The clip plays like part of the game: it can't be jumped forward/back (utils/lockMedia.js, which
+// also turns off the browser's / phone's own media controls), sped up or paused, and a browser
+// "Show controls" menu (right-click / long-press) can't switch its controls on. Its loop still plays.
+const locked = new WeakSet();
+const lockPlayback = (el) => {
+  if (!el || locked.has(el)) return;
+  locked.add(el);
+  el.controls = false;
+  guardMedia(el);
+  el.addEventListener('ratechange', () => { if (el.playbackRate !== 1) el.playbackRate = 1; });
+  el.addEventListener('pause', () => {
+    if (!el.ended && el.isConnected && document.visibilityState === 'visible') el.play().catch(() => {});
+  });
+  // A browser menu switching its controls on → off again at once
+  new MutationObserver(() => { if (el.controls) el.controls = false; })
+    .observe(el, { attributes: true, attributeFilter: ['controls'] });
+};
+
 // The video is drawn at its own aspect ratio (width 100%, height auto) and the card's width is
 // capped by the screen height instead (see TutorialOverlay), so it never gets black bars.
 const TutorialVideo = ({ src, onAspect }) => {
   const [missing, setMissing] = useState(false);
   if (missing && import.meta.env.PROD) return null;
   return (
-    <div style={{ background: DARK, borderBottom: `3px solid ${BROWN}`, lineHeight: 0 }}>
+    <div style={{ background: DARK, borderBottom: `3px solid ${BROWN}`, lineHeight: 0 }} onContextMenu={(e) => e.preventDefault()}>
       {missing ? (
         <div style={{
           width: '100%', aspectRatio: '16 / 9', lineHeight: 1.4,
@@ -54,10 +73,13 @@ const TutorialVideo = ({ src, onAspect }) => {
         </div>
       ) : (
         <video
-          ref={forceSilent}
+          ref={(el) => { forceSilent(el); lockPlayback(el); }}
           src={src}
           autoPlay loop muted playsInline
           disablePictureInPicture disableRemotePlayback
+          controlsList="nodownload nofullscreen noplaybackrate noremoteplayback"
+          tabIndex={-1}
+          onContextMenu={(e) => e.preventDefault()}
           onLoadedMetadata={(e) => {
             forceSilent(e.currentTarget);
             const { videoWidth: w, videoHeight: h } = e.currentTarget;
@@ -65,7 +87,8 @@ const TutorialVideo = ({ src, onAspect }) => {
           }}
           onVolumeChange={(e) => { if (!e.currentTarget.muted || e.currentTarget.volume > 0) forceSilent(e.currentTarget); }}
           onError={() => setMissing(true)}
-          style={{ display: 'block', width: '100%', height: 'auto' }}
+          // pointer-events none: nothing can be clicked, tapped or long-pressed on the clip itself
+          style={{ display: 'block', width: '100%', height: 'auto', pointerEvents: 'none' }}
         />
       )}
     </div>
