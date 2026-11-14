@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import './IslandInterior.css';
 import LoadingScreen from '../components/LoadingScreen';
 import { playSfx } from '../utils/audio';
+import { isTouchDevice } from '../utils/device';
 
 const SQUARE  = 380;
 const P_RAD   = 18;
@@ -37,9 +38,54 @@ const KEY_TO_CAP = {
   Enter: 'ENTER',
 };
 
-// Bottom-right key guide: WASD = Move, Enter = Fight. While idle the WASD caps light up in turn;
+// On a phone the guide itself is the controller: pressing a cap sends the same key a keyboard would.
+const sendKey = (type, key) => window.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true, cancelable: true }));
+
+// Small pixel arrow for the touch caps (the pixel font has no arrow letters). Points up; rotated per cap.
+const PixelArrow = ({ turn }) => (
+  <svg viewBox="0 0 7 7" width="22" height="22" shapeRendering="crispEdges" style={{ transform: `rotate(${turn}deg)` }} aria-hidden="true">
+    <path fill="currentColor" d="M3 0h1v1h1v1h1v1h1v1H5v3H2V4H0V3h1V2h1V1h1z" />
+  </svg>
+);
+const TOUCH_CAPS = { W: { key: 'ArrowUp', turn: 0 }, A: { key: 'ArrowLeft', turn: -90 }, S: { key: 'ArrowDown', turn: 180 }, D: { key: 'ArrowRight', turn: 90 } };
+
+// Phone version: arrow keys instead of WASD, no idle animation, every cap pressable, and a
+// pulsing "Control Your Character" call-out on its right.
+const TouchKeyGuide = ({ pressed, canFight }) => {
+  // Finger down = key down, finger up (or slid off / interrupted) = key up.
+  const press = (key) => ({
+    onPointerDown: (e) => { e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId); sendKey('keydown', key); },
+    onPointerUp: () => sendKey('keyup', key),
+    onPointerCancel: () => sendKey('keyup', key),
+    onLostPointerCapture: () => sendKey('keyup', key),
+    onContextMenu: (e) => e.preventDefault(),
+  });
+  const cap = (k) => (
+    <span key={k} className={`keycap is-pressable${pressed[k] ? ' is-down' : ''}`} {...press(TOUCH_CAPS[k].key)}>
+      <PixelArrow turn={TOUCH_CAPS[k].turn} />
+    </span>
+  );
+  return (
+    <div className="key-guide is-touch" aria-label="Controls: arrow buttons to move, Enter to fight">
+      <PixelCorners />
+      <div className="key-guide-group">
+        <div className="key-guide-row">{cap('W')}</div>
+        <div className="key-guide-row">{cap('A')}{cap('S')}{cap('D')}</div>
+        <span className="key-guide-label">Move</span>
+      </div>
+      <div className="key-guide-group">
+        <span className={`keycap keycap-enter is-pressable${pressed.ENTER ? ' is-down' : ''}${canFight ? ' can-fight' : ''}`} {...press('Enter')}>Enter</span>
+        <span className={`key-guide-label${canFight ? ' is-ready' : ''}`}>Fight</span>
+      </div>
+      <span className="key-guide-callout"><PixelArrow turn={-90} />Control Your Character</span>
+    </div>
+  );
+};
+
+// Bottom-left key guide: WASD = Move, Enter = Fight. While idle the WASD caps light up in turn;
 // a held key presses its cap down; Enter pulses gold while an enemy is close enough to fight.
 const KeyGuide = ({ pressed, canFight }) => {
+  if (isTouchDevice()) return <TouchKeyGuide pressed={pressed} canFight={canFight} />;
   const anyMove = pressed.W || pressed.A || pressed.S || pressed.D;
   const cap = (k, idx) => (
     <span
@@ -511,8 +557,8 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, character, paused = 
   return (
     <div style={{
       position: 'relative',
-      width: '100vw',
-      height: '100vh',
+      width: '1920px',
+      height: '1080px',
       overflow: 'hidden',
       background: '#5a6aa0',
     }}>

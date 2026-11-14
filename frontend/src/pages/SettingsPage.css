@@ -37,8 +37,8 @@
 
 .settings-modal {
   position: relative;
-  width: min(96vw, 1240px);
-  max-height: 90vh;
+  width: min(1843.2px, 1240px);
+  max-height: 972px;
   box-sizing: border-box;
   padding: 24px 32px 40px;
   border-radius: 0;
@@ -519,45 +519,4 @@
   border-color: var(--st-danger);
 }
 
-@media (max-width: 900px) {
-  .settings-layout {
-    grid-template-columns: 1fr;
-    /* Sidebar keeps its natural height; the scroll wrapper takes the rest. */
-    grid-template-rows: auto 1fr;
-  }
 
-  .settings-sidebar {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: space-between;
-  }
-
-  .settings-sidebar-avatar {
-    display: none;
-  }
-}
-
-@media (max-width: 560px) {
-  .settings-overlay {
-    padding: 10px;
-  }
-
-  .settings-modal {
-    padding: 18px;
-  }
-
-  .settings-picture-row {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .settings-nickname-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .settings-logout-card {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}

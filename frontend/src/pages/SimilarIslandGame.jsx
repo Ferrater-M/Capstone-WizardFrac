@@ -898,7 +898,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       className="wireframe-game-container"
       style={{
         position: 'relative',
-        height: '100svh',
+        height: '1080px',
         overflow: 'hidden',
         padding: '20px 20px 0',
         fontFamily: '"Press Start 2P", monospace',

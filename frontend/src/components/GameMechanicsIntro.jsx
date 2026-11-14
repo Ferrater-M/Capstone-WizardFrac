@@ -151,7 +151,7 @@ const GameMechanicsIntro = ({ onComplete }) => {
       <div style={{
         position: 'relative',
         width: 460,
-        maxWidth: '90vw',
+        maxWidth: '1728px',
         background: `linear-gradient(165deg, ${CREAM} 0%, #150a38 100%)`,
         border: '1px solid rgba(168,85,247,0.4)',
         borderRadius: 18,

@@ -202,8 +202,8 @@ const TutorialOverlay = ({ slides, onComplete }) => {
           position: 'relative',
           // A video card is as wide as its video can be while staying under 48% of the screen height,
           // so the video keeps its own shape and fills the card edge to edge.
-          width: slide.video ? `min(760px, calc(48vh * ${aspects[slide.video] ?? 16 / 9}))` : 620,
-          maxWidth: '94vw',
+          width: slide.video ? `min(760px, calc(518.4px * ${aspects[slide.video] ?? 16 / 9}))` : 620,
+          maxWidth: '1804.8px',
           background: CREAM,
           border: `4px solid ${BROWN}`,
           fontFamily: '"Press Start 2P", monospace',

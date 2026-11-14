@@ -4,6 +4,7 @@ import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
 import { createPortal } from 'react-dom';
+import { getStageEl } from '../utils/stage';
 import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
 import InputGuideCursor from '../components/InputGuideCursor';
@@ -1131,7 +1132,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
             <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'fixed', left: dArrival.x, top: dArrival.y, width: 72, height: 72, pointerEvents: 'none', zIndex: 9999, animation: 'sparkBurst 0.8s ease-out forwards' }} />
           )}
         </>,
-        document.body
+        getStageEl()
       )}
 
       {/* Idle guide for typing steps: a pulsing cursor at the bottom right of an empty input */}
@@ -1185,7 +1186,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
           ))}
           <div style={{ paddingTop: '6px' }}>Perfect!</div>
         </div>,
-        document.body
+        getStageEl()
       )}
     </div>
   );
@@ -2024,7 +2025,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onUseHint, 
       )}
 
       {/* Fixed-position overlays (flying bubbles, landing bursts, drag preview) are
-          portaled straight to document.body. They're positioned in true viewport
+          portaled straight to the stage root (getStageEl). They are positioned in stage
           coordinates (getBoundingClientRect / clientX/clientY), but this component
           sits inside an ancestor with `transform: scale(...)` (the panel's
           viewport-fit wrapper) — even at scale 1, a non-`none` transform makes that
@@ -2082,7 +2083,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onUseHint, 
             }} />
           ))}
         </>,
-        document.body
+        getStageEl()
       )}
     </div>
   );
@@ -3296,7 +3297,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
             </div>
           )}
         </>,
-        document.body
+        getStageEl()
       )}
 
       {/* Improper -> mixed conversion (gem/jar game), before simplifying. Big results use sweep-to-collect
@@ -4191,7 +4192,7 @@ const HybridIslandGame = ({
       className="wireframe-game-container"
       style={{
         position: 'relative',
-        height: '100svh', overflow: 'hidden',
+        height: '1080px', overflow: 'hidden',
         padding: '20px 20px 0', fontFamily: '"Press Start 2P", monospace', fontSize: '13px',
         display: 'flex', flexDirection: 'column', gap: '10px',
         boxSizing: 'border-box',

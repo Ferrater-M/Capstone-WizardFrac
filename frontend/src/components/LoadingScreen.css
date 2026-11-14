@@ -14,12 +14,12 @@
   flex-direction: column;
   align-items: center;
   gap: 18px;
-  width: clamp(280px, 40vw, 520px);
+  width: clamp(280px, 768px, 520px);
 }
 
 .loading-title {
   margin: 0;
-  font-size: clamp(2em, 5vw, 4em);
+  font-size: clamp(2em, 96px, 4em);
   font-weight: 900;
   letter-spacing: 8px;
   color: #f6b825;
@@ -32,7 +32,7 @@
 
 .loading-message {
   margin: 0;
-  font-size: clamp(0.75em, 1.5vw, 1em);
+  font-size: clamp(0.75em, 28.8px, 1em);
   font-weight: 700;
   letter-spacing: 4px;
   color: rgba(255, 255, 255, 0.55);

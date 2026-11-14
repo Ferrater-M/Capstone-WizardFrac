@@ -22,9 +22,6 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -76,9 +73,135 @@ img {
   user-drag: none;
 }
 
+/* The Stage: every screen is laid out at 1920×1080, then stretched to fill the window
+   (utils/stage.js sets the transform). Being transformed, it is also the frame that
+   `position: fixed` elements inside it sit in. */
+html,
+body {
+  background: #000;
+}
+
+#wf-stage {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: 0 0;
+  overflow: hidden;
+}
+
+/* Square-ish or upright window (utils/stage.js MIN_ASPECT): black screen, one pixel-font message. */
+#wf-unsupported {
+  display: none;
+}
+html.wf-unsupported #wf-stage {
+  visibility: hidden;
+}
+html.wf-unsupported #wf-unsupported {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: #000;
+  color: #fff;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(10px, 3.2vw, 24px);
+  line-height: 1.6;
+  text-align: center;
+  -webkit-font-smoothing: none;
+}
+
+/* Phone held upright (utils/stage.js): "Rotate your phone landscape" pop-up with a phone
+   turning sideways under the text. Sized to the real screen, since the stage is hidden. */
+#wf-rotate {
+  display: none;
+}
+html.wf-rotate #wf-stage {
+  visibility: hidden;
+}
+html.wf-rotate #wf-rotate {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: #000;
+}
+.wf-rotate-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  width: min(100%, 420px);
+  padding: 36px 20px 44px;
+  animation: wfRotatePop 0.35s steps(4) both;
+}
+.wf-rotate-text {
+  margin: 0;
+  color: #fff;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(12px, 4.4vw, 18px);
+  line-height: 1.8;
+  text-align: center;
+  -webkit-font-smoothing: none;
+}
+/* The phone: a chunky white pixel outline on black, turning to landscape and back */
+.wf-rotate-phone {
+  position: relative;
+  width: 64px;
+  height: 108px;
+  box-sizing: border-box;
+  border: 6px solid #fff;
+  background: #000;
+  animation: wfRotatePhone 2.4s ease-in-out infinite;
+}
+.wf-rotate-phone span {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 10px;
+  height: 6px;
+  margin-left: -5px;
+  background: #fff;             /* home button */
+}
+.wf-rotate-phone::before {
+  content: '';
+  position: absolute;
+  inset: 6px 4px 16px;
+  border: 2px solid #fff;       /* screen */
+}
+@keyframes wfRotatePhone {
+  0%, 15%   { transform: rotate(0deg); }
+  45%, 70%  { transform: rotate(-90deg); }
+  100%      { transform: rotate(0deg); }
+}
+@keyframes wfRotatePop {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wf-rotate-phone { animation: none; transform: rotate(-90deg); }
+  .wf-rotate-box { animation: none; }
+}
+
+/* Phone battle keypad (components/TouchKeypad.jsx): the answer box the keypad types into
+   glows gold, since there is no blinking cursor. */
+input[data-wf-selected] {
+  outline: 3px solid #FBBF24;
+  outline-offset: 2px;
+  box-shadow: 0 0 12px 2px rgba(251, 191, 36, 0.6);
+  caret-color: transparent;
+}
+
 #root {
   width: 100%;
-  min-height: 100svh;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -94,19 +217,12 @@ h1 {
   font-size: 56px;
   letter-spacing: -1.68px;
   margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
 }
 h2 {
   font-size: 24px;
   line-height: 118%;
   letter-spacing: -0.24px;
   margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
 }
 p {
   margin: 0;

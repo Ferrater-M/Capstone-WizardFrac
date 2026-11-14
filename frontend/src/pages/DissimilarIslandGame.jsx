@@ -1323,7 +1323,7 @@ const DissimilarIslandGame = ({
     <div
       className="wireframe-game-container"
       style={{
-        position: 'relative', height: '100svh', overflow: 'hidden',
+        position: 'relative', height: '1080px', overflow: 'hidden',
         padding: '20px 20px 0', fontFamily: '"Press Start 2P", monospace',
         fontSize: '13px', display: 'flex', flexDirection: 'column',
         gap: '10px', boxSizing: 'border-box',

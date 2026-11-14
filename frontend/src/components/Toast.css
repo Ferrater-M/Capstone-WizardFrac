@@ -39,15 +39,3 @@
   to   { transform: translateX(48px); opacity: 0; }
 }
 
-@media (max-width: 560px) {
-  .wf-toast {
-    left: 16px;
-    right: 16px;
-    top: 16px;
-    justify-content: center;
-  }
-
-  .wf-toast-message {
-    white-space: normal;
-  }
-}

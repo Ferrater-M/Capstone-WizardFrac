@@ -11,7 +11,14 @@
     <title>WizardFrac</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="wf-stage"><div id="root"></div></div>
+    <div id="wf-unsupported">Unsupported aspect ratio</div>
+    <div id="wf-rotate">
+      <div class="wf-rotate-box">
+        <p class="wf-rotate-text">Rotate your phone landscape</p>
+        <div class="wf-rotate-phone" aria-hidden="true"><span></span></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

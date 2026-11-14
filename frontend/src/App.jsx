@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import GameEndPopup from './components/GameEndPopup';
 import SparkleTrails from './components/SparkleTrails';
+import TouchKeypad from './components/TouchKeypad';
+import { isTouchDevice } from './utils/device';
 import { countEnemiesPerIsland } from './utils/islandStages';
 import { flushSync } from 'react-dom';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
@@ -18,6 +20,7 @@ import './pages/game.css';
 import './pages/StudentDashboard.css';
 import { getMasterVolume } from './utils/audio';
 import { API_BASE_URL } from './config';
+import { getStageEl } from './utils/stage';
 import { getAuthToken, setAuthToken, setAuthExpiredHandler } from './utils/authFetch';
 
 const loadSimilarIsland    = () => import('./pages/SimilarIslandGame');
@@ -127,7 +130,7 @@ function App() {
       const ox = (Math.random() - 0.5) * 18;
       const oy = (Math.random() - 0.5) * 18;
       el.style.cssText = `left:${e.clientX + ox}px;top:${e.clientY + oy}px;width:${size}px;height:${size}px;`;
-      document.body.appendChild(el);
+      getStageEl().appendChild(el);
       el.addEventListener('animationend', () => el.remove(), { once: true });
     };
     window.addEventListener('mousemove', onMove);
@@ -372,6 +375,8 @@ function App() {
     <div className="app">
       {/* Trails behind every moving blue sparkle, on every screen */}
       <SparkleTrails />
+      {/* Phones: number keypad beside the battle card while an answer box is showing */}
+      {isTouchDevice() && location.pathname === '/game' && <TouchKeypad />}
       <Suspense fallback={<ScreenFallback />}>
         <Routes>
           <Route path="/" element={<MainPage onStart={() => navigate('/login')} onMasterVolumeChanged={handleMasterVolumeChanged} />} />

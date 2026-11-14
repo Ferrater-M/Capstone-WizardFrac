@@ -2,8 +2,8 @@
 
 .main-page {
   position: relative;
-  width: 100vw;
-  height: 100vh;
+  width: 1920px;
+  height: 1080px;
   overflow: hidden;
   background: #06041a;
   display: flex;
@@ -51,7 +51,7 @@
   /* Minecraft-splash-style throb (quick size pulse) + a slower rock from side to side around 14deg */
   animation: greetPulse 0.5s ease-in-out infinite, greetRock 2.4s ease-in-out infinite;
   z-index: 1;
-  font-size: clamp(0.6em, 1.1vw, 0.85em);
+  font-size: clamp(0.6em, 21.12px, 0.85em);
   line-height: 1.4;
   color: #ffffff;
   text-shadow:
@@ -61,13 +61,6 @@
   white-space: nowrap;
 }
 
-@media (max-width: 700px) {
-  .main-greeting {
-    --greet-x: 5%;
-    --greet-y: -95%;
-    font-size: 0.5em;
-  }
-}
 
 /* Lightning screen flash overlay */
 .lightning-overlay {
@@ -127,7 +120,7 @@
   position: relative;
   width: 100%;
   max-width: 980px;
-  max-height: 88vh;
+  max-height: 950.4px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -198,7 +191,7 @@
   margin: 4px 48px 12px;
   text-align: center;
   font-family: inherit;
-  font-size: clamp(14px, 2.2vw, 22px);
+  font-size: clamp(14px, 42.24px, 22px);
   font-weight: 400;
   line-height: 1.5;
   letter-spacing: 2px;
@@ -293,28 +286,6 @@
   filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 24px rgba(168, 85, 247, 0.3));
 }
 
-@media (max-width: 760px) {
-  .about-panel {
-    max-width: 480px;
-    padding: 40px 20px 26px;
-  }
-  .about-body { overflow-y: auto; }
-  .about-scroll {
-    flex: 0 0 auto;
-    overflow-y: visible;
-  }
-  .about-text-col { padding-right: 0; }
-  .about-image-col {
-    position: static;
-    order: -1;
-    min-height: 160px;
-    margin-bottom: 8px;
-  }
-  .about-group-img {
-    max-width: 220px;
-    margin: 8px 0 0;
-  }
-}
 
 .about-sections {
   display: flex;
@@ -510,7 +481,7 @@
   margin: 0;
   font-family: 'Pixelify Sans', 'Press Start 2P', monospace;
   font-weight: 700;
-  font-size: clamp(3rem, 8vw, 6.5rem);
+  font-size: clamp(3rem, 153.6px, 6.5rem);
   white-space: nowrap;
   color: #ffcc00;
   text-transform: uppercase;
@@ -556,7 +527,7 @@
 .main-banner span {
   color: #f7ca5e;
   font-family: 'Press Start 2P', monospace;
-  font-size: clamp(0.5rem, 1vw, 0.7rem);
+  font-size: clamp(0.5rem, 19.2px, 0.7rem);
   line-height: 1.6;
   letter-spacing: 1px;
   white-space: nowrap;
@@ -568,7 +539,7 @@
 .main-start-btn {
   padding: 12px 24px;
   font-family: inherit;
-  font-size: clamp(0.9em, 1.7vw, 1.3em);
+  font-size: clamp(0.9em, 32.64px, 1.3em);
   line-height: 1.4;
   font-weight: 400;
   letter-spacing: 2px;
@@ -640,13 +611,6 @@
    narrower title would put the greeting sticker on top of the tagline, so
    give the sticker its own row. Kept after .main-title so it wins the
    cascade. */
-@media (max-width: 700px) {
-  .main-title {
-    font-size: 11vw;
-    letter-spacing: 1px;
-  }
-  .main-banner { padding: 8px 14px; }
-}
 
 /* ── Title Page intro ─────────────────────────────────────────────────────────
    Black layer over the background (under the title, which shines in above it), "Presents" text,
@@ -664,7 +628,7 @@
 
 .intro-presents {
   color: #fff;
-  font-size: clamp(14px, 2vw, 24px);
+  font-size: clamp(14px, 38.4px, 24px);
   letter-spacing: 3px;
   opacity: 0;
   animation: introPresentsIn 1s ease-out forwards;

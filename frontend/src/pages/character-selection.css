@@ -16,8 +16,8 @@
   --cs-border: #6D28D9;
   --cs-font: 'Press Start 2P', 'Outfit', 'Segoe UI', monospace;
 
-  height: 100vh;
-  height: 100dvh;
+  height: 1080px;
+  height: 1080px;
   overflow: hidden;          /* everything fits on one screen */
   background: linear-gradient(160deg, var(--cs-bg2) 0%, var(--cs-bg1) 70%);
   display: flex;
@@ -67,7 +67,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: clamp(10px, 2vh, 20px) 20px 0;
+  padding: clamp(10px, 21.6px, 20px) 20px 0;
   box-sizing: border-box;
   flex: 0 0 auto;
 }
@@ -76,7 +76,7 @@
   margin: 0 0 8px;           /* room for the 3D shadow */
   font-family: 'Pixelify Sans', 'Press Start 2P', monospace;
   font-weight: 700;
-  font-size: clamp(1.8rem, 3.6vw, 2.8rem);
+  font-size: clamp(1.8rem, 69.12px, 2.8rem);
   white-space: nowrap;
   color: #ffcc00;
   text-transform: uppercase;
@@ -109,7 +109,7 @@
 .menu-btn {
   position: relative;
   box-sizing: border-box;
-  height: clamp(42px, 6.5vh, 54px);
+  height: clamp(42px, 70.2px, 54px);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -142,7 +142,7 @@
   align-items: center;
   width: 100%;
   max-width: 1080px;
-  padding: clamp(10px, 2vh, 24px) 20px clamp(10px, 2.5vh, 28px);
+  padding: clamp(10px, 21.6px, 24px) 20px clamp(10px, 27px, 28px);
   box-sizing: border-box;
 }
 
@@ -153,8 +153,8 @@
   background-image: linear-gradient(165deg, var(--cs-panel) 0%, #170a34 100%);
   border: 4px solid var(--cs-border);
   box-shadow: 0 0 24px rgba(168, 85, 247, 0.15), 0 20px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  padding: clamp(14px, 2.4vh, 26px) 48px clamp(8px, 1.4vh, 16px);
-  margin: clamp(8px, 1.6vh, 12px) 0 clamp(12px, 2.6vh, 28px);
+  padding: clamp(14px, 25.92px, 26px) 48px clamp(8px, 15.12px, 16px);
+  margin: clamp(8px, 17.28px, 12px) 0 clamp(12px, 28.08px, 28px);
   flex: 0 0 auto;
   text-align: center;
   max-width: 100%;
@@ -187,9 +187,9 @@
 }
 
 .cs-title {
-  margin: 4px 0 clamp(4px, 1vh, 10px);
+  margin: 4px 0 clamp(4px, 10.8px, 10px);
   color: var(--cs-gold);
-  font-size: clamp(0.9em, min(2.4vw, 3.6vh), 1.8em);
+  font-size: clamp(0.9em, min(46.08px, 38.88px), 1.8em);
   font-weight: 400;
   letter-spacing: 3px;
   line-height: 1.4;
@@ -200,7 +200,7 @@
 .cs-subtitle {
   margin: 0 0 4px;
   color: var(--cs-text2);
-  font-size: clamp(0.5em, 1vw, 0.72em);
+  font-size: clamp(0.5em, 19.2px, 0.72em);
   line-height: 1.8;
   letter-spacing: 1px;
 }
@@ -212,8 +212,8 @@
   display: flex;
   justify-content: center;
   flex-wrap: nowrap;         /* both wizards always side by side */
-  gap: clamp(12px, 4vw, 40px);
-  margin-bottom: clamp(10px, 2.5vh, 30px);
+  gap: clamp(12px, 76.8px, 40px);
+  margin-bottom: clamp(10px, 27px, 30px);
   width: 100%;
   flex: 1 1 auto;            /* the cards get all the height that's left */
   min-height: 0;
@@ -230,7 +230,7 @@
   background-image: linear-gradient(165deg, var(--cs-panel) 0%, #170a34 100%);
   border: 4px solid var(--cs-border);
   border-radius: 0;
-  padding: clamp(12px, 2.2vh, 22px) clamp(12px, 1.8vw, 20px) clamp(12px, 2.5vh, 26px);
+  padding: clamp(12px, 23.76px, 22px) clamp(12px, 34.56px, 20px) clamp(12px, 27px, 26px);
   cursor: pointer;
   transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.25s ease, border-color 0.25s ease;
   box-shadow: 0 0 14px rgba(168, 85, 247, 0.18), 0 16px 36px rgba(0, 0, 0, 0.5);
@@ -335,7 +335,7 @@
 .character-divider {
   width: 100%;
   text-align: center;
-  margin: 2px 0 clamp(6px, 1.3vh, 12px);
+  margin: 2px 0 clamp(6px, 14.04px, 12px);
   color: var(--cs-glow);
   font-size: 0.6rem;
 }
@@ -354,7 +354,7 @@
   align-items: center;
   width: 100%;
   text-align: center;
-  gap: clamp(8px, 1.5vh, 14px);
+  gap: clamp(8px, 16.2px, 14px);
   flex: 0 0 auto;
 }
 
@@ -380,7 +380,7 @@
   justify-content: center;
   gap: 12px;
   box-sizing: border-box;
-  height: clamp(48px, 7.5vh, 64px);
+  height: clamp(48px, 81px, 64px);
   min-width: 0;
   width: min(420px, 100%);
   padding: 0 40px;
@@ -419,7 +419,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: clamp(10px, 2.5vh, 26px);
+  margin-top: clamp(10px, 27px, 26px);
   padding: 4px 12px;
   flex: 0 0 auto;
   color: #fff;
@@ -496,22 +496,6 @@
 }
 
 /* Small screens: the two cards stay side by side (smaller) so the page still fits without scrolling */
-@media (max-width: 768px) {
-  .characters-grid { gap: 12px; }
-
-  .character-ribbon { font-size: 0.42rem; padding: 6px 6px; gap: 4px; max-width: calc(100% - 34px); box-sizing: border-box; }
-  .character-ribbon-icon { display: none; }
-  .check-icon { width: 32px; height: 32px; font-size: 16px; border-width: 3px; }
-  .character-gender-badge { width: 30px; height: 30px; font-size: 0.95rem; top: 12px; right: 12px; }
-  .description { font-size: 0.45rem; }
-  .cs-hint { font-size: 0.45rem; padding: 4px 8px; }
-  .confirm-btn { font-size: 0.8rem; }
-
-  .cs-title-box { padding: 28px 22px 18px; }
-  .character-selection .cs-logo { font-size: 1.5rem; }
-  .nav-buttons { gap: 8px; }
-  .menu-btn { padding: 0 14px; font-size: 0.55em; }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .cs-sprite { animation: none !important; }

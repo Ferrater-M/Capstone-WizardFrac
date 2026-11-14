@@ -351,12 +351,15 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle', guidePaused = false 
         <canvas
           ref={canvasRef}
           width={380} height={340}
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
+          // Pointer events = mouse, finger and stylus alike. Only the main button / first finger draws.
+          onPointerDown={(e) => { if (e.isPrimary && e.button === 0) startDrawing(e); }}
+          onPointerMove={(e) => { if (e.isPrimary) draw(e); }}
+          onPointerUp={stopDrawing}
+          onPointerLeave={stopDrawing}
+          onPointerCancel={stopDrawing}
           onContextMenu={handleContextMenu}
-          style={{ background: 'transparent', display: 'block' }}
+          // touch-action none: a finger draws instead of scrolling/zooming the page
+          style={{ background: 'transparent', display: 'block', touchAction: 'none' }}
         />
 
         {guideOn && <DrawingGuide mode={mode} />}
