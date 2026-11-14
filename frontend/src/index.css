@@ -73,8 +73,9 @@ img {
   user-drag: none;
 }
 
-/* The Stage: every screen is laid out at 1920×1080, then stretched to fill the window
-   (utils/stage.js sets the transform). Being transformed, it is also the frame that
+/* The Stage: every screen is laid out at 1920×1080, then scaled evenly to fit the window and
+   centred (utils/stage.js sets the transform); the black page background shows as bars around it.
+   Being transformed, it is also the frame that
    `position: fixed` elements inside it sit in. */
 html,
 body {
@@ -198,6 +199,89 @@ input[data-wf-selected] {
   box-shadow: 0 0 12px 2px rgba(251, 191, 36, 0.6);
   caret-color: transparent;
 }
+
+/* Phone typing pop-up (components/TouchTextPrompt.jsx): an input bar pinned to the top of the
+   real screen, above the phone keyboard, with an X on its right. Black and white, pixel style.
+   While closed it's invisible but still focusable, so a tap can hand the keyboard to it at once.
+   Its text is 16px+ so iPhones don't zoom in on it. */
+#wf-text-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+#wf-text-prompt.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.wf-tp-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+.wf-tp-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 10px 16px 12px;
+  background: #000;
+  border-bottom: 4px solid #fff;
+  font-family: 'Press Start 2P', monospace;
+  transform: translateY(-100%);
+  transition: transform 0.22s cubic-bezier(.2, .8, .3, 1);
+}
+#wf-text-prompt.is-open .wf-tp-bar { transform: none; }
+.wf-tp-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wf-tp-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+.wf-tp-input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  background: #000;
+  color: #fff;
+  border: 3px solid #fff;
+  border-radius: 0;
+  outline: none;
+  font-family: inherit;
+  font-size: 16px;
+  caret-color: #fff;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.wf-tp-input::placeholder { color: rgba(255, 255, 255, 0.45); }
+.wf-tp-close {
+  flex: 0 0 44px;
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  color: #fff;
+  border: 3px solid #fff;
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.wf-tp-close:active { background: #fff; color: #000; }
 
 #root {
   width: 100%;

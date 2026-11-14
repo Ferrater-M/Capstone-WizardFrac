@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import GameEndPopup from './components/GameEndPopup';
 import SparkleTrails from './components/SparkleTrails';
 import TouchKeypad from './components/TouchKeypad';
+import TouchTextPrompt from './components/TouchTextPrompt';
 import { isTouchDevice } from './utils/device';
 import { countEnemiesPerIsland } from './utils/islandStages';
 import { flushSync } from 'react-dom';
@@ -377,6 +378,8 @@ function App() {
       <SparkleTrails />
       {/* Phones: number keypad beside the battle card while an answer box is showing */}
       {isTouchDevice() && location.pathname === '/game' && <TouchKeypad />}
+      {/* Phones: typing pop-up above the keyboard for name / password / email boxes */}
+      {isTouchDevice() && <TouchTextPrompt />}
       <Suspense fallback={<ScreenFallback />}>
         <Routes>
           <Route path="/" element={<MainPage onStart={() => navigate('/login')} onMasterVolumeChanged={handleMasterVolumeChanged} />} />
