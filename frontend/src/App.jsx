@@ -3,6 +3,9 @@ import GameEndPopup from './components/GameEndPopup';
 import SparkleTrails from './components/SparkleTrails';
 import TouchKeypad from './components/TouchKeypad';
 import TouchTextPrompt from './components/TouchTextPrompt';
+import LoadingScreen from './components/LoadingScreen';
+import { preloadAllAssets } from './utils/assetPreloader';
+import { useMinimumShow } from './utils/useMinimumShow';
 import { isTouchDevice } from './utils/device';
 import { countEnemiesPerIsland } from './utils/islandStages';
 import { flushSync } from 'react-dom';
@@ -34,8 +37,9 @@ const DissimilarIslandGame = lazy(loadDissimilarIsland);
 const HybridIslandGame     = lazy(loadHybridIsland);
 const StudentDashboard     = lazy(loadDashboard);
 
-// Shown only if a lazy screen is opened before its code has arrived (rare: they preload).
-const ScreenFallback = () => <div style={{ position: 'fixed', inset: 0, background: '#000' }} />;
+// Shown only if a lazy screen is opened before its code has arrived (shouldn't happen: the start-up
+// loading screen downloads it).
+const ScreenFallback = () => <LoadingScreen />;
 
 // Screens with the title music. The Title Page itself ('/') is silent; the music starts at the login.
 const LOBBY_PATHS = ['/login', '/character-selection', '/game-lobby'];
@@ -45,6 +49,21 @@ const MUSIC_VOLUME = 0.7;
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Start-up loading screen: no screen opens (and no music plays) until every picture, sound, the font
+  // and the code for every screen is on the player's device (see utils/assetPreloader.js).
+  const [assetsReady, setAssetsReady] = useState(false);
+  const [assetProgress, setAssetProgress] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    preloadAllAssets(
+      (p) => { if (alive) setAssetProgress(p); },
+      [loadSimilarIsland, loadDissimilarIsland, loadHybridIsland, loadDashboard],
+    ).then(() => { if (alive) setAssetsReady(true); });
+    return () => { alive = false; };
+  }, []);
+  // At least 1 s on screen, so the loading screen never just flashes
+  const startupDone = !useMinimumShow(!assetsReady);
 
   // No login pass = not logged in (e.g. a tab left open from before login passes existed).
   const [studentId, setStudentId] = useState(() => (getAuthToken() ? sessionStorage.getItem('studentId') : null));
@@ -169,7 +188,7 @@ function App() {
 
   // Title music on login/lobby screens (unless a level selection is open), nothing elsewhere
   useEffect(() => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || !startupDone) return;
     if (location.pathname === '/login') {
       // Every visit to the login starts the song from the beginning. Logging out from inside an island:
       // its level selection theme stops first.
@@ -184,7 +203,7 @@ function App() {
       islandAudioRef.current?.pause();   // e.g. a fight started from the level selection
       inIslandRef.current = false;
     }
-  }, [location.pathname]);
+  }, [location.pathname, startupDone]);
 
   // Entering an island: the title music stops; the level selection's theme starts once it has loaded.
   const pauseMusic = () => { inIslandRef.current = true; audioRef.current?.pause(); };
@@ -364,19 +383,6 @@ function App() {
     }
   };
 
-  // Once the player is past the Title Page, fetch the battle and dashboard code in the
-  // background, so entering an island or the dashboard never waits on a download.
-  const preloadedRef = useRef(false);
-  useEffect(() => {
-    if (preloadedRef.current || location.pathname === '/') return;
-    preloadedRef.current = true;
-    const preload = () => {
-      [loadSimilarIsland, loadDissimilarIsland, loadHybridIsland, loadDashboard].forEach(load => load().catch(() => {}));
-    };
-    if ('requestIdleCallback' in window) window.requestIdleCallback(preload, { timeout: 3000 });
-    else setTimeout(preload, 1000);
-  }, [location.pathname]);
-
   return (
     <div className="app">
       {/* Trails behind every moving blue sparkle, on every screen */}
@@ -385,7 +391,8 @@ function App() {
       {isTouchDevice() && location.pathname === '/game' && <TouchKeypad />}
       {/* Phones: typing pop-up above the keyboard for name / password / email boxes */}
       {isTouchDevice() && <TouchTextPrompt />}
-      <Suspense fallback={<ScreenFallback />}>
+      {!startupDone && <LoadingScreen message="SUMMONING MAGIC..." progress={assetProgress} />}
+      {startupDone && <Suspense fallback={<ScreenFallback />}>
         <Routes>
           <Route path="/" element={<MainPage onStart={() => navigate('/login')} onMasterVolumeChanged={handleMasterVolumeChanged} />} />
 
@@ -455,7 +462,7 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </Suspense>
+      </Suspense>}
 
     </div>
   );

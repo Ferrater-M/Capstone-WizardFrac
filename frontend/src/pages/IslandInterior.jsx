@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import './IslandInterior.css';
 import LoadingScreen from '../components/LoadingScreen';
+import { useMinimumShow } from '../utils/useMinimumShow';
 import { playSfx } from '../utils/audio';
 import { isTouchDevice } from '../utils/device';
 import { skipAmbientFrame } from '../utils/stage';
@@ -30,8 +31,6 @@ const ISLAND_KEY_MAP = {
   Dissimilar: 'dissimilarIsland',
   Hybrid:     'hybridIsland',
 };
-
-const MIN_LOADING_MS = 2000;
 
 // Arrow keys light up the matching WASD keycap in the key guide.
 const KEY_TO_CAP = {
@@ -421,7 +420,8 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, character, paused = 
   const [facing, setFacing] = useState('right');      // which way the wizard sprite looks
   const [introDone, setIntroDone] = useState(false);  // cloud fly-through finished → controls on, X marks drawn
   const [enemies, setEnemies] = useState([]); // populated from enemyData.txt
-  const [levelsLoading, setLevelsLoading] = useState(true);
+  const [levelsFetching, setLevelsLoading] = useState(true);
+  const levelsLoading = useMinimumShow(levelsFetching);   // loading screen: until the levels are read, at least 1 s
   // One sound for all the X marks together (not one per X, so it never stacks up loud), and only
   // when at least one level is beaten.
   // Tell the app once the island has finished loading, so its theme music can start (from the top)
@@ -437,20 +437,13 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, character, paused = 
     }
   }, [introDone, enemies, maxStage]);
 
-  // Load actual level values from enemyData.txt — the loading screen stays up
-  // for at least MIN_LOADING_MS even if the fetch resolves instantly, so it
-  // doesn't just flash on screen.
+  // Load actual level values from enemyData.txt — the loading screen shows only until it's read
+  // (no minimum time).
   useEffect(() => {
     let cancelled = false;
-    let timeoutId = null;
-    const startTime = Date.now();
 
     const finishLoading = () => {
-      const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, MIN_LOADING_MS - elapsed);
-      timeoutId = setTimeout(() => {
-        if (!cancelled) setLevelsLoading(false);
-      }, remaining);
+      if (!cancelled) setLevelsLoading(false);
     };
 
     const key = ISLAND_KEY_MAP[island.name];
@@ -480,10 +473,7 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, character, paused = 
       .catch(() => { if (!cancelled) setEnemies([]); })
       .finally(finishLoading);
 
-    return () => {
-      cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
-    };
+    return () => { cancelled = true; };
   }, [island.name]);
 
   const posRef   = useRef({ x: SQUARE / 2, y: SQUARE / 2 });

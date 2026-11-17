@@ -3,6 +3,7 @@ import { playSfx, getSfxVolume } from '../utils/audio';
 import { triggerScreenShake } from '../utils/screenShake';
 import './game-lobby.css';
 import LoadingScreen from '../components/LoadingScreen';
+import { useMinimumShow } from '../utils/useMinimumShow';
 import GalaxyBackground from '../components/GalaxyBackground';
 import IslandInterior from './IslandInterior';
 import GameMechanicsIntro from '../components/GameMechanicsIntro';
@@ -78,7 +79,8 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
   const [selectedIsland, setSelectedIsland] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState(1);
   const [showInterior, setShowInterior] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setLoading] = useState(true);
+  const loading = useMinimumShow(dataLoading);   // loading screen: until the data is in, at least 1 s
   const [error, setError] = useState('');
   const [character, setCharacter] = useState(selectedCharacter);
   const [islandStageCounts, setIslandStageCounts] = useState({});

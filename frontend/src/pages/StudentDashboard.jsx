@@ -3,6 +3,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './StudentDashboard.css';
 import LoadingScreen from '../components/LoadingScreen';
+import { useMinimumShow } from '../utils/useMinimumShow';
 import GalaxyBackground from '../components/GalaxyBackground';
 import MagicFloatLayer from '../components/MagicFloatLayer';
 import MasteryLineChart from '../components/MasteryLineChart';
@@ -76,7 +77,8 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
   const [diagnostics, setDiagnostics] = useState(null);
   const [progress, setProgress] = useState(null);           // same data the island selection's player card shows
   const [stageCounts, setStageCounts] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setLoading] = useState(true);
+  const loading = useMinimumShow(dataLoading);   // loading screen: until the data is in, at least 1 s
   const [error, setError] = useState('');
   const [openCard, setOpenCard] = useState(null);
 

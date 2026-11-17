@@ -12,9 +12,30 @@
     <meta name="darkreader-lock" />
     <meta name="color-scheme" content="only light" />
     <title>WizardFrac</title>
+    <!-- Animation for the loading screen below (same look as components/LoadingScreen.css) -->
+    <style>
+      .wf-boot-block { position: absolute; top: 0; left: 0; width: 25%; height: 100%; background: #7c3aed;
+        animation: wfBootColours 1.2s step-end infinite, wfBootSlide 1.6s steps(12) infinite alternate; }
+      @keyframes wfBootColours { 0% { background-color: #7c3aed; } 33.333% { background-color: #f6b825; } 66.666% { background-color: #c084fc; } }
+      @keyframes wfBootSlide { from { left: 0%; } to { left: 75%; } }
+      @keyframes wfBootPulse { 0% { color: #f6b825; } 100% { color: #ffe08a; } }
+      .wf-boot-title { animation: wfBootPulse 1.2s steps(2, jump-none) infinite; }
+    </style>
   </head>
   <body>
-    <div id="wf-stage"><div id="root"></div></div>
+    <div id="wf-stage"><div id="root">
+      <!-- Shown while the game's code downloads; React replaces it with the real loading screen
+           (components/LoadingScreen), which looks the same and carries on with the progress bar. -->
+      <div style="position:fixed;inset:0;background:#0a0618;display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:32px;width:640px;max-width:90vw;">
+          <h1 class="wf-boot-title" style="margin:0;font-size:48px;font-weight:normal;line-height:1;letter-spacing:4px;color:#f6b825;text-shadow:4px 0 0 #8a4b00,0 4px 0 #8a4b00,4px 4px 0 #8a4b00,8px 8px 0 #000;">WIZARDFRAC</h1>
+          <p style="margin:0;font-size:16px;line-height:1.5;letter-spacing:2px;color:#c9bde8;text-shadow:4px 4px 0 #000;">SUMMONING MAGIC...</p>
+          <div style="position:relative;overflow:hidden;width:100%;height:24px;background:#1c1236;border:4px solid #f6b825;box-shadow:4px 4px 0 #000,inset 0 0 0 4px #0a0618;box-sizing:content-box;">
+            <div class="wf-boot-block"></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
     <div id="wf-unsupported">Unsupported aspect ratio</div>
     <div id="wf-rotate">
       <div class="wf-rotate-box">

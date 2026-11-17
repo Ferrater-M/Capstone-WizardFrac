@@ -3,6 +3,8 @@ import { shouldAutoShowTutorial, markTutorialSeen } from '../utils/tutorialSeen'
 import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
+import LoadingScreen from '../components/LoadingScreen';
+import { useMinimumShow } from '../utils/useMinimumShow';
 import { playSfx, getSfxVolume, getMasterVolume, useVolumeSync } from '../utils/audio';
 import './game.css';
 import DrawingCanvas from '../components/DrawingCanvas';
@@ -154,6 +156,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const [envParticles, setEnvParticles] = useState([]);
   const envPidRef = useRef(0);
   const [enemyData, setEnemyData] = useState(null); // { type, level, name, hp }
+  const [enemyLoaded, setEnemyLoaded] = useState(false); // enemyData.txt read (or failed) → the battle can show
+  const battleLoading = useMinimumShow(!enemyLoaded); // loading screen: until the enemy is known, at least 1 s
   const [playerFlashing, setPlayerFlashing] = useState(false);
   const [defeatTarget, setDefeatTarget] = useState(null);
   const [defeatFading, setDefeatFading] = useState(false);
@@ -316,7 +320,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         }
         if (levelCount > 0) setTotalLevels(levelCount);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setEnemyLoaded(true));
   };
 
   useEffect(() => {
@@ -2338,7 +2343,10 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         />
       ))}
 
-      {!introDone && (
+      {/* Loading screen until this battle's enemy is known (no fixed time: it goes as soon as it's in) */}
+      {battleLoading && <LoadingScreen message="ENTERING BATTLE..." />}
+
+      {!introDone && !battleLoading && (
         <IntroPhase
           playerName={studentNickname}
           playerSprite={selectedCharacter?.name?.toLowerCase().includes('girl') ? '/PlayerAssets/witch/witchIdle.png' : '/PlayerAssets/wizard/wizardIdle.png'}

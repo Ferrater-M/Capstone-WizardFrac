@@ -1,3 +1,5 @@
+/* Pixel-art loading screen. It never has its own timing: it shows exactly as long as something is
+   still loading, and the bar only moves for real progress (see LoadingScreen.jsx). */
 .loading-screen {
   position: fixed;
   inset: 0;
@@ -6,71 +8,98 @@
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Press Start 2P', monospace;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
 }
 
 .loading-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
-  width: clamp(280px, 768px, 520px);
+  gap: 32px;
+  width: 640px;
+  max-width: 90vw;
 }
 
+/* Press Start 2P is drawn on an 8 px grid: sizes are multiples of 8 so every pixel lands sharp,
+   and the shadows are hard-edged blocks instead of soft glows. */
 .loading-title {
   margin: 0;
-  font-size: clamp(2em, 96px, 4em);
-  font-weight: 900;
-  letter-spacing: 8px;
+  font-family: inherit;
+  font-size: 48px;
+  font-weight: normal;
+  line-height: 1;
+  letter-spacing: 4px;
   color: #f6b825;
   text-shadow:
-    0 0 20px rgba(246, 184, 37, 0.8),
-    0 0 50px rgba(246, 184, 37, 0.35),
-    3px 3px 8px rgba(0, 0, 0, 0.9);
-  animation: titlePulse 2s ease-in-out infinite;
+    4px 0 0 #8a4b00,
+    0 4px 0 #8a4b00,
+    4px 4px 0 #8a4b00,
+    8px 8px 0 #000;
+  animation: titlePulse 1.2s steps(2, jump-none) infinite;
 }
 
 .loading-message {
   margin: 0;
-  font-size: clamp(0.75em, 28.8px, 1em);
-  font-weight: 700;
-  letter-spacing: 4px;
-  color: rgba(255, 255, 255, 0.55);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: 2px;
+  color: #c9bde8;
+  text-shadow: 4px 4px 0 #000;
+  text-align: center;
 }
 
+/* Square, chunky bar */
 .loading-bar-track {
+  position: relative;
   width: 100%;
-  height: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(246, 184, 37, 0.3);
-  border-radius: 999px;
+  height: 24px;
+  background: #1c1236;
+  border: 4px solid #f6b825;
+  box-shadow: 4px 4px 0 #000, inset 0 0 0 4px #0a0618;
   overflow: hidden;
+  image-rendering: pixelated;
 }
 
 .loading-bar-fill {
   height: 100%;
   width: 0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #7c3aed, #f6b825, #c084fc);
-  background-size: 200% 100%;
+  /* one solid colour that switches between the colour scheme */
+  background: #7c3aed;
+  animation: barColours 1.2s step-end infinite;
+}
+
+/* Real progress: the width comes from the component */
+.loading-bar-fill--real {
+  transition: width 0.2s steps(4, end);
+}
+
+/* Waiting on something with no measurable size (e.g. the server): a block slides back and forth.
+   It doesn't fill up, so it never pretends to finish early or late. */
+.loading-bar-fill--waiting {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 25%;
   animation:
-    barGrow 2.8s cubic-bezier(0.25, 0.8, 0.4, 1) forwards,
-    shimmer 1.4s linear infinite;
+    barColours 1.2s step-end infinite,
+    barSlide 1.6s steps(12) infinite alternate;
 }
 
-@keyframes barGrow {
-  0%   { width: 0%; }
-  60%  { width: 80%; }
-  85%  { width: 92%; }
-  100% { width: 97%; }
+@keyframes barColours {
+  0%      { background-color: #7c3aed; }
+  33.333% { background-color: #f6b825; }
+  66.666% { background-color: #c084fc; }
 }
 
-@keyframes shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+@keyframes barSlide {
+  from { left: 0%; }
+  to   { left: 75%; }
 }
 
 @keyframes titlePulse {
-  0%, 100% { text-shadow: 0 0 20px rgba(246,184,37,0.8), 0 0 50px rgba(246,184,37,0.35), 3px 3px 8px rgba(0,0,0,0.9); }
-  50%       { text-shadow: 0 0 35px rgba(246,184,37,1),   0 0 80px rgba(246,184,37,0.6),  3px 3px 8px rgba(0,0,0,0.9); }
+  0%   { color: #f6b825; }
+  100% { color: #ffe08a; }
 }

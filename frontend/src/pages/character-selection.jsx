@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import './character-selection.css';
 import PixelC from '../components/PixelC';
 import LoadingScreen from '../components/LoadingScreen';
+import { useMinimumShow } from '../utils/useMinimumShow';
 import GalaxyBackground from '../components/GalaxyBackground';
 import MagicFloatLayer from '../components/MagicFloatLayer';
 import SettingsPage from './SettingsPage';
@@ -71,7 +72,8 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack, onMasterVo
   const [showVolume, setShowVolume] = useState(false);   // the Title Page's volume pop-up
   const [characters, setCharacters] = useState([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setLoading] = useState(true);
+  const loading = useMinimumShow(dataLoading);   // loading screen: until the data is in, at least 1 s
   const [error, setError] = useState('');
 
   useEffect(() => {

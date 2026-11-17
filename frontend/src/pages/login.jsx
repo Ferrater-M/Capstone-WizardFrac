@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './login.css';
 import PixelC from '../components/PixelC';
 import GalaxyBackground from '../components/GalaxyBackground';
 import { API_BASE_URL } from '../config';
+import LoadingScreen from '../components/LoadingScreen';
 
 const API_BASE = API_BASE_URL;
 
@@ -20,6 +21,20 @@ const PixelCorners = ({ color = 'var(--gl-border)', edge = -6 }) => (
   </>
 );
 
+// Logging in normally takes a moment, so the buttons just say "..." while it waits. But if the
+// server was asleep (Render, free plan) the first request can take 30 s or more: after SLOW_MS the
+// full loading screen comes up so the child knows the game is working on it.
+const SLOW_MS = 2000;
+const useSlowWait = (waiting) => {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!waiting) return undefined;
+    const t = setTimeout(() => setSlow(true), SLOW_MS);
+    return () => { clearTimeout(t); setSlow(false); };
+  }, [waiting]);
+  return waiting && slow;
+};
+
 const LandingPage = ({ onLoginSuccess, onBack }) => {
   const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +43,7 @@ const LandingPage = ({ onLoginSuccess, onBack }) => {
   const [resetSent, setResetSent] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const slowWait = useSlowWait(loading);
   // 'form' | 'claim' (unclaimed nickname — offer to claim it) |
   // 'set-password' (claiming: choose a password) | 'password' (claimed nickname — log in) |
   // 'forgot' (password reset by email)
@@ -121,15 +137,23 @@ const LandingPage = ({ onLoginSuccess, onBack }) => {
     if (!password) { setError('Please enter your password.'); return; }
     setError('');
     setLoading(true);
-    const { ok, data } = await loginRequest(password);
-    if (ok) onLoginSuccess(data);
-    else setError(data.error || 'Incorrect password.');
-    setLoading(false);
+    try {
+      const { ok, data } = await loginRequest(password);
+      if (ok) onLoginSuccess(data);
+      else setError(data.error || 'Incorrect password.');
+    } catch (err) {
+      // No connection: say so and free the buttons (it used to stay stuck on "...")
+      setError('Connection error. Make sure the backend server is running.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="login-container">
       <GalaxyBackground pixelClouds />
+      {slowWait && <LoadingScreen message="WAKING UP THE WIZARDS..." />}
 
       {/* Top Left Logo */}
       <div className="logo-area">
