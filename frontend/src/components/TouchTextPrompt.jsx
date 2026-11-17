@@ -10,9 +10,10 @@ import { createPortal } from 'react-dom';
 // password, email, …), a pop-up input bar opens at the very top of the screen, above the
 // keyboard, with an X on its right to close it.
 //   • What's typed there goes straight into the real box (its own checks and limits still run).
-//   • ✓ (left of the X) or the keyboard's Return closes it and does what Enter does in the real
-//     box: submits the login form, saves the nickname, …
-//   • X, tapping outside, or the phone hiding its keyboard just closes it (the text stays).
+//   • ✓ (left of the X) or the keyboard's Return just closes it and keeps the text. It never presses
+//     a button by itself (the player presses Join / Save / … on the page when ready).
+//   • X clears what was typed (in the real box too) and closes it.
+//   • Tapping outside, or the phone hiding its keyboard, just closes it (the text stays).
 // Battle answer boxes are not touched: they use the battle keypad (TouchKeypad, inputmode="none").
 // The pop-up lives outside the game stage, so it's sized to the real phone screen.
 
@@ -113,14 +114,15 @@ const TouchTextPrompt = () => {
     input.value = el.value;            // the box may refuse/trim characters: show what it kept
   };
 
-  // ✓ button or the keyboard's Return: close, then do what Enter does in the real box
-  const confirm = () => {
-    const el = targetRef.current;
+  // ✓ button or the keyboard's Return: just close (the text stays; no button is pressed)
+  const confirm = () => close();
+
+  // X: empty the box (the real one too, so the page sees it), then close
+  const clear = () => {
+    const input = inputRef.current;
+    if (input) input.value = '';
+    mirror();
     close();
-    if (!el) return;
-    const ev = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true });
-    el.dispatchEvent(ev);
-    if (!ev.defaultPrevented && el.form) el.form.requestSubmit();
   };
 
   const onKeyDown = (e) => {
@@ -149,7 +151,7 @@ const TouchTextPrompt = () => {
           <button
             type="button"
             className="wf-tp-close wf-tp-ok"
-            aria-label="Confirm"
+            aria-label="Done"
             onPointerDown={(e) => { e.preventDefault(); confirm(); }}
           >
             <svg viewBox="0 0 8 7" width="21" height="18" shapeRendering="crispEdges" aria-hidden="true">
@@ -159,8 +161,8 @@ const TouchTextPrompt = () => {
           <button
             type="button"
             className="wf-tp-close"
-            aria-label="Close"
-            onPointerDown={(e) => { e.preventDefault(); close(); }}
+            aria-label="Clear"
+            onPointerDown={(e) => { e.preventDefault(); clear(); }}
           >
             <svg viewBox="0 0 7 7" width="18" height="18" shapeRendering="crispEdges" aria-hidden="true">
               <path fill="currentColor" d="M0 0h2v1h1v1h1V1h1V0h2v2H6v1H5v1h1v1h1v2H5V6H4V5H3v1H2v1H0V5h1V4h1V3H1V2H0z" />
