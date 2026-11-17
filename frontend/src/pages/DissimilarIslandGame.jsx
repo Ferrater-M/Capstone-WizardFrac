@@ -3,7 +3,7 @@ import { shouldAutoShowTutorial, markTutorialSeen } from '../utils/tutorialSeen'
 import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
-import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
+import { playSfx, getSfxVolume, getMasterVolume, useVolumeSync } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
 // ButterflyDiagramCanvas and ButterflyStepPanel disabled — new solving method coming
 // import ButterflyDiagramCanvas from '../components/ButterflyDiagramCanvas';
@@ -18,6 +18,7 @@ import { triggerScreenShake } from '../utils/screenShake';
 import InputGuideCursor from '../components/InputGuideCursor';
 import GameStopwatches from '../components/GameStopwatches';
 import { API_BASE_URL } from '../config';
+import { useUiScale } from '../utils/uiScale';
 import { useStopwatch, useHalfWidth, useAnimationHold } from '../utils/stopwatch';
 
 // Falling square particles along the bottom of a box — same set/timing as the
@@ -190,6 +191,8 @@ const DissimilarIslandGame = ({
   const rectWrapperRef     = useRef(null);
   const rectScaleRef       = useRef(1);
   const circleContainerRef = useRef(null);
+  // GUI Scaling (Settings): the card grows up to this size when there's room for it
+  const uiScale = useUiScale();
 
   // ── Number fly-in animation ────────────────────────────────────────────────
   const [n1Visible, setN1Visible] = useState(false);
@@ -729,13 +732,13 @@ const DissimilarIslandGame = ({
     if (!rectWrapperRef.current) return;
     const obs = new ResizeObserver(entries => {
       const { width, height } = entries[0].contentRect;
-      const s = Math.max(0.1, Math.min(1, width / 400, (height - 50) / 440));
+      const s = Math.max(0.1, Math.min(uiScale, width / 400, (height - 50) / 440));
       rectScaleRef.current = s;
       setRectScale(s);
     });
     obs.observe(rectWrapperRef.current);
     return () => obs.disconnect();
-  }, []);
+  }, [uiScale]);
 
   const handleInfinityDetected = () => {
     playSfx('/SoundEffects/circleAppear.wav');
@@ -1124,6 +1127,7 @@ const DissimilarIslandGame = ({
 
   const confirmExit = async () => { await saveGameEnd('PAUSED', false); onExitToLobby(); };
   const handleMasterVolumeChanged = (volume01) => { if (ostRef.current) ostRef.current.volume = volume01; };
+  useVolumeSync(handleMasterVolumeChanged);
 
   // ── Answer handlers ───────────────────────────────────────────────────────
   // Puts the interactable panel back to its starting state (next problem, or retry after a wrong answer).
@@ -1345,7 +1349,7 @@ const DissimilarIslandGame = ({
 
       {/* Stats bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '8px 0', gap: '10px', position: 'relative', zIndex: 1 }}>
-        <div ref={statsBoxRef} data-edge-dim style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div ref={statsBoxRef} data-edge-dim data-ui style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
           {corners('#703737')}
           <span style={{ color: '#222', fontSize: '13px' }}>Streak: x{multiplier.toFixed(1)}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Score: {score}</span>
@@ -1362,7 +1366,7 @@ const DissimilarIslandGame = ({
           </div>
         </div>
         {headerHint && (
-          <div key={headerHint} style={{
+          <div key={headerHint} data-ui style={{
             position:'relative', border:'4px solid #fff', background:'#000', color:'#fff',
             fontSize:'13px', fontWeight:700, fontFamily:'"Press Start 2P", monospace',
             display:'flex', alignItems:'center', padding:'0 8px', margin:'0 100px',
@@ -1381,7 +1385,7 @@ const DissimilarIslandGame = ({
             {headerHint}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 10, position: 'relative', width: hudHalfW ?? undefined, boxSizing: 'border-box' }}>
+        <div data-ui style={{ display: 'flex', gap: 10, position: 'relative', width: hudHalfW ?? undefined, boxSizing: 'border-box' }}>
           {/* Session stopwatch — hangs under the Help / Menu buttons, spanning both */}
           <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: 0, right: 0, zIndex: 5 }}>
             <GameStopwatches
@@ -1486,10 +1490,10 @@ const DissimilarIslandGame = ({
           </div>
 
           {/* ── Center: Problem + Butterfly panel ── */}
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'8px', paddingTop:'32px', minHeight:0, overflow:'hidden', zIndex:1, opacity: interactableVisible ? 1 : 0, transition:'opacity 0.3s ease' }}>
+          <div style={{ minWidth: 400 * uiScale, display:'flex', flexDirection:'column', alignItems:'center', gap:'8px', paddingTop:'32px', minHeight:0, overflow:'hidden', zIndex:1, opacity: interactableVisible ? 1 : 0, transition:'opacity 0.3s ease' }}>
 
             {/* Problem display */}
-            <div ref={problemWrapRef} style={{
+            <div ref={problemWrapRef} data-ui style={{
               animation:'magicFloat 3s ease-in-out infinite', position:'relative',
               filter: pulse>0.15 ? `drop-shadow(0 0 ${(pulse*32).toFixed(1)}px rgba(112,55,55,${Math.min(pulse*1.2,1).toFixed(2)}))` : 'none',
               transform:`scale(${(1+pulse*0.07).toFixed(4)})`,
@@ -2220,7 +2224,7 @@ const DissimilarIslandGame = ({
                       position:'fixed',
                       left: dragScreenPos.x - info.size / 2,
                       top:  dragScreenPos.y - info.size / 2,
-                      width: info.size, height: info.size,
+                      width: info.size, height: info.size, scale: rectScale,   // same size as the (scaled) card's numbers
                       display:'flex', alignItems:'center', justifyContent:'center',
                       fontSize: info.fontSize, fontWeight:900, color:'#ffffff',
                       border:'3px dashed #e8d5b4', borderRadius:0, background: info.bg,
@@ -2293,7 +2297,7 @@ const DissimilarIslandGame = ({
       {/* Feedback */}
       {feedback && (
         <div onClick={skipFeedback} style={{ position:'fixed', inset:0, zIndex:4999, cursor: feedbackClickable ? 'pointer' : 'default' }}>
-          <div style={{
+          <div data-ui style={{
             position:'fixed', left:'50%', zIndex:5000,
             textAlign:'center', padding:'14px 32px',
             border:'6px solid #fff', background:'#000',
@@ -2374,7 +2378,7 @@ const DissimilarIslandGame = ({
             return b ? (
               <div key={key} ref={ref} style={{
                 position:'fixed', left:b.left, top:b.top,
-                width:44, height:44,
+                width:44, height:44, scale:'var(--wf-ui)',
                 display:'flex', alignItems:'center', justifyContent:'center',
                 zIndex:9999, pointerEvents:'none',
                 opacity:b.opacity, transition:'opacity 0.3s ease',
@@ -2388,7 +2392,7 @@ const DissimilarIslandGame = ({
       )}
 
       {perfectPopup && (
-        <div style={{
+        <div data-ui style={{
           position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
           zIndex: 5001, pointerEvents: 'none', textAlign: 'center',
           padding: '14px 32px', border: '6px solid #fff', background: '#000',
@@ -2425,7 +2429,7 @@ const DissimilarIslandGame = ({
       {/* Hint confirmation */}
       {showHintConfirm && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.82)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:2000 }}>
-          <div style={{ position:'relative', background:'#e8d5b4', border:'4px solid #703737', padding:'32px 36px', textAlign:'center', width:360, fontFamily:'"Press Start 2P", monospace' }}>
+          <div data-ui style={{ position:'relative', background:'#e8d5b4', border:'4px solid #703737', padding:'32px 36px', textAlign:'center', width:360, fontFamily:'"Press Start 2P", monospace' }}>
             <div style={{ position:'absolute', inset:6, border:'1px solid #703737', pointerEvents:'none' }} />
             {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i)=>(
               <div key={i} style={{ position:'absolute', zIndex:10, pointerEvents:'none', width:12, height:12, background:'#703737', ...(t!==null?{top:t}:{bottom:-6}), ...(l!==null?{left:l}:{right:-6}) }}/>

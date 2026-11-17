@@ -148,7 +148,7 @@ const LandingPage = ({ onLoginSuccess, onBack }) => {
 
       {/* Right Side Panel */}
       <div className="panel-container">
-        <div className="panel">
+        <div className="panel" data-ui>
           {/* Back to the Title Page */}
           {onBack && (
             <button type="button" className="panel-close" onClick={onBack} aria-label="Back to the title page">

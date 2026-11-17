@@ -70,6 +70,9 @@
   padding: clamp(10px, 21.6px, 20px) 20px 0;
   box-sizing: border-box;
   flex: 0 0 auto;
+  /* Fixed height, so bigger Back / Volume buttons (GUI Scaling) hang down beside the title box
+     instead of pushing the page down */
+  height: 78px;
 }
 
 .character-selection .cs-logo {
@@ -291,16 +294,18 @@
   box-shadow: 0 0 12px rgba(168, 85, 247, 0.25);
 }
 
-/* --- CHARACTER PICTURE AREA (fills the card's spare height) --- */
+/* --- CHARACTER PICTURE AREA ---
+   Always 435px tall, so the wizard is the same size at every GUI Scaling. When the name tag and text
+   grow, the picture slides up into the empty sky above the wizard's hat (the top of the frame is blank). */
 .character-image {
   position: relative;
   width: 100%;
-  flex: 1 1 auto;
+  flex: 0 0 435px;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 4px 0 6px;
+  margin: calc(4px - (var(--wf-ui) - 1) * 150px) 0 calc(6px - (var(--wf-ui) - 1) * 90px);
 }
 
 .selected-overlay {

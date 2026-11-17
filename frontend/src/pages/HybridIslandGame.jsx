@@ -5,7 +5,7 @@ import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
 import { createPortal } from 'react-dom';
 import { getStageEl } from '../utils/stage';
-import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
+import { playSfx, getSfxVolume, getMasterVolume, useVolumeSync } from '../utils/audio';
 import DrawingCanvas from '../components/DrawingCanvas';
 import InputGuideCursor from '../components/InputGuideCursor';
 import ImproperToMixedGame, {
@@ -19,6 +19,7 @@ import SettingsPage from './SettingsPage';
 import './game.css';
 import { getFeedbackDuration, getDifficultyParamsHybrid, RECENT_PROBLEM_MEMORY, scoreProblem, hybridSteps, MAX_HEARTS, HEART_LOSS, healHearts, heartsToSave } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
+import { useUiScale } from '../utils/uiScale';
 import GameStopwatches from '../components/GameStopwatches';
 import { useStopwatch, useHalfWidth, useAnimationHold, useReportBusy } from '../utils/stopwatch';
 
@@ -527,21 +528,23 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
       setCombineDone(true);
       if (circleRef.current) {
         const cRect = circleRef.current.getBoundingClientRect();
+        // The card is drawn scaled (fit to the screen / GUI Scaling): card pixels → screen pixels
+        const sc = cRect.width / circleRef.current.offsetWidth || 1;
         // Where W, N and D currently sit (the same analytic spots the boxes
         // themselves are placed at — see MIXED_W_LEFT/MIXED_N_TOP/MIXED_D_TOP),
         // as CENTER points (every bubble below is centered on its own x/y).
-        const wSrc = { x: cRect.left + MIXED_W_LEFT + 26, y: cRect.top + MIXED_W_DEST_FY * cRect.height };
-        const nSrc = { x: cRect.left + cRect.width * 0.5 + 45, y: cRect.top + MIXED_N_DEST_FY * cRect.height };
+        const wSrc = { x: cRect.left + (MIXED_W_LEFT + 26) * sc, y: cRect.top + MIXED_W_DEST_FY * cRect.height };
+        const nSrc = { x: cRect.left + cRect.width * 0.5 + 45 * sc, y: cRect.top + MIXED_N_DEST_FY * cRect.height };
         const dSrc = { x: cRect.left + cRect.width * 0.5, y: cRect.top + MIXED_D_DEST_FY * cRect.height };
         // The whole number isn't needed again until after the carry, so it
         // spirals off to the top-left corner and keeps shining there in
         // reserve, instead of following N and D.
-        const wDest = { x: cRect.left + 34, y: cRect.top + 34 };
+        const wDest = { x: cRect.left + 34 * sc, y: cRect.top + 34 * sc };
         // Only reached when there's no carry step to hand off to (see below) —
         // N and D land side by side, enlarged, right at the final-answer spot.
         const destY = cRect.top + MIXED_FINAL_DEST_FY * cRect.height;
-        const nDest = { x: cRect.left + cRect.width * 0.5 - 34, y: destY };
-        const dDest = { x: cRect.left + cRect.width * 0.5 + 34, y: destY };
+        const nDest = { x: cRect.left + cRect.width * 0.5 - 34 * sc, y: destY };
+        const dDest = { x: cRect.left + cRect.width * 0.5 + 34 * sc, y: destY };
 
         // Shine first (fade in + sparkle sound), then a short pause before
         // anything actually starts moving — same technique as the denominator
@@ -571,9 +574,10 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
             const cont = circleRef.current;
             if (cont) {
               const cr = cont.getBoundingClientRect();
+              const k = cr.width / cont.offsetWidth || 1;   // screen → card pixels
               setCarryStart({
-                n: { x: nSrc.x - cr.left, y: nSrc.y - cr.top },
-                d: { x: dSrc.x - cr.left, y: dSrc.y - cr.top },
+                n: { x: (nSrc.x - cr.left) / k, y: (nSrc.y - cr.top) / k },
+                d: { x: (dSrc.x - cr.left) / k, y: (dSrc.y - cr.top) / k },
               });
             }
             setCarryPhase(true);
@@ -1003,8 +1007,9 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
               than the card itself), instead of from the corner where W actually is. */}
           {(() => {
             const circleRect = circleRef.current?.getBoundingClientRect();
+            const k = circleRect ? (circleRect.width / circleRef.current.offsetWidth || 1) : 1;   // screen → card pixels
             const wArrivalLocal = (wArrival && circleRect)
-              ? { x: wArrival.x - circleRect.left, y: wArrival.y - circleRect.top }
+              ? { x: (wArrival.x - circleRect.left) / k, y: (wArrival.y - circleRect.top) / k }
               : null;
             if (!wJarsActive || !wArrivalLocal) return null;
             return wJarCenters.map((c, i) => {
@@ -1081,7 +1086,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
             if (!b) return null;
             return (
               <div key={key} ref={key === 'b1' ? bubble1Ref : bubble2Ref} style={{
-                position: 'fixed', left: b.left, top: b.top, width: 48, height: 48,
+                position: 'fixed', left: b.left, top: b.top, width: 48, height: 48, scale: 'var(--wf-ui)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 zIndex: 9999, pointerEvents: 'none', opacity: b.opacity, transition: 'opacity 0.3s ease',
               }}>
@@ -1098,38 +1103,38 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
               transition: 'opacity 0.3s ease',
               animation: wBubble.settled ? 'wIdleShine 1.6s ease-in-out infinite' : 'none',
             }}>
-              <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite' }} />
-              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000', fontFamily: '"Press Start 2P", monospace' }}>{wResult}</span>
+              <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', scale: 'var(--wf-ui)', animation: 'sparkleSpin 1.2s linear infinite' }} />
+              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, scale: 'var(--wf-ui)', fontWeight: 900, color: '#fff', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000', fontFamily: '"Press Start 2P", monospace' }}>{wResult}</span>
             </div>
           )}
           {showWSparkle && wArrival && (
-            <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'fixed', left: wArrival.x, top: wArrival.y, width: 72, height: 72, pointerEvents: 'none', zIndex: 9999, animation: 'sparkBurst 0.8s ease-out forwards' }} />
+            <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'fixed', left: wArrival.x, top: wArrival.y, width: 'calc(72px * var(--wf-ui))', height: 'calc(72px * var(--wf-ui))', pointerEvents: 'none', zIndex: 9999, animation: 'sparkBurst 0.8s ease-out forwards' }} />
           )}
           {showWholeLabel && wArrival && (
             <div style={{
               position: 'fixed', left: wArrival.x + 22, top: wArrival.y, zIndex: 10000, pointerEvents: 'none',
               animation: 'wholeLabelPop 1.1s ease-out forwards',
             }}>
-              <span style={{ fontSize: 14, fontWeight: 900, color: '#fff', whiteSpace: 'nowrap', fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000' }}>Whole!</span>
+              <span style={{ fontSize: 'calc(14px * var(--wf-ui))', fontWeight: 900, color: '#fff', whiteSpace: 'nowrap', fontFamily: '"Press Start 2P", monospace', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000' }}>Whole!</span>
             </div>
           )}
           {nBubble && (
             <div ref={nBubbleRef} style={{ position: 'fixed', left: nBubble.x, top: nBubble.y, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, pointerEvents: 'none', opacity: nBubble.opacity, transform: 'translate(-50%, -50%)', transition: 'opacity 0.3s ease' }}>
-              <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite' }} />
-              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000', fontFamily: '"Press Start 2P", monospace' }}>{nResult}</span>
+              <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', scale: 'var(--wf-ui)', animation: 'sparkleSpin 1.2s linear infinite' }} />
+              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, scale: 'var(--wf-ui)', fontWeight: 900, color: '#fff', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000', fontFamily: '"Press Start 2P", monospace' }}>{nResult}</span>
             </div>
           )}
           {dBubble && (
             <div ref={dBubbleRef} style={{ position: 'fixed', left: dBubble.x, top: dBubble.y, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, pointerEvents: 'none', opacity: dBubble.opacity, transform: 'translate(-50%, -50%)', transition: 'opacity 0.3s ease' }}>
-              <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', animation: 'sparkleSpin 1.2s linear infinite' }} />
-              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, fontWeight: 900, color: '#fff', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000', fontFamily: '"Press Start 2P", monospace' }}>{d}</span>
+              <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', scale: 'var(--wf-ui)', animation: 'sparkleSpin 1.2s linear infinite' }} />
+              <span style={{ position: 'relative', zIndex: 1, fontSize: 18, scale: 'var(--wf-ui)', fontWeight: 900, color: '#fff', textShadow: '3px 3px 0 #000, 0 0 6px #000, 0 0 12px #000', fontFamily: '"Press Start 2P", monospace' }}>{d}</span>
             </div>
           )}
           {showCombineSparkle && dArrival && (
             // sparkBurst's own keyframe already applies translate(-50%,-50%) to center
             // itself on left/top — no manual half-width/height offset needed here (that
             // was double-centering it, landing the burst 36px up-left of where it should be).
-            <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'fixed', left: dArrival.x, top: dArrival.y, width: 72, height: 72, pointerEvents: 'none', zIndex: 9999, animation: 'sparkBurst 0.8s ease-out forwards' }} />
+            <img src="/OtherEffects/BlueSparkle.png" alt="" style={{ position: 'fixed', left: dArrival.x, top: dArrival.y, width: 'calc(72px * var(--wf-ui))', height: 'calc(72px * var(--wf-ui))', pointerEvents: 'none', zIndex: 9999, animation: 'sparkBurst 0.8s ease-out forwards' }} />
           )}
         </>,
         getStageEl()
@@ -1159,7 +1164,7 @@ const MixedSimilarCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReq
       )}
 
       {perfectPopup && createPortal(
-        <div style={{
+        <div data-ui style={{
           position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
           zIndex: 5001, pointerEvents: 'none', textAlign: 'center',
           padding: '14px 32px', border: '6px solid #fff', background: '#000',
@@ -2042,7 +2047,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onUseHint, 
               style={{
                 position: 'fixed',
                 left: bubbles[key].left, top: bubbles[key].top,
-                width: FLY_SIZE, height: FLY_SIZE,
+                width: FLY_SIZE, height: FLY_SIZE, scale: 'var(--wf-ui)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 zIndex: 9999, pointerEvents: 'none',
                 opacity: bubbles[key].opacity,
@@ -2066,7 +2071,7 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onUseHint, 
               key={b.id} src="/OtherEffects/BlueSparkle.png" alt=""
               style={{
                 position: 'fixed', left: b.left, top: b.top,
-                width: 58, height: 58, pointerEvents: 'none', zIndex: 9998,
+                width: 'calc(58px * var(--wf-ui))', height: 'calc(58px * var(--wf-ui))', pointerEvents: 'none', zIndex: 9998,
                 animation: 'sparkBurst 0.8s ease-out forwards',
               }}
             />
@@ -2076,9 +2081,9 @@ const ForgeCircleStage = ({ problem, onForgeComplete, onWrongAnswer, onUseHint, 
           {shatterPieces.map(piece => (
             <div key={piece.id} style={{
               position: 'fixed', left: piece.left, top: piece.top,
-              width: piece.size, height: piece.size, background: '#ffffff',
+              width: `calc(${piece.size}px * var(--wf-ui))`, height: `calc(${piece.size}px * var(--wf-ui))`, background: '#ffffff',
               pointerEvents: 'none', zIndex: 9998,
-              '--dx': piece.dx + 'px', '--dy': piece.dy + 'px',
+              '--dx': `calc(${piece.dx}px * var(--wf-ui))`, '--dy': `calc(${piece.dy}px * var(--wf-ui))`,
               animation: 'squareBurst 0.6s ease-out forwards',
             }} />
           ))}
@@ -2380,11 +2385,14 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     const elRect = e.currentTarget.getBoundingClientRect();
-    const toCenterDx = e.clientX - (elRect.left + elRect.width / 2);
-    const toCenterDy = e.clientY - (elRect.top + elRect.height / 2);
-    const floatTop = floatingDivRef.current?.getBoundingClientRect().top ?? 0;
-    dragRef.current = { key, startX: e.clientX, startY: e.clientY, startDx: dragOffsets[key].dx + toCenterDx, startDy: dragOffsets[key].dy + toCenterDy, startFloatTop: floatTop };
-    setDragScreenPos({ x: e.clientX, y: e.clientY, key });
+    // The card is drawn scaled (fit to the screen / GUI Scaling): screen pixels → card pixels
+    const fr = floatingDivRef.current?.getBoundingClientRect();
+    const scale = (fr && floatingDivRef.current.offsetWidth) ? fr.width / floatingDivRef.current.offsetWidth : 1;
+    const toCenterDx = (e.clientX - (elRect.left + elRect.width / 2)) / scale;
+    const toCenterDy = (e.clientY - (elRect.top + elRect.height / 2)) / scale;
+    const floatTop = fr?.top ?? 0;
+    dragRef.current = { key, scale, startX: e.clientX, startY: e.clientY, startDx: dragOffsets[key].dx + toCenterDx, startDy: dragOffsets[key].dy + toCenterDy, startFloatTop: floatTop };
+    setDragScreenPos({ x: e.clientX, y: e.clientY, key, scale });
     const audio = new Audio('/SoundEffects/magnet.wav');
     audio.loop = true;
     audio.playbackRate = 0.5;
@@ -2397,9 +2405,9 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
     const d = dragRef.current;
     if (!d) return;
     const floatTop = floatingDivRef.current?.getBoundingClientRect().top ?? d.startFloatTop;
-    const floatDrift = floatTop - d.startFloatTop;
-    const newDx = d.startDx + (e.clientX - d.startX);
-    const newDy = d.startDy + (e.clientY - d.startY) - floatDrift;
+    const floatDrift = (floatTop - d.startFloatTop) / d.scale;
+    const newDx = d.startDx + (e.clientX - d.startX) / d.scale;
+    const newDy = d.startDy + (e.clientY - d.startY) / d.scale - floatDrift;
     setDragOffsets(prev => ({ ...prev, [d.key]: { dx: newDx, dy: newDy } }));
     setDragScreenPos(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : prev);
     const b = BUTTERFLY_BASE_POS[d.key];
@@ -3239,7 +3247,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
             return (
               <div style={{
                 position: 'fixed', left: dragScreenPos.x - info.size / 2, top: dragScreenPos.y - info.size / 2,
-                width: info.size, height: info.size, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: info.size, height: info.size, scale: dragScreenPos.scale || 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: numFontSize(info.val, info.size), fontWeight: 900, color: '#ffffff',
                 border: '3px dashed #e8d5b4', borderRadius: 0, background: '#333',
                 fontFamily: '"Press Start 2P", monospace', pointerEvents: 'none', zIndex: 9999,
@@ -3258,7 +3266,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
             const b = flyBubbles[key];
             return b ? (
               <div key={key} ref={ref} style={{
-                position: 'fixed', left: b.left, top: b.top, width: 44, height: 44,
+                position: 'fixed', left: b.left, top: b.top, width: 44, height: 44, scale: 'var(--wf-ui)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 zIndex: 9999, pointerEvents: 'none', opacity: b.opacity, transition: 'opacity 0.3s ease',
               }}>
@@ -3268,7 +3276,7 @@ const ButterflyCircleStage = ({ problem, onAnswerSubmit, onWrongAnswer, onReques
             ) : null;
           })}
           {perfectPopup && (
-            <div style={{
+            <div data-ui style={{
               position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
               zIndex: 5001, pointerEvents: 'none', textAlign: 'center',
               padding: '14px 32px', border: '6px solid #fff', background: '#000',
@@ -3524,18 +3532,20 @@ const HybridIslandGame = ({
   const rectWrapperRef = useRef(null);
   const rectScaleRef = useRef(1);
   const [rectScale, setRectScale] = useState(1);
+  // GUI Scaling (Settings): the card grows up to this size when there's room for it
+  const uiScale = useUiScale();
 
   useEffect(() => {
     if (!rectWrapperRef.current) return;
     const obs = new ResizeObserver(entries => {
       const { width, height } = entries[0].contentRect;
-      const s = Math.max(0.1, Math.min(1, width / PANEL_W, (height - 50) / PANEL_H));
+      const s = Math.max(0.1, Math.min(uiScale, width / PANEL_W, (height - 50) / PANEL_H));
       rectScaleRef.current = s;
       setRectScale(s);
     });
     obs.observe(rectWrapperRef.current);
     return () => obs.disconnect();
-  }, []);
+  }, [uiScale]);
 
   // ── sprite / combat visuals (mirrors Similar/Dissimilar Island) ──
   const [wizardAnim,      setWizardAnim]      = useState('idle');
@@ -3884,6 +3894,7 @@ const HybridIslandGame = ({
   const handleMasterVolumeChanged = (volume01) => {
     if (ostRef.current) ostRef.current.volume = volume01;
   };
+  useVolumeSync(handleMasterVolumeChanged);
 
   const confirmExit = async () => {
     await saveGameEnd('PAUSED', false);
@@ -4218,7 +4229,7 @@ const HybridIslandGame = ({
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '8px 0', gap: '10px', position: 'relative', zIndex: 1 }}>
-        <div ref={statsBoxRef} data-edge-dim style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div ref={statsBoxRef} data-edge-dim data-ui style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
           {corners('#703737')}
           <span style={{ color: '#222', fontSize: '13px' }}>Streak: x{multiplier.toFixed(1)}</span>
           <span style={{ color: '#222', fontSize: '13px' }}>Score: {score}</span>
@@ -4238,6 +4249,7 @@ const HybridIslandGame = ({
         {currentHint && (
           <div
             key={currentHint}
+            data-ui
             style={{
               position: 'relative', border: '4px solid #fff', background: '#000', color: '#fff',
               fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -4246,11 +4258,11 @@ const HybridIslandGame = ({
             }}
           >
             {corners('#fff')}
-            {currentHint === 'Can be simplified!' ? currentHint : <>💡 {currentHint}</>}
+            {currentHint === 'Can be simplified!' ? currentHint : currentHint}
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 10, position: 'relative', width: hudHalfW ?? undefined, boxSizing: 'border-box' }}>
+        <div data-ui style={{ display: 'flex', gap: 10, position: 'relative', width: hudHalfW ?? undefined, boxSizing: 'border-box' }}>
           {/* Session stopwatch — hangs under the Help / Menu buttons, spanning both */}
           <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: 0, right: 0, zIndex: 5 }}>
             <GameStopwatches
@@ -4381,8 +4393,8 @@ const HybridIslandGame = ({
           </div>
 
           {/* Center — problem display + interactive solving panel */}
-          <div className="wireframe-problem" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', paddingTop: '32px', minHeight: 0, overflow: bigLayout ? 'visible' : 'hidden', zIndex: bigLayout ? 6 : 1 }}>
-            <div style={{
+          <div className="wireframe-problem" style={{ minWidth: PANEL_W * uiScale, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', paddingTop: '32px', minHeight: 0, overflow: bigLayout ? 'visible' : 'hidden', zIndex: bigLayout ? 6 : 1 }}>
+            <div data-ui style={{
               opacity: uiVisible ? 1 : 0, transition: 'opacity 0.3s ease',
               animation: 'magicFloat 3s ease-in-out infinite', position: 'relative',
               filter: pulse > 0.15 ? `drop-shadow(0 0 ${(pulse * 32).toFixed(1)}px rgba(112,55,55,${Math.min(pulse * 1.2, 1).toFixed(2)}))` : 'none',
@@ -4614,7 +4626,7 @@ const HybridIslandGame = ({
 
       {feedback && (
         <div onClick={skipFeedback} style={{ position: 'fixed', inset: 0, zIndex: 4999, cursor: feedbackClickable ? 'pointer' : 'default' }}>
-          <div style={{
+          <div data-ui style={{
             position: 'fixed', left: '50%', zIndex: 5000, textAlign: 'center', padding: '14px 32px',
             border: '6px solid #fff', background: '#000',
             color: feedbackType === 'correct' ? '#4ade80' : '#f87171',

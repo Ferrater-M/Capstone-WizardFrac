@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 // Shared volume settings, wired to the sliders on the Settings page.
 // Anything that plays a sound in the app should route through here so the
 // Master/SFX Volume sliders actually affect what the player hears.
@@ -17,8 +19,34 @@ export const getStoredVolume = (key, fallback01) => {
   }
 };
 
-export const getMasterVolume = () => getStoredVolume(MASTER_VOLUME_KEY, 0.5);
-export const getSfxVolume = () => getStoredVolume(SFX_VOLUME_KEY, 0.7);
+export const getMasterVolume = () => getStoredVolume(MASTER_VOLUME_KEY, 1);
+export const getSfxVolume = () => getStoredVolume(SFX_VOLUME_KEY, 1);
+
+// ── Keeping every screen on the same volume ──
+// The Settings sliders call notifyVolumeChange() after saving. A change made in another tab of the game
+// arrives as a 'storage' event. Either way every screen that plays music hears about it through
+// useVolumeSync and sets its music to the saved Master Volume, so no screen is ever left on an old volume.
+const VOLUME_EVENT = 'wf-volume-change';
+export const notifyVolumeChange = () => window.dispatchEvent(new Event(VOLUME_EVENT));
+let storageHooked = false;
+const hookStorage = () => {
+  if (storageHooked) return;
+  storageHooked = true;
+  window.addEventListener('storage', (e) => {
+    if (e.key === null || e.key === MASTER_VOLUME_KEY || e.key === SFX_VOLUME_KEY) notifyVolumeChange();
+  });
+};
+// React: onChange(masterVolume01) runs whenever the saved volume changes.
+export const useVolumeSync = (onChange) => {
+  const ref = useRef(onChange);
+  useEffect(() => { ref.current = onChange; });
+  useEffect(() => {
+    hookStorage();
+    const run = () => ref.current?.(getMasterVolume());
+    window.addEventListener(VOLUME_EVENT, run);
+    return () => window.removeEventListener(VOLUME_EVENT, run);
+  }, []);
+};
 
 // Fire-and-forget sound effect, volume-controlled by the SFX slider.
 // Mirrors the old `new Audio(path).play().catch(() => {})` one-liners.

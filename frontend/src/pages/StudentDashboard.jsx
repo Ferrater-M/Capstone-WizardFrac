@@ -7,6 +7,7 @@ import GalaxyBackground from '../components/GalaxyBackground';
 import MagicFloatLayer from '../components/MagicFloatLayer';
 import MasteryLineChart from '../components/MasteryLineChart';
 import { API_BASE_URL } from '../config';
+import PixelIcon from '../components/PixelIcon';
 import { formatStopwatch } from '../utils/stopwatch';
 import { countEnemiesPerIsland } from '../utils/islandStages';
 import { useDragScroll } from '../utils/useDragScroll';
@@ -26,9 +27,9 @@ const COMPETENCY_META = {
 
 // Same islands, colours and stage maths as the island selection screen.
 const ISLANDS = [
-  { name: 'Similar', title: 'Similar Island', icon: '🌿', color: '#22C55E', key: 'similarIslandMaxStage' },
-  { name: 'Dissimilar', title: 'Dissimilar Island', icon: '🦋', color: '#F59E0B', key: 'dissimilarIslandMaxStage' },
-  { name: 'Hybrid', title: 'Hybrid Island', icon: '🌀', color: '#7C3AED', key: 'hybridIslandMaxStage' },
+  { name: 'Similar', title: 'Similar Island', color: '#22C55E', key: 'similarIslandMaxStage' },
+  { name: 'Dissimilar', title: 'Dissimilar Island', color: '#F59E0B', key: 'dissimilarIslandMaxStage' },
+  { name: 'Hybrid', title: 'Hybrid Island', color: '#7C3AED', key: 'hybridIslandMaxStage' },
 ];
 
 const MASTERY_COLOR = { Proficient: '#10b981', Developing: '#f59e0b', Beginner: '#ef4444' };
@@ -61,7 +62,7 @@ const DashModal = ({ title, onClose, children, wide = false }) => {
 
   return (
     <div className="dash-modal-overlay" onClick={onClose}>
-      <div className={`dash-modal${wide ? ' is-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div className={`dash-modal${wide ? ' is-wide' : ''}`} data-ui role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <PixelCorners color="var(--st-border)" edge={0} />
         <button className="dash-modal-close" onClick={onClose} aria-label="Close">✕</button>
         <h2 className="dash-modal-title"><span className="dash-sparkle">✦</span> {title} <span className="dash-sparkle">✦</span></h2>
@@ -284,14 +285,14 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
 
   const header = (
     <div className="dashboard-header">
-      <button className="dash-pill" onClick={onBack}>
+      <button className="dash-pill" data-ui onClick={onBack}>
         <PixelCorners edge={0} />
         ← Back
       </button>
       {!error && (
-        <button className="dash-pill dash-pill-gold" onClick={() => setShowEmailModal(true)}>
+        <button className="dash-pill dash-pill-gold" data-ui onClick={() => setShowEmailModal(true)}>
           <PixelCorners edge={0} />
-          📧 Email My Progress
+          Email My Progress
         </button>
       )}
     </div>
@@ -351,35 +352,35 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
   const statCard = (id, cls, icon, value, label) => {
     const v = fitValue(value);
     return (
-    <button key={id} className={`dash-card stat-card ${cls}`} onClick={() => setOpenCard(id)}>
+    <button key={id} className={`dash-card stat-card ${cls}`} data-ui onClick={() => setOpenCard(id)}>
       <PixelCorners edge={0} color="var(--stat-frame)" />
       <span className="stat-card-icon">{icon}</span>
       <div className="stat-card-value" style={v.style}>{v.text}</div>
       <div className="stat-card-label">{label}</div>
-      <div className="dash-card-more">See more ▶</div>
+      <div className="dash-card-more">See more ▶︎</div>
     </button>
     );
   };
 
   const panelCard = (id, title, children) => (
-    <button key={id} className="dash-card dash-panel-card" onClick={() => setOpenCard(id)}>
+    <button key={id} className="dash-card dash-panel-card" data-ui onClick={() => setOpenCard(id)}>
       <PixelCorners edge={0} />
       <h3 className="dash-card-title">{title}</h3>
       <div className="dash-card-preview">{children}</div>
-      <div className="dash-card-more">See more ▶</div>
+      <div className="dash-card-more">See more ▶︎</div>
     </button>
   );
 
   const cards = [
-    statCard('correct', 'stat-correct', '✅', summary.totalCorrect, 'Correct Answers'),
-    statCard('wrong', 'stat-incorrect', '💥', summary.totalIncorrect, 'Wrong Answers'),
-    statCard('sessions', 'stat-sessions', '🔮', summary.totalSessions, 'Sessions Played'),
-    statCard('accuracy', 'stat-multiplier', '🏆', `${accuracy}%`, 'Overall Accuracy'),
+    statCard('correct', 'stat-correct', <PixelIcon name="check" size={40} color="#6ee7b7" />, summary.totalCorrect, 'Correct Answers'),
+    statCard('wrong', 'stat-incorrect', <PixelIcon name="cross" size={40} color="#f87171" />, summary.totalIncorrect, 'Wrong Answers'),
+    statCard('sessions', 'stat-sessions', <PixelIcon name="orb" size={40} color="#d8b4fe" />, summary.totalSessions, 'Sessions Played'),
+    statCard('accuracy', 'stat-multiplier', <PixelIcon name="trophy" size={40} color="#FBBF24" />, `${accuracy}%`, 'Overall Accuracy'),
     panelCard('islands', 'Island Progress', (
       <div className="preview-islands">
         {islands.map(isl => (
           <div key={isl.name} className="preview-island">
-            <span className="preview-island-name">{isl.icon} {isl.name}</span>
+            <span className="preview-island-name">{isl.name}</span>
             <div className="dash-track"><div className="dash-fill" style={{ width: `${isl.total ? (isl.cleared / isl.total) * 100 : 0}%`, background: isl.color }} /></div>
           </div>
         ))}
@@ -403,7 +404,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
         <p className="preview-clamp">Most common: {misconceptions[0].label}</p>
       </div>
     ) : (
-      <p className="preview-note">No recurring mistakes yet. Great job! 🎉</p>
+      <p className="preview-note">No recurring mistakes yet. Great job!</p>
     )),
     panelCard('history', 'Game History', gameHistory?.length ? (
       <ul className="preview-history">
@@ -411,7 +412,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
           <li key={i}>
             <span>{g.island} Lv{g.level}</span>
             <span className={g.status === 'COMPLETED' ? 'status-completed' : 'status-not-completed'}>
-              {g.status === 'COMPLETED' ? '✔' : '✘'}
+              {g.status === 'COMPLETED' ? '✓' : '✗'}
             </span>
           </li>
         ))}
@@ -460,8 +461,8 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
             {islands.map(isl => (
               <div key={isl.name} className="detail-island">
                 <div className="detail-island-top">
-                  <span>{isl.icon} {isl.title}</span>
-                  <span>⭐ {isl.cleared} / {isl.total || '—'} stages</span>
+                  <span>{isl.title}</span>
+                  <span><span className="dash-star">★</span> {isl.cleared} / {isl.total || '—'} stages</span>
                 </div>
                 <div className="dash-track is-big"><div className="dash-fill" style={{ width: `${isl.total ? (isl.cleared / isl.total) * 100 : 0}%`, background: isl.color }} /></div>
               </div>
@@ -497,7 +498,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
                   <PixelCorners edge={0} color={m.recurring ? '#fca5a5' : 'var(--gl-border)'} />
                   <div className="misconception-row-top">
                     <span className="misconception-label">{m.label}</span>
-                    <span className="misconception-count">{m.count}x{m.recurring ? ' ⚠ recurring' : ''}</span>
+                    <span className="misconception-count">{m.count}x{m.recurring ? ' · recurring' : ''}</span>
                   </div>
                   <div className="dash-track"><div className="dash-fill misconception-fill" style={{ width: `${Math.max(8, (m.count / maxMisconception) * 100)}%` }} /></div>
                 </div>
@@ -505,7 +506,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
             </div>
           </>
         ) : (
-          <p className="detail-text">No recurring mistakes yet. Great job! 🎉</p>
+          <p className="detail-text">No recurring mistakes yet. Great job!</p>
         );
       case 'history':
         return gameHistory?.length ? (
@@ -577,7 +578,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
 
         {/* Player card — everything the island selection's player card shows, plus score and progress */}
         <div className="player-row">
-          <div className="dash-player-card">
+          <div className="dash-player-card" data-ui>
             <PixelCorners edge={0} />
             <img
               className="dash-player-avatar"
@@ -596,7 +597,7 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
               <div className="dash-track"><div className="dash-fill dash-xp-fill" style={{ width: `${xpPercent}%` }} /></div>
               <p className="dash-xp-text">{xpIntoLevel} / {xpForNextLevel} XP</p>
               <div className="dash-player-chips">
-                <span className="dash-chip">⭐ {starCurrency}</span>
+                <span className="dash-chip"><span className="dash-star">★</span> {starCurrency}</span>
                 <span className="dash-chip">{(summary?.totalScore || 0).toLocaleString()} pts</span>
                 <span className="dash-chip">{overallPercent}% islands</span>
               </div>
@@ -605,15 +606,15 @@ const StudentDashboard = ({ studentId, studentNickname, selectedCharacter, onBac
         </div>
 
         {!hasData ? (
-          <div className="empty-state">
+          <div className="empty-state" data-ui>
             <PixelCorners />
-            <span className="empty-state-icon">🧙‍♂️</span>
+            <img className="empty-state-icon" src="/PlayerAssets/hat.png" alt="" style={{ width: 72, height: 72, objectFit: 'contain', imageRendering: 'pixelated', margin: '0 auto 1rem' }} />
             <h2>Your Adventure Awaits</h2>
             <p>Start playing to see your progress and mastery stats here.</p>
           </div>
         ) : (
           <>
-            <p className="carousel-hint">◀ Drag or scroll to look around · Click a card to open it ▶</p>
+            <p className="carousel-hint" data-ui>◀︎ Drag or scroll to look around · Click a card to open it ▶︎</p>
             <div className="dash-carousel drag-scroll" ref={carouselRef}>
               {/* Each card sits in a slot; the slot gets the curve (useCarousel), the card keeps its hover lift */}
               {cards.map(card => <div key={card.key} className="dash-card-slot">{card}</div>)}

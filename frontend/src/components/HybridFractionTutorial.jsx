@@ -72,7 +72,7 @@ const slides = [
     body: 'If you see "Can be simplified!", your answer is right but can be made smaller. Divide the top and bottom by the same number and try again.\n\nType the simplest answer on your first try to get a PERFECT!\n\nExample: 2 4/6 → 2 2/3',
   },
   {
-    title: '⚠ ABOUT THE HINT',
+    title: 'ABOUT THE HINT',
     body: 'A Hint button appears after you draw the shape.\n\nIf you use it, you only get a small part of the points for that step.\n\nTry to solve it on your own first!',
     isWarning: true,
     isLast: true,

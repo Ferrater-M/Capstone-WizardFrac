@@ -45,7 +45,7 @@ const slides = [
     body: 'If the top number is the same as or bigger than the bottom number:\n\n1. Type how many times the bottom fits into the top, then press Check.\n2. The gem shatters! Drag the shards into the jars (or sweep them in if there are lots).\n3. Press Confirm.\n\nFull jars = the whole number. Leftover shards = the new top number.\n\nExample: 7/5 → 1 2/5',
   },
   {
-    title: '⚠ ABOUT THE HINT',
+    title: 'ABOUT THE HINT',
     body: 'A Hint button appears after you draw the circle.\n\nIf you use it, you only get a small part of the points for that step.\n\nTry to solve it on your own first!',
     isWarning: true,
     isLast: true,

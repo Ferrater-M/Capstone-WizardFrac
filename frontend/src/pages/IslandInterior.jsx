@@ -4,14 +4,17 @@ import LoadingScreen from '../components/LoadingScreen';
 import { playSfx } from '../utils/audio';
 import { isTouchDevice } from '../utils/device';
 import { skipAmbientFrame } from '../utils/stage';
+import PixelIcon from '../components/PixelIcon';
 
 const SQUARE  = 380;
 const P_RAD   = 18;
 const E_RAD   = 22;
 const SPEED   = 2.2;   // px per frame
 const REACH   = P_RAD + E_RAD + 12;
-const ENEMY_SIZE  = 120;  // miniature sprite sizes, px (the sprite frames have lots of empty space)
-const PLAYER_SIZE = 124;
+// Miniature sprite sizes, px (the sprite frames have lots of empty space). The same at every GUI Scaling.
+const SPRITE_SCALE = 1.4;
+const ENEMY_SIZE  = Math.round(120 * SPRITE_SCALE);
+const PLAYER_SIZE = Math.round(124 * SPRITE_SCALE);
 
 const walkableSrc = (name) => {
   switch (name) {
@@ -568,12 +571,12 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, character, paused = 
 
 
       {/* Back (top left) and Menu (top right) — the island selection's square pixel buttons */}
-      <button className="ii-pill ii-pill-back" onClick={onBack}>
+      <button className="ii-pill ii-pill-back" data-ui onClick={onBack}>
         <PixelCorners />
         ← Back
       </button>
       {onOpenMenu && (
-        <button className="ii-pill ii-pill-menu" onClick={onOpenMenu}>
+        <button className="ii-pill ii-pill-menu" data-ui onClick={onOpenMenu}>
           <PixelCorners />
           Menu
         </button>
@@ -621,28 +624,32 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, character, paused = 
                 className={`level-node${near ? ' is-near' : ''}${locked ? ' is-locked' : ''}${done ? ' is-done' : ''}`}
                 style={{ left: enemy.x - ENEMY_SIZE / 2, top: enemy.y - ENEMY_SIZE / 2, width: ENEMY_SIZE, height: ENEMY_SIZE }}
               >
-                {!locked && boss && <span className="level-crown">👑</span>}
+                {!locked && boss && <span className="level-crown" data-ui><PixelIcon name="crown" size={14} color="#FBBF24" label="Boss" /></span>}
                 {done && (
-                  <div className="level-stars">
+                  <div className="level-stars" data-ui>
                     <StarRow stars={stars[enemy.level] || 0} />
                   </div>
                 )}
                 {enemy.name && <MiniSprite src={`/enemyAssets/${key}/${enemy.name}/idle.png`} size={ENEMY_SIZE} className="level-sprite" />}
                 {done && introDone && <PixelX />}
-                {locked && <span className="level-lock">🔒</span>}
-                <span className="level-tag"><PixelCorners small />{boss ? 'BOSS' : `Lv ${enemy.level}`}</span>
+                {locked && <span className="level-lock" data-ui><PixelIcon name="lock" size={18} color="#e8e4f8" label="Locked" /></span>}
+                <span className="level-tag" data-ui><PixelCorners small />{boss ? 'BOSS' : `Lv ${enemy.level}`}</span>
               </div>
             );
           })}
 
           {/* Interact prompt above nearby enemy */}
+          {/* The anchor is a point just above the enemy; the prompt grows upward from it, so a bigger
+              GUI Scaling (data-ui) never covers the enemy */}
           {nearEnemy && (
-            <div className="level-prompt" style={{ left: nearEnemy.x - 70, top: nearEnemy.y - (isCompleted(nearEnemy.level) ? 104 : 92) }}>
-              <PixelCorners small />
-              {nearEnemy.type === 'boss' ? 'Boss Fight' : `Level ${nearEnemy.level}`}
-              {nearEnemy.name && <span className="level-prompt-name">{nearEnemy.name}</span>}
-              {isCompleted(nearEnemy.level) && <span style={{ color: '#10b981' }}>Defeated</span>}
-              <span className="level-prompt-action">Enter to Fight</span>
+            <div className="level-prompt-anchor" style={{ left: nearEnemy.x, top: nearEnemy.y - (isCompleted(nearEnemy.level) ? 17.2 : 20.4) * SPRITE_SCALE }}>
+              <div className="level-prompt" data-ui>
+                <PixelCorners small />
+                {nearEnemy.type === 'boss' ? 'Boss Fight' : `Level ${nearEnemy.level}`}
+                {nearEnemy.name && <span className="level-prompt-name">{nearEnemy.name}</span>}
+                {isCompleted(nearEnemy.level) && <span style={{ color: '#10b981' }}>Defeated</span>}
+                <span className="level-prompt-action">Enter to Fight</span>
+              </div>
             </div>
           )}
         </div>
@@ -650,7 +657,7 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, character, paused = 
         {/* Player — the miniature wizard/witch, facing the way they last walked */}
         <div
           className="player-mini"
-          style={{ left: playerPos.x - PLAYER_SIZE / 2, top: playerPos.y - PLAYER_SIZE / 2 - 10 }}
+          style={{ left: playerPos.x - PLAYER_SIZE / 2, top: playerPos.y - PLAYER_SIZE / 2 - 10 * SPRITE_SCALE }}
         >
           <MiniSprite src={`/PlayerAssets/${charKey}/${charKey}Idle.png`} size={PLAYER_SIZE} flip={facing === 'left'} />
         </div>

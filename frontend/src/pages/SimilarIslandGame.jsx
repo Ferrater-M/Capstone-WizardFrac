@@ -3,7 +3,7 @@ import { shouldAutoShowTutorial, markTutorialSeen } from '../utils/tutorialSeen'
 import Hearts from '../components/Hearts';
 import { useEnterToConfirm } from '../utils/useEnterToConfirm';
 import IntroPhase from '../components/IntroPhase';
-import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
+import { playSfx, getSfxVolume, getMasterVolume, useVolumeSync } from '../utils/audio';
 import './game.css';
 import DrawingCanvas from '../components/DrawingCanvas';
 import SimilarFractionTutorial from '../components/SimilarFractionTutorial';
@@ -17,6 +17,7 @@ import { useStopwatch, useHalfWidth, useAnimationHold } from '../utils/stopwatch
 
 import { buildProblem, pickFreshProblem, getFeedbackDuration, scoreProblem, similarSteps, MAX_HEARTS, HEART_LOSS, healHearts, heartsToSave } from '../utils/gameUtils';
 import { API_BASE_URL } from '../config';
+import { useUiScale } from '../utils/uiScale';
 
 // Falling square particles along the bottom of a box — same set/timing as the
 // problem-statement banner's own particles (see its inline copy below), just
@@ -118,18 +119,20 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const rectWrapperRef = useRef(null);
   const rectScaleRef  = useRef(1);
   const [rectScale, setRectScale] = useState(1);
+  // GUI Scaling (Settings): the card grows up to this size when there's room for it
+  const uiScale = useUiScale();
 
   useEffect(() => {
     if (!rectWrapperRef.current) return;
     const obs = new ResizeObserver(entries => {
       const { width, height } = entries[0].contentRect;
-      const s = Math.max(0.1, Math.min(1, width / 400, (height - 50) / 440));
+      const s = Math.max(0.1, Math.min(uiScale, width / 400, (height - 50) / 440));
       rectScaleRef.current = s;
       setRectScale(s);
     });
     obs.observe(rectWrapperRef.current);
     return () => obs.disconnect();
-  }, []);
+  }, [uiScale]);
   const playerRef    = useRef(null);
   const enemyRef     = useRef(null);
   const playerBoxRef = useRef(null);
@@ -824,6 +827,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
   const handleMasterVolumeChanged = (volume01) => {
     if (ostRef.current) ostRef.current.volume = volume01;
   };
+  useVolumeSync(handleMasterVolumeChanged);
 
   const confirmExit = async () => {
     await saveGameEnd('PAUSED', false);
@@ -929,7 +933,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '8px 0', gap: '10px', position: 'relative', zIndex: 1 }}>
 
         {/* Stats — top left, same border as problem display */}
-        <div ref={statsBoxRef} data-edge-dim style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div ref={statsBoxRef} data-edge-dim data-ui style={{ position: 'relative', border: '4px solid #703737', background: '#e8d5b4', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
           <div style={{ position: 'absolute', inset: 5, border: '1px solid #703737', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', top: -6, left: -6, width: 10, height: 10, background: '#703737' }} />
           <div style={{ position: 'absolute', top: -6, right: -6, width: 10, height: 10, background: '#703737' }} />
@@ -958,6 +962,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
         {(unsimplified || (formulaVisible && (!(carryPhase && !carryFinal) || carryPromptShown))) && (
           <div
             key={`hint-${hintUsed}-${phase2HintUsed}-${carryPromptShown ? carryUi.prompt : ''}-${unsimplified ? 'simp' : ''}`}
+            data-ui
             style={{
               position: 'relative',
               border: '4px solid #fff',
@@ -991,7 +996,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 10, position: 'relative', width: hudHalfW ?? undefined, boxSizing: 'border-box' }}>
+        <div data-ui style={{ display: 'flex', gap: 10, position: 'relative', width: hudHalfW ?? undefined, boxSizing: 'border-box' }}>
           {/* Session stopwatch — hangs under the Help / Menu buttons, spanning both */}
           <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: 0, right: 0, zIndex: 5 }}>
             <GameStopwatches
@@ -1245,6 +1250,8 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
           <div
             className="wireframe-problem"
             style={{
+              // wide enough for the interactable card at the GUI Scaling size (400px card × scale)
+              minWidth: 400 * uiScale,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -1256,7 +1263,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
             }}
           >
             {/* Fraction display — outer controls visibility, inner animates in */}
-            <div style={{
+            <div data-ui style={{
               opacity: interactableVisible ? 1 : 0,
               transition: 'opacity 0.3s ease',
               animation: 'magicFloat 3s ease-in-out infinite',
@@ -2226,7 +2233,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
 
       {feedback && (
         <div onClick={skipFeedback} style={{ position: 'fixed', inset: 0, zIndex: 4999, cursor: feedbackClickable ? 'pointer' : 'default' }}>
-          <div style={{
+          <div data-ui style={{
             position: 'fixed',
             left: '50%',
             zIndex: 5000,
@@ -2259,7 +2266,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
       )}
 
       {perfectPopup && (
-        <div style={{
+        <div data-ui style={{
           position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
           zIndex: 5001, pointerEvents: 'none', textAlign: 'center',
           padding: '14px 32px', border: '6px solid #fff', background: '#000',
@@ -2352,7 +2359,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
           `}</style>
         <div ref={dBubbleRef} style={{
           position: 'fixed', left: dBubble.x, top: dBubble.y,
-          width: 48, height: 48,
+          width: 48, height: 48, scale: 'var(--wf-ui)',   // GUI Scaling: grows around its centre
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 9999, pointerEvents: 'none',
         }}>
@@ -2399,7 +2406,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
 
       {showHintConfirm && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.82)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:2000 }}>
-          <div style={{ position:'relative', background:'#e8d5b4', border:'4px solid #703737', padding:'32px 36px', textAlign:'center', width:360, fontFamily:'"Press Start 2P", monospace' }}>
+          <div data-ui style={{ position:'relative', background:'#e8d5b4', border:'4px solid #703737', padding:'32px 36px', textAlign:'center', width:360, fontFamily:'"Press Start 2P", monospace' }}>
             {/* pixel corner decorations */}
             <div style={{ position:'absolute', inset:6, border:'1px solid #703737', pointerEvents:'none' }} />
             {[[-6,-6],[null,-6],[-6,null],[null,null]].map(([t,l],i)=>(
@@ -2435,7 +2442,7 @@ const SimilarIslandGame = ({ studentId, studentNickname, selectedCharacter, game
               position: 'fixed',
               left: bubbles[key].left,
               top: bubbles[key].top,
-              width: 48, height: 48,
+              width: 48, height: 48, scale: 'var(--wf-ui)',   // GUI Scaling: grows around its centre
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               zIndex: 9999, pointerEvents: 'none',
               opacity: bubbles[key].opacity,

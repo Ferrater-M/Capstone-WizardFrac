@@ -92,6 +92,34 @@ body {
   overflow: hidden;
 }
 
+/* Scrollbars: invisible everywhere for a clean look. Lists, panels and pages still scroll with the
+   wheel, a drag, a swipe or the keyboard; only the bar itself is hidden. */
+* {
+  scrollbar-width: none !important;
+}
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* GUI Scaling (Settings → GUI Scaling, utils/uiScale.js): --wf-ui is 1 (Default), 1.2 (Medium) or
+   1.4 (Large). Each growable piece of GUI carries data-ui; zoom grows its real layout box, so the
+   things around it make room instead of being covered. data-ui-keep inside one stays its original size. */
+:root {
+  --wf-ui: 1;
+}
+[data-ui] {
+  zoom: var(--wf-ui);
+}
+/* A data-ui piece inside another one (e.g. a pop-up opened from a zoomed panel) is not zoomed twice */
+[data-ui] [data-ui] {
+  zoom: 1;
+}
+[data-ui] [data-ui-keep] {
+  zoom: calc(1 / var(--wf-ui));
+}
+
 /* Square-ish or upright window (utils/stage.js MIN_ASPECT): black screen, one pixel-font message. */
 #wf-unsupported {
   display: none;

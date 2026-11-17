@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { getUiScale } from '../utils/uiScale';
 
 // ── Battle keypad for phones ──
 // Mounted by App.jsx during battles on touch devices only (utils/device.js).
@@ -146,14 +147,17 @@ const TouchKeypad = () => {
       let next = null;
       if (fields.length && card) {
         const r = card.getBoundingClientRect();
-        // Fixed key size (scaled with the card, e.g. when the card itself is shrunk to fit)
-        const k = Math.min(1, r.height / CARD_H);
+        // Key size follows the card (shrunk to fit, or bigger with GUI Scaling), never past the GUI scale
+        const k = Math.min(getUiScale(), r.height / CARD_H);
         const keyW = KEY_W * k, keyH = KEY_H * k;
         const width = 3 * keyW + 2 * KEY_GAP + 2 * PAD;
         const height = 4 * keyH + 3 * KEY_GAP + 2 * PAD;
         // Floats just right of the card, centred on it; nudged back inside the screen if needed
         const left = Math.min(r.right + GAP, window.innerWidth - EDGE - width);
-        const top = Math.max(EDGE, Math.min(r.top + (r.height - height) / 2, window.innerHeight - EDGE - height));
+        // A keypad bigger than normal (GUI Scaling) lines up with the card's bottom instead, so it stays
+        // clear of the enemy's name and hearts above it
+        const centred = r.top + (r.height - height) / 2;
+        const top = Math.max(EDGE, Math.min(k > 1 ? Math.max(centred, r.bottom - height) : centred, window.innerHeight - EDGE - height));
         next = {
           left: Math.round(left), top: Math.round(top),
           width: Math.round(width), height: Math.round(height), keyW: Math.round(keyW), keyH: Math.round(keyH),

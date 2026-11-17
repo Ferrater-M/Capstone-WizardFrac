@@ -3,6 +3,7 @@ import './GameMenuModal.css';
 const GameMenuModal = ({ title, message, icon, onClose, children, panelClassName }) => (
   <div className="wizard-menu-overlay" onClick={onClose}>
     <div
+      data-ui
       className={`wizard-menu-panel${panelClassName ? ` ${panelClassName}` : ''}`}
       onClick={(e) => e.stopPropagation()}
       role="dialog"

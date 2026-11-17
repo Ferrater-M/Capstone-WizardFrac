@@ -53,6 +53,7 @@
 
 .currency-star {
   font-size: 0.95em;
+  color: var(--gl-gold);
 }
 
 .icon-pill {
@@ -372,7 +373,9 @@
   position: relative;
   z-index: 1;
   width: 100%;
-  flex: 1;
+  /* Fixed height (what flex: 1 gave it), so the island is the same size at every GUI Scaling;
+     the bigger text under it just takes more of the empty space below. */
+  flex: 0 0 386.66px;
   min-height: 0;
   display: flex;
   align-items: center;
@@ -410,6 +413,7 @@
 
 .island-stars-icon {
   font-size: 0.95em;
+  color: var(--gl-gold);
 }
 
 .island-progress-track {
@@ -454,8 +458,9 @@
 }
 
 .lock-icon {
-  font-size: 3em;
+  color: #e8e4f8;
   margin-bottom: 10px;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7));
 }
 
 .lock-overlay p {
@@ -593,7 +598,7 @@
 /* ── Fixed pet (bottom-left) ── */
 .lobby-pet-fixed {
   position: fixed;
-  bottom: 72px;
+  bottom: calc(72px * var(--wf-ui));   /* stands on the bottom bar, which grows with GUI Scaling */
   left: 20px;
   /* above both slide-out panels (z-index 100) so clicks reach the pet */
   z-index: 110;
@@ -607,8 +612,10 @@
 /* ── Dialogue bubble ── */
 .pet-dialogue {
   position: absolute;
-  bottom: 218px;
-  left: 100px;
+  /* Above the pet's head. With bigger GUI Scaling (data-ui zooms this bubble, offsets included) it moves
+     down beside the pet's head instead, clear of the island cards' bigger text. */
+  bottom: calc((218px - (var(--wf-ui) - 1) * 245px) / var(--wf-ui));
+  left: calc((100px + (var(--wf-ui) - 1) * 200px) / var(--wf-ui));
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(8px);
   border-radius: 14px;
@@ -802,8 +809,14 @@
   align-items: stretch;
 }
 
-.left-panel-slider:hover {
+.left-panel-slider:hover,
+.left-panel-slider.is-open {
   transform: translateY(-50%) translateX(0);
+}
+
+/* Phones: no hover — only the "MORE" tab's tap opens it (a tap would otherwise leave a sticky :hover) */
+html.wf-touch .left-panel-slider:hover:not(.is-open) {
+  transform: translateY(-50%) translateX(calc(-100% + 36px));
 }
 
 .left-panel-content {
@@ -842,6 +855,74 @@
 @keyframes leftArrowPulse {
   0%, 100% { opacity: 1;   transform: translateX(0);  text-shadow: 0 0 6px rgba(251,191,36,0.9), 0 0 14px rgba(251,191,36,0.6), 0 0 28px rgba(168,85,247,0.5); }
   50%       { opacity: 0.6; transform: translateX(4px); text-shadow: 0 0 10px rgba(251,191,36,1), 0 0 22px rgba(251,191,36,0.8), 0 0 40px rgba(168,85,247,0.7); }
+}
+
+/* The side tab is the word MORE, one letter under another (phones: tap it; computers: hover it) */
+.left-panel-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--gl-gold);
+  text-shadow:
+    0 0 6px rgba(251, 191, 36, 0.9),
+    0 0 14px rgba(251, 191, 36, 0.6),
+    0 0 28px rgba(168, 85, 247, 0.5);
+  animation: leftMorePulse 2s ease-in-out infinite;
+}
+
+@keyframes leftMorePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.6; }
+}
+
+.left-panel-slider.is-open .left-panel-more,
+.left-panel-slider:hover .left-panel-more {
+  animation: none;
+  opacity: 0.4;
+  text-shadow: none;
+}
+
+/* Computers: the in-game guide cursor (same press pulse, guidePulse in game.css) at the bottom right
+   of MORE, fading in and out now and then. Hidden while the panel is open. */
+.left-panel-more-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.left-panel-cursor {
+  position: absolute;
+  left: calc(100% - 8px);
+  top: calc(100% - 4px);
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+  z-index: 2;
+  animation: leftCursorFade 7s ease-in-out infinite;
+}
+
+.left-panel-cursor img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  transform-origin: 8px 4px;
+  animation: guidePulse 0.9s ease-in-out infinite;
+}
+
+@keyframes leftCursorFade {
+  0%, 30%   { opacity: 0; }
+  38%, 80%  { opacity: 1; }
+  88%, 100% { opacity: 0; }
+}
+
+.left-panel-slider:hover .left-panel-cursor {
+  animation: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .left-panel-slider:hover .left-panel-arrow {

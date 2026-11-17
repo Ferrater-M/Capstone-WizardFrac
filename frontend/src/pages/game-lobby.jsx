@@ -9,31 +9,33 @@ import GameMechanicsIntro from '../components/GameMechanicsIntro';
 import SettingsPage from './SettingsPage';
 import { API_BASE_URL } from '../config';
 import { countEnemiesPerIsland } from '../utils/islandStages';
+import { isTouchDevice } from '../utils/device';
+import PixelIcon from '../components/PixelIcon';
 
 const MECHANICS_INTRO_KEY = 'wizardfrac_seen_mechanics_intro';
 
 // ── Pet dialogue lines ──────────────────────────────────────────────────────
 // To add more lines, just push to these arrays.
 const PET_GREETINGS = [
-  "You can do it! 💪",
+  "You can do it!",
   "How are you today?",
   "Ready to learn fractions?",
   "Let's conquer today!",
-  "Good to see you! 😊",
+  "Good to see you!",
   "You're doing amazing!",
   "Believe in yourself!",
-  "Today's the day! ✨",
+  "Today's the day!",
 ];
 
 const PET_CHATS = [
-  "Hi there! 👋",
+  "Hi there!",
   "What's up?",
   "Nice weather we're having!",
   "You've got this!",
-  "Let's go! 🚀",
-  "Fractions are fun! 🎉",
+  "Let's go!",
+  "Fractions are fun!",
   "Keep it up!",
-  "You're a star! ⭐",
+  "You're a star!",
   "Looking good, wizard!",
 ];
 // ────────────────────────────────────────────────────────────────────────────
@@ -63,6 +65,15 @@ const pixelCorners = (color, edgeOffset = -6) => (
 const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart, onOpenDashboard, onEnterIslandInterior, onLeaveIslandInterior, onIslandInteriorLoaded, onLogout, onNicknameChanged, onMasterVolumeChanged }) => {
   const [gameProgress, setGameProgress] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  // Phones can't hover: the left panel's "MORE" tab opens/closes it with a tap instead
+  const [leftPanelOpen, setLeftPanelOpen] = useState(false);
+  const leftPanelRef = useRef(null);
+  useEffect(() => {
+    if (!leftPanelOpen) return undefined;
+    const closeOutside = (e) => { if (!leftPanelRef.current?.contains(e.target)) setLeftPanelOpen(false); };
+    document.addEventListener('pointerdown', closeOutside);
+    return () => document.removeEventListener('pointerdown', closeOutside);
+  }, [leftPanelOpen]);
   const [stageStars, setStageStars] = useState({});
   const [selectedIsland, setSelectedIsland] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState(1);
@@ -460,7 +471,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       maxStage: gameProgress?.similarIslandMaxStage || 0,
       totalStages: getIslandStageCount('Similar'),
       color: '#22C55E',
-      icon: '🌿',
       image: '/InteractableUI/SimilarIsland.png',
     },
     {
@@ -472,7 +482,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       maxStage: gameProgress?.dissimilarIslandMaxStage || 0,
       totalStages: getIslandStageCount('Dissimilar'),
       color: '#F59E0B',
-      icon: '🦋',
       image: '/InteractableUI/DisimilarIsland.png',
     },
     {
@@ -484,7 +493,6 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
       maxStage: gameProgress?.hybridIslandMaxStage || 0,
       totalStages: getIslandStageCount('Hybrid'),
       color: '#7C3AED',
-      icon: '🌀',
       image: '/InteractableUI/HybridIsland.png',
     },
   ];
@@ -538,7 +546,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
           onOpenMenu={() => setShowSettings(true)}
           onLoaded={onIslandInteriorLoaded}
         />
-        {/* Menu: the same Settings pop-up as the island selection's ⚙️ button and the in-game Menu */}
+        {/* Menu: the same Settings pop-up as the island selection's Menu button and the in-game Menu */}
         {showSettings && (
           <SettingsPage
             studentId={studentId}
@@ -561,24 +569,26 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
 
       <div
         ref={topRightRef}
+        data-ui
         className={`lobby-top-right${animPhase === 'flash' ? ' anim-flash' : ''}${animPhase && animPhase !== 'flash' ? ' anim-hidden' : ''}`}
       >
         <div className="currency-badge">
           {pixelCorners('var(--gl-border)', 0)}
-          <span className="currency-star">⭐</span> {starCurrency}
+          <span className="currency-star">★</span> {starCurrency}
         </div>
         <button className="icon-pill" onClick={() => setShowMechanicsIntro(true)}>
           {pixelCorners('var(--gl-border)', 0)}
           Help
         </button>
-        <button className="icon-pill icon-pill-round" onClick={() => setShowSettings(true)} aria-label="Settings">
+        <button className="icon-pill" onClick={() => setShowSettings(true)}>
           {pixelCorners('var(--gl-border)', 0)}
-          ⚙️
+          Menu
         </button>
       </div>
 
       <div
         ref={playerCardRef}
+        data-ui
         className={`player-card-fixed${animPhase === 'flash' ? ' anim-flash' : ''}${animPhase && animPhase !== 'flash' ? ' anim-hidden' : ''}`}
       >
         {pixelCorners('var(--gl-border)', 0)}
@@ -639,7 +649,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
         style={{ cursor: (petPhase === 'up' || petPhase === 'talking') ? 'pointer' : 'default' }}
       >
         {petDialogue && (
-          <div className="pet-dialogue" key={petDialogue}>
+          <div className="pet-dialogue" data-ui key={petDialogue}>
             {/* invisible sizer locks the bubble to the full-text width so it
                 doesn't resize as characters type in */}
             <span className="pet-dialogue-sizer">{petDialogue}</span>
@@ -665,17 +675,29 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
         </div>
       </div>
 
-      <div className="left-panel-slider">
+      <div ref={leftPanelRef} className={`left-panel-slider${leftPanelOpen ? ' is-open' : ''}`} data-ui>
         <div className="left-panel-content">
           <nav className="lobby-sidebar">
             {pixelCorners('var(--gl-border)')}
-            <button className="sidebar-item active" onClick={onOpenDashboard}><span>🏠</span>Dashboard</button>
-            <button className="sidebar-item" onClick={() => setShowSettings(true)}><span>⚙️</span>Settings</button>
+            <button className="sidebar-item active" onClick={() => { setLeftPanelOpen(false); onOpenDashboard(); }}>Dashboard</button>
+            <button className="sidebar-item" onClick={() => { setLeftPanelOpen(false); setShowSettings(true); }}>Settings</button>
           </nav>
         </div>
-        <div className="left-panel-tab">
-          <span className="left-panel-arrow">▶</span>
-        </div>
+        {isTouchDevice() ? (
+          <button type="button" className="left-panel-tab" onClick={() => setLeftPanelOpen(o => !o)} aria-expanded={leftPanelOpen} aria-label="More">
+            <span className="left-panel-more" aria-hidden="true">{'MORE'.split('').map((c, i) => <span key={i}>{c}</span>)}</span>
+          </button>
+        ) : (
+          // Computer: hovering opens it; the guide cursor "presses" MORE now and then to show it's there
+          <div className="left-panel-tab">
+            <span className="left-panel-more-wrap">
+              <span className="left-panel-more" aria-hidden="true">{'MORE'.split('').map((c, i) => <span key={i}>{c}</span>)}</span>
+              <span className="left-panel-cursor" aria-hidden="true">
+                <img src="/InteractableUI/GuideCursor.png" alt="" draggable={false} />
+              </span>
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="lobby-dashboard">
@@ -721,28 +743,27 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
                         alt={island.title}
                       />
                       {!island.unlocked && (
-                        <div className="lock-overlay">
-                          <span className="lock-icon">🔒</span>
+                        <div className="lock-overlay" data-ui>
+                          <span className="lock-icon"><PixelIcon name="lock" size={36} /></span>
                           <p>Unlock by completing previous island</p>
                         </div>
                       )}
                     </div>
-                    <div className="island-stats">
+                    <div className="island-stats" data-ui>
                       <span className="island-stars">
-                        <span className="island-stars-icon">⭐</span> {island.maxStage} / {island.totalStages ?? 'null'}
+                        <span className="island-stars-icon">★</span> {island.maxStage} / {island.totalStages ?? 'null'}
                       </span>
                     </div>
-                    <div className="island-progress-track">
+                    <div className="island-progress-track" data-ui>
                       <div
                         className="island-progress-fill"
                         style={{ width: `${island.totalStages ? (island.maxStage / island.totalStages) * 100 : 0}%`, background: island.color }}
                       />
                     </div>
-                    <div className="island-ribbon">
-                      <span className="island-ribbon-icon">{island.icon}</span>
+                    <div className="island-ribbon" data-ui>
                       <span>{island.title.toUpperCase()}</span>
                     </div>
-                    <p className="island-card-desc">{island.description}</p>
+                    <p className="island-card-desc" data-ui>{island.description}</p>
                   </div>
                 </div>
               );
@@ -752,7 +773,7 @@ const GameLobby = ({ studentId, studentNickname, selectedCharacter, onGameStart,
 
       </div>
 
-      <div className="lobby-bottom-bar">
+      <div className="lobby-bottom-bar" data-ui>
         <div className="bottom-bar-info">
           <span className="bottom-progress-label">
             Overall Progress: {overallPercent}% <small>({clearedStagesAll} / {totalStagesAll} stages)</small>

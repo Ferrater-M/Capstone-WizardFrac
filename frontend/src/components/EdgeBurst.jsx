@@ -78,10 +78,11 @@ const EdgeBurst = () => {
     <div key={burst.id} style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 9500, overflow: 'hidden' }}>
       {burst.cubes.map(c => (
         <div key={c.id} style={{
-          position: 'absolute', top: `${c.y}%`, [c.side]: -c.size / 2,
-          width: c.size, height: c.size, background: '#fff',
+          // GUI Scaling: the cubes, the words and how far they fly all grow with --wf-ui
+          position: 'absolute', top: `${c.y}%`, [c.side]: `calc(${-c.size / 2}px * var(--wf-ui))`,
+          width: `calc(${c.size}px * var(--wf-ui))`, height: `calc(${c.size}px * var(--wf-ui))`, background: '#fff',
           boxShadow: '0 0 6px rgba(255,255,255,0.8)',
-          '--dx': `${c.dx}px`, '--dy': `${c.dy}px`, '--r': `${c.rot}deg`,
+          '--dx': `calc(${c.dx}px * var(--wf-ui))`, '--dy': `calc(${c.dy}px * var(--wf-ui))`, '--r': `${c.rot}deg`,
           opacity: 0,
           animation: `edgeCube ${c.dur}s ease-out ${c.delay}s forwards`,
         }} />
@@ -89,10 +90,10 @@ const EdgeBurst = () => {
       {burst.words.map(w => (
         <div key={w.id} style={{
           position: 'absolute', top: `${w.y}%`, [w.side]: 0,
-          fontFamily: '"Press Start 2P", monospace', fontSize: w.size, lineHeight: 1,
+          fontFamily: '"Press Start 2P", monospace', fontSize: `calc(${w.size}px * var(--wf-ui))`, lineHeight: 1,
           color: '#fff', whiteSpace: 'nowrap',
           textShadow: '0 0 8px rgba(255,255,255,0.85), 2px 2px 0 rgba(0,0,0,0.6)',
-          '--dx': `${w.dx}px`, '--dy': `${w.dy}px`, '--r0': `${w.r0}deg`, '--r1': `${w.r1}deg`,
+          '--dx': `calc(${w.dx}px * var(--wf-ui))`, '--dy': `calc(${w.dy}px * var(--wf-ui))`, '--r0': `${w.r0}deg`, '--r1': `${w.r1}deg`,
           opacity: 0,
           animation: `edgeWordShoot ${w.dur}s cubic-bezier(.15,.8,.3,1) ${w.delay}s forwards`,
         }}>{burst.word}</div>

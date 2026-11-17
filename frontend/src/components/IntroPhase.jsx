@@ -125,7 +125,7 @@ const IntroPhase = ({ playerName, playerSprite, enemyName, enemySprite, onDone }
         </div>
       )}
 
-      <span className="ip-skip">Click to skip</span>
+      <span className="ip-skip" data-ui>Click to skip</span>
     </div>
   );
 };

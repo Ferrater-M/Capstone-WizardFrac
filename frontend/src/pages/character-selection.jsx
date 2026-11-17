@@ -139,7 +139,7 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack, onMasterVo
       <div className="nav-bar">
         {/* The Title Page / login logo */}
         <h2 className="cs-logo">WIZARDFRA<PixelC /></h2>
-        <div className="nav-buttons">
+        <div className="nav-buttons" data-ui>
           <button type="button" className="menu-btn" onClick={onBack}>
             <PixelCorners />
             Back
@@ -187,13 +187,13 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack, onMasterVo
                   onClick={() => handleSelectCharacter(character.id)}
                 >
                   <PixelCorners color={selectedCharacterId === character.id ? 'var(--cs-gold)' : 'var(--cs-border)'} />
-                  <div className="character-ribbon">
+                  <div className="character-ribbon" data-ui>
                     <span className="character-ribbon-icon">✦</span>
                     {displayName.toUpperCase()}
                   </div>
                   {genderKey && (
-                    <div className="character-gender-badge">
-                      {genderKey === 'girl' ? '♀' : '♂'}
+                    <div className="character-gender-badge" data-ui>
+                      {genderKey === 'girl' ? '♀︎' : '♂︎'}
                     </div>
                   )}
 
@@ -206,9 +206,9 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack, onMasterVo
                     )}
                   </div>
 
-                  <div className="character-divider"><span>✦</span></div>
+                  <div className="character-divider" data-ui><span>✦</span></div>
 
-                  <div className="character-info">
+                  <div className="character-info" data-ui>
                     <p className="description">{character.description}</p>
                   </div>
                 </div>
@@ -216,7 +216,7 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack, onMasterVo
             })}
         </div>
 
-        <div className="selection-actions">
+        <div className="selection-actions" data-ui>
           <button
             className="confirm-btn"
             onClick={handleConfirmSelection}
@@ -227,7 +227,7 @@ const CharacterSelection = ({ studentId, onCharacterSelected, onBack, onMasterVo
           </button>
         </div>
 
-        <div className="cs-hint">
+        <div className="cs-hint" data-ui>
           You can change your character later in the settings.
         </div>
       </div>

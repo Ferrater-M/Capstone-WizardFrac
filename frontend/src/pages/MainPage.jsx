@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import './MainPage.css';
 import PixelC from '../components/PixelC';
 import SettingsPage from './SettingsPage';
-import { playSfx, getSfxVolume, getMasterVolume } from '../utils/audio';
+import { playSfx, getSfxVolume, getMasterVolume, useVolumeSync } from '../utils/audio';
 import { getCanvasRatio, skipAmbientFrame } from '../utils/stage';
 
 const ABOUT_SECTIONS = [
@@ -263,6 +263,7 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
     if (ostRef.current) ostRef.current.volume = volume01 * TITLE_MUSIC_VOLUME;
     onMasterVolumeChanged?.(volume01);
   };
+  useVolumeSync((v) => { if (ostRef.current) ostRef.current.volume = v * TITLE_MUSIC_VOLUME; });
   const [timeOfDay, setTimeOfDay] = useState(getTimeOfDay());
 
   // Re-check the clock every minute so morning/afternoon/evening — and the
@@ -826,17 +827,18 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
       {leaving && <div className="leave-fade" aria-hidden="true" />}
 
       {/* Square pixel buttons like the dashboard's: About (top left), Title Volume (top right), Privacy (bottom right) */}
-      <button className="main-pill main-pill-about" onClick={() => setShowAbout(true)}>
+      <button className="main-pill main-pill-about" data-ui onClick={() => setShowAbout(true)}>
         <PillFrame />About
       </button>
 
-      <button className="main-pill main-pill-volume" onClick={() => setShowVolume(true)}>
+      <button className="main-pill main-pill-volume" data-ui onClick={() => setShowVolume(true)}>
         <PillFrame />Volume
       </button>
 
       {/* Static page in /public (also linked from the Google OAuth consent screen), so a plain link, not a route */}
       <a
         className="main-pill main-pill-privacy"
+        data-ui
         href="/privacy.html"
         onClick={() => {
           // Leaving for the privacy page: stop every sound now and don't ask "leave site?". Its Back button
@@ -871,14 +873,14 @@ const MainPage = ({ onStart, onMasterVolumeChanged }) => {
           </div>
         </div>
 
-        <button className="main-start-btn" onClick={startJourney}>
+        <button className="main-start-btn" data-ui onClick={startJourney}>
           Start your Journey
         </button>
       </div>
 
       {showAbout && (
         <div className="about-overlay" onClick={() => setShowAbout(false)}>
-          <div className="about-panel" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+          <div className="about-panel" data-ui onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             {/* Pixel frame, as on the island selection / dashboard pop-ups */}
             <span className="about-inner-line" />
             <span className="about-corner top-left"></span>

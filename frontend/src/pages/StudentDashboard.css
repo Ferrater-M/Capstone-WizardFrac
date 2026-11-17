@@ -278,7 +278,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   /* Side padding lets the first and last card reach the middle */
-  padding: 14px calc(50% - var(--card-w) / 2) 22px;
+  padding: 14px calc(50% - var(--card-w) * var(--wf-ui) / 2) 22px;
   perspective: 1100px;
   perspective-origin: 50% 45%;
   scrollbar-width: none;         /* scrollbar hidden; drag, wheel and swipe still scroll */
@@ -293,7 +293,7 @@
 /* Curved carousel slot — its transform/opacity are set every frame by useCarousel */
 .dash-card-slot {
   position: relative;
-  flex: 0 0 var(--card-w);
+  flex: 0 0 calc(var(--card-w) * var(--wf-ui));   /* the card inside is zoomed by GUI Scaling (data-ui) */
   will-change: transform;
 }
 
@@ -532,7 +532,7 @@
 .dash-modal {
   position: relative;
   width: min(1804.8px, 560px);
-  max-height: 928.8px;
+  max-height: calc(928.8px / var(--wf-ui));   /* zoomed by GUI Scaling (data-ui) */
   box-sizing: border-box;
   padding: 26px 30px 30px;
   border-radius: 0;

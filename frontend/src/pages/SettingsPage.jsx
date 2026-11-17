@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import GameMenuModal from '../components/GameMenuModal';
 import Toast from '../components/Toast';
-import { MASTER_VOLUME_KEY, SFX_VOLUME_KEY } from '../utils/audio';
+import { MASTER_VOLUME_KEY, SFX_VOLUME_KEY, notifyVolumeChange, useVolumeSync } from '../utils/audio';
+import { UI_SCALES, getUiScaleSetting, setUiScaleSetting, useUiScale } from '../utils/uiScale';
 import './SettingsPage.css';
 import { API_BASE_URL } from '../config';
 
@@ -47,6 +48,8 @@ const SettingsPage = ({
   const passwordSectionRef = useRef(null);
   const emailSectionRef = useRef(null);
   const volumeSectionRef = useRef(null);
+  const scaleSectionRef = useRef(null);
+  const scrollBoxRef = useRef(null);
   const logoutSectionRef = useRef(null);
 
   const [pictureVersion, setPictureVersion] = useState(0);
@@ -118,8 +121,15 @@ const SettingsPage = ({
     return () => clearTimeout(t);
   }, [emailCooldown]);
 
-  const [masterVolume, setMasterVolume] = useState(() => readStoredVolume(MASTER_VOLUME_KEY, 80));
-  const [sfxVolume, setSfxVolume] = useState(() => readStoredVolume(SFX_VOLUME_KEY, 70));
+  const [masterVolume, setMasterVolume] = useState(() => readStoredVolume(MASTER_VOLUME_KEY, 100));
+  const [sfxVolume, setSfxVolume] = useState(() => readStoredVolume(SFX_VOLUME_KEY, 100));
+  // Always shows what is saved right now (useUiScale re-renders on any change, even from another tab)
+  useUiScale();
+  const uiScaleId = getUiScaleSetting();
+  useVolumeSync(() => {
+    setMasterVolume(readStoredVolume(MASTER_VOLUME_KEY, 100));
+    setSfxVolume(readStoredVolume(SFX_VOLUME_KEY, 100));
+  });
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
@@ -161,7 +171,17 @@ const SettingsPage = ({
     }
   };
 
-  const scrollTo = (ref) => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Scroll ONLY the settings list to a section. (scrollIntoView would also scroll every scrollable
+  // thing behind the pop-up, e.g. the whole Dashboard page.) The pop-up may be zoomed by GUI Scaling,
+  // so screen pixels are turned into the list's own pixels.
+  const scrollTo = (ref) => {
+    const box = scrollBoxRef.current, el = ref.current;
+    if (!box || !el) return;
+    const br = box.getBoundingClientRect();
+    const k = br.height / (box.offsetHeight || br.height || 1) || 1;
+    const top = box.scrollTop + (el.getBoundingClientRect().top - br.top) / k;
+    box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  };
 
   const handlePictureChange = (e) => {
     const file = e.target.files?.[0];
@@ -345,7 +365,7 @@ const SettingsPage = ({
 
   return (
     <div className="settings-overlay" onClick={onBack}>
-      <div className="settings-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div className="settings-modal" data-ui onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         {pixelCorners('var(--st-border)', 0)}
         <Toast key={toastKey} message={toastMessage} />
         <button className="settings-close-btn" onClick={onBack} aria-label="Close settings">✕</button>
@@ -358,19 +378,22 @@ const SettingsPage = ({
           <nav className="settings-nav">
             {!volumeOnly && (
               <button className="settings-nav-item active" onClick={() => scrollTo(profileSectionRef)}>
-                <span>👤</span> Profile
+                Profile
               </button>
             )}
-            <button className={`settings-nav-item${volumeOnly ? ' active' : ''}`} onClick={() => scrollTo(volumeSectionRef)}>
-              <span>🔊</span> Volume
+            <button className={`settings-nav-item${volumeOnly ? ' active' : ''}`} onClick={() => scrollTo(scaleSectionRef)}>
+              GUI Scaling
+            </button>
+            <button className="settings-nav-item" onClick={() => scrollTo(volumeSectionRef)}>
+              Volume
             </button>
             {!volumeOnly && showAccount && (
               <>
                 <button className="settings-nav-item" onClick={() => scrollTo(emailSectionRef)}>
-                  <span>✉️</span> Email
+                  Email
                 </button>
                 <button className="settings-nav-item" onClick={() => scrollTo(passwordSectionRef)}>
-                  <span>🔒</span> Reset Password
+                  Reset Password
                 </button>
               </>
             )}
@@ -391,11 +414,11 @@ const SettingsPage = ({
           )}
         </aside>
 
-        <div className="settings-scroll">
+        <div className="settings-scroll" ref={scrollBoxRef}>
         <main className="settings-content" ref={profileSectionRef}>
           <h1 className="settings-content-title">{volumeOnly ? 'Volume Settings' : 'Profile Settings'}</h1>
           <p className="settings-content-subtitle">
-            {volumeOnly ? 'Adjust the game audio' : 'Manage your profile and account settings'}
+            {volumeOnly ? 'Adjust the screen size and game audio' : 'Manage your profile and account settings'}
           </p>
 
           {!volumeOnly && (
@@ -411,14 +434,6 @@ const SettingsPage = ({
                   alt="Profile"
                   onError={handleAvatarError}
                 />
-                <button
-                  type="button"
-                  className="settings-picture-edit"
-                  onClick={() => fileInputRef.current?.click()}
-                  aria-label="Change picture"
-                >
-                  ✏️
-                </button>
               </div>
               <p className="settings-picture-hint">
                 {uploading ? 'Uploading…' : 'Change your profile picture'}
@@ -469,11 +484,32 @@ const SettingsPage = ({
           </>
           )}
 
+          <section className="settings-card" ref={scaleSectionRef}>
+            {pixelCorners('var(--st-border)')}
+            <h3 className="settings-card-title">GUI Scaling</h3>
+            <p className="settings-card-subtitle">Make the buttons, boxes and words bigger.</p>
+            <div className="settings-scale-options" role="radiogroup" aria-label="GUI Scaling">
+              {UI_SCALES.map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={uiScaleId === opt.id}
+                  className={`settings-scale-option${uiScaleId === opt.id ? ' selected' : ''}`}
+                  onClick={() => setUiScaleSetting(opt.id)}
+                >
+                  <span className="settings-scale-preview" style={{ fontSize: Math.round(14 * opt.value) }} aria-hidden="true">Aa</span>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
           <section className="settings-card" ref={volumeSectionRef}>
             {pixelCorners('var(--st-border)')}
             <h3 className="settings-card-title">Volume Settings</h3>
             <div className="settings-slider-row">
-              <span className="settings-slider-label"><span>🔊</span> Master Volume</span>
+              <span className="settings-slider-label">Master Volume</span>
               <input
                 type="range" min="0" max="100"
                 className="settings-slider"
@@ -484,12 +520,13 @@ const SettingsPage = ({
                   setMasterVolume(v);
                   localStorage.setItem(MASTER_VOLUME_KEY, String(v));
                   onMasterVolumeChanged?.(v / 100);
+                  notifyVolumeChange();
                 }}
               />
               <span className="settings-slider-value">{masterVolume}%</span>
             </div>
             <div className="settings-slider-row">
-              <span className="settings-slider-label"><span>🎵</span> SFX Volume</span>
+              <span className="settings-slider-label">SFX Volume</span>
               <input
                 type="range" min="0" max="100"
                 className="settings-slider"
@@ -499,6 +536,7 @@ const SettingsPage = ({
                   const v = Number(e.target.value);
                   setSfxVolume(v);
                   localStorage.setItem(SFX_VOLUME_KEY, String(v));
+                  notifyVolumeChange();
                 }}
               />
               <span className="settings-slider-value">{sfxVolume}%</span>
@@ -518,7 +556,7 @@ const SettingsPage = ({
             </p>
             {pendingEmail && (
               <p className="settings-card-subtitle settings-email-pending">
-                ✉️ We sent a link to {pendingEmail}. Open your email and click it!
+                We sent a link to {pendingEmail}. Open your email and click it!
                 {emailVerified ? '' : ' Wrong email? Type the right one below.'}
               </p>
             )}
@@ -526,7 +564,7 @@ const SettingsPage = ({
               {emailVerified && !editingEmail ? (
                 <>
                   <input className="settings-input" type="email" value={savedEmail || ''} disabled readOnly />
-                  <p className="settings-success settings-email-verified">✔ Verified</p>
+                  <p className="settings-success settings-email-verified">✓ Verified</p>
                   <div className="settings-email-actions">
                     <button type="button" className="settings-btn" onClick={() => { setEmailError(''); setEditingEmail(true); }}>
                       Change Email

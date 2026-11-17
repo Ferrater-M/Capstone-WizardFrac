@@ -327,8 +327,19 @@
   50%      { opacity: 0.7; }
 }
 
+.level-prompt-anchor {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
 .level-prompt {
   position: absolute;
+  left: 0;
+  bottom: 0;
+  transform: translateX(-50%);
   width: 140px;
   display: flex;
   flex-direction: column;

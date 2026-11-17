@@ -221,11 +221,13 @@ const TutorialOverlay = ({ slides, onComplete }) => {
       >
       <div
         key={index}
+        data-ui
         style={{
           position: 'relative',
           // A video card is as wide as its video can be while staying under 48% of the screen height,
           // so the video keeps its own shape and fills the card edge to edge.
-          width: slide.video ? `min(760px, calc(518.4px * ${aspects[slide.video] ?? 16 / 9}))` : 620,
+          // GUI Scaling (data-ui) makes the words bigger but keeps the video its normal size on screen.
+          width: slide.video ? `calc(min(760px, calc(518.4px * ${aspects[slide.video] ?? 16 / 9})) / var(--wf-ui))` : 620,
           maxWidth: '1804.8px',
           background: CREAM,
           border: `4px solid ${BROWN}`,

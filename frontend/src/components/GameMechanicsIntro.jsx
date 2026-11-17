@@ -11,21 +11,18 @@ const TEXT2  = '#C4B5FD';
 const BUTTERFLY_EXAMPLE = { numerator1: 1, denominator1: 2, numerator2: 1, denominator2: 3, operator: '+' };
 const BUTTERFLY_SLIDE_INDEX = 2;
 
-const Heart = ({ filled }) => (
-  <span style={{ fontSize: 18, color: filled ? '#e0245e' : '#4a3a6e', filter: filled ? 'drop-shadow(0 0 3px #e0245e)' : 'none' }}>
-    {filled ? '❤' : '♡'}
-  </span>
+// The battle's own pixel heart
+const Heart = () => (
+  <img src="/InteractableUI/HeartSprite.png" alt="" style={{ width: 26, height: 26, objectFit: 'contain', imageRendering: 'pixelated', filter: 'drop-shadow(0 0 3px #e0245e)' }} />
 );
 
 const slides = [
   {
     title: 'WELCOME, WIZARD',
-    icon: '🧙',
     body: 'You are a young wizard between the Fraction Islands. Each islands guards monsters that can only be defeated with correctly cast fraction spells.\n\nThis quick guide explains how battles work before you set the game',
   },
   {
     title: 'THE SAME CONTAINER',
-    icon: '🪄',
     body: 'On the Similiar Island, When two fractions share the same denominator, they are stored in the "Same Container" — picture both fractions poured into one jar split into equal slices.\n\nBecause the slices already match, you skip cross-multiplying and just add or subtract the top numbers (numerators) directly.',
     visual: (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, margin: '10px 0' }}>
@@ -58,13 +55,11 @@ const slides = [
   },
   {
     title: 'THE BUTTERFLY METHOD',
-    icon: '🦋',
     body: 'On Dissimilar Island, the denominators do not match — so the Same Container trick will not work. Instead, cross-multiply like a butterfly\'s wings:\n\n1. LEFT numerator × RIGHT denominator\n2. RIGHT numerator × LEFT denominator\n3. Multiply BOTH denominators together for the new bottom number\n4. Combine the two cross products with the operator for the new top number\n\nDraw the ∞ symbol to open the fields, then fill in each step.',
     isButterfly: true,
   },
   {
     title: 'HYBRID ISLAND',
-    icon: '🌀',
     body: 'Hybrid Island throws mixed numbers at you — a whole number plus a fraction (e.g. 1 1/2).\n\nBefore casting, convert each mixed number into an improper fraction:\n\nwhole × denominator + numerator, kept over the same denominator.\n\nOnce both fractions are improper, finish the spell with the Butterfly Method.',
     visual: (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, margin: '10px 0', fontSize: 13, fontWeight: 900, color: DARK }}>
@@ -81,12 +76,10 @@ const slides = [
   },
   {
     title: 'CASTING A SPELL',
-    icon: '✨',
     body: 'Casting works in pieces, just like assembling a spell from components:\n\n1. Draw a circle to channel your magic and reveal the input fields.\n2. Select the pieces — fill in the denominator and the numerator expression (e.g. 2+1).\n3. Combine them into your final fraction, simplified if possible.\n4. Press Cast Spell to unleash it on the enemy!',
   },
   {
     title: 'YOUR LIVES',
-    icon: '💗',
     body: 'You begin every battle with 3 lives.\n\nEvery time you cast an incorrect spell, you lose a life and the enemy strikes back. Lose all 3 lives and the battle ends in defeat — so think before you cast!',
     visual: (
       <div style={{ display: 'flex', justifyContent: 'center', gap: 10, margin: '12px 0' }}>
@@ -96,12 +89,10 @@ const slides = [
   },
   {
     title: 'STREAKS & MULTIPLIERS',
-    icon: '🔥',
     body: 'Cast correct spells back-to-back to build a streak. Each streak point raises your score multiplier by 0.2x, up to a maximum of 2.0x.\n\nA single wrong answer — or using a hint — resets your streak to zero. Stay sharp and chain your correct casts for maximum points!',
   },
   {
     title: 'ENEMY & BOSS HEALTH',
-    icon: '👾',
     body: 'Every enemy has a 3 hearts across a number of hit points. Each correct spell chips away part of their health, regardless of whether the problem is addition or subtraction — the same casting rules apply both ways.\n\nStage 6 of every island holds a Boss with much more health than a regular enemy — defeat it to conquer the island!',
     isLast: true,
   },
@@ -148,7 +139,7 @@ const GameMechanicsIntro = ({ onComplete }) => {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 2500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(6,4,20,0.78)', backdropFilter: 'blur(4px)' }}>
-      <div style={{
+      <div data-ui style={{
         position: 'relative',
         width: 460,
         maxWidth: '1728px',
@@ -161,7 +152,7 @@ const GameMechanicsIntro = ({ onComplete }) => {
       }}>
         {/* Header */}
         <div style={{ background: `linear-gradient(135deg, ${BROWN} 0%, #4F46E5 100%)`, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: DARK, letterSpacing: 1 }}>{slide.icon} {slide.title}</span>
+          <span style={{ fontSize: 12, color: DARK, letterSpacing: 1 }}>{slide.title}</span>
           <button onClick={onComplete} style={{ fontSize: 10, color: DARK, background: 'transparent', border: `1px solid ${DARK}`, borderRadius: 6, padding: '4px 9px', fontFamily: '"Press Start 2P", monospace', cursor: 'pointer' }}>SKIP</button>
         </div>
 

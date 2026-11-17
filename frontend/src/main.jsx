@@ -8,9 +8,13 @@ import { installMediaLock } from './utils/lockMedia'
 import { installAuthFetch } from './utils/authFetch'
 import { installStage } from './utils/stage'
 import { installDeviceClass } from './utils/device'
+import { installUiScale } from './utils/uiScale'
 
 // Phone or computer? (<html> gets "wf-touch" or "wf-desktop", see utils/device.js)
 installDeviceClass()
+
+// GUI Scaling (Settings): Default on a computer, Large on a phone (see utils/uiScale.js)
+installUiScale()
 
 // The whole game is one 1920×1080 stage, scaled evenly to fit the window with black bars (see utils/stage.js)
 installStage(document.getElementById('wf-stage'))

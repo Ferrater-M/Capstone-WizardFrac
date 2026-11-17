@@ -175,10 +175,19 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle', guidePaused = false 
   };
 
   // ── drawing handlers ──
+  // Pointer → canvas pixels. The battle panel holding this canvas is scaled (to fit, and bigger with
+  // GUI Scaling), so a screen pixel isn't a canvas pixel: divide by how big the canvas is drawn.
+  const toCanvas = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / (rect.width || canvas.width)),
+      y: (e.clientY - rect.top) * (canvas.height / (rect.height || canvas.height)),
+    };
+  };
+
   const startDrawing = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const { x, y } = toCanvas(e);
     setIsDrawing(true);
     lastPointRef.current = { x, y };
     setPoints([{ x, y }]);
@@ -188,9 +197,7 @@ const DrawingCanvas = ({ onCircleDetected, mode = 'circle', guidePaused = false 
     if (!isDrawing) return;
     const canvas = canvasRef.current;
     const ctx    = canvas.getContext('2d');
-    const rect   = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const { x, y } = toCanvas(e);
 
     ctx.save();
     ctx.strokeStyle = '#333';

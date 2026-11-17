@@ -13,7 +13,7 @@ const Frame = () => (
 
 const GameEndPopup = ({ isWon, score, bonus, hasNextLevel, error, onNextLevel, onLobby, onLogin }) => (
   <div className="gep-backdrop">
-    <div className={`gep-box ${isWon ? 'is-won' : 'is-lost'}`} role="dialog" aria-modal="true" aria-label={isWon ? 'Victory' : 'Defeat'}>
+    <div data-ui className={`gep-box ${isWon ? 'is-won' : 'is-lost'}`} role="dialog" aria-modal="true" aria-label={isWon ? 'Victory' : 'Defeat'}>
       <Frame />
       <h1 className="gep-title">{isWon ? 'VICTORY!' : 'DEFEAT!'}</h1>
       <p className="gep-text">{isWon ? 'You defeated the enemy!' : 'You ran out of lives.'}</p>
@@ -22,7 +22,7 @@ const GameEndPopup = ({ isWon, score, bonus, hasNextLevel, error, onNextLevel, o
       <div className="gep-actions">
         {hasNextLevel && (
           <button type="button" className="gep-btn is-primary" onClick={onNextLevel}>
-            <Frame />▶ Next Level
+            <Frame />▶︎ Next Level
           </button>
         )}
         <button type="button" className="gep-btn" onClick={onLobby}><Frame />Back to Lobby</button>

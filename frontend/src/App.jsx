@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
 import GameEndPopup from './components/GameEndPopup';
 import SparkleTrails from './components/SparkleTrails';
 import TouchKeypad from './components/TouchKeypad';
@@ -19,7 +19,8 @@ import GameLobby from './pages/game-lobby';
 import './components/IntroPhase.css';
 import './pages/game.css';
 import './pages/StudentDashboard.css';
-import { getMasterVolume } from './utils/audio';
+import { getMasterVolume, useVolumeSync } from './utils/audio';
+import { refreshUiScale } from './utils/uiScale';
 import { API_BASE_URL } from './config';
 import { getStageEl } from './utils/stage';
 import { getAuthToken, setAuthToken, setAuthExpiredHandler } from './utils/authFetch';
@@ -209,6 +210,10 @@ function App() {
       if (islandAudioRef.current) islandAudioRef.current.volume = volume01 * MUSIC_VOLUME;
     }
   };
+  // Menu music follows the saved Master Volume, wherever it was changed
+  useVolumeSync(handleMasterVolumeChanged);
+  // Every screen starts from the saved settings (GUI Scaling is read again before it loads)
+  useLayoutEffect(() => { refreshUiScale(); }, [location.pathname]);
 
   const handleLogin = (student) => {
     const id = student.studentId;
