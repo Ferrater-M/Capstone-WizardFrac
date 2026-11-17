@@ -126,12 +126,56 @@
 
 /* ── Phone version (TouchKeyGuide): the guide is the controller ── */
 .key-guide.is-touch {
+  /* Bigger than the computer's guide, for thumbs: it grows up to the island's edge */
+  transform: scale(2);
   pointer-events: auto;
   touch-action: none;           /* a held finger never scrolls or zooms the page */
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
 .keycap.is-pressable { cursor: pointer; }
+
+/* Phone joystick (as tall as Enter): a pixel-art round pad (PixelDisc, 29 cells × 4 px) with a pixel
+   knob (13 cells) that follows the finger in 4 px steps. The drop shadow follows the pixel outline. */
+.joystick {
+  position: relative;
+  width: 116px;
+  height: 116px;
+  touch-action: none;
+  cursor: pointer;
+  filter: drop-shadow(0 4px 0 #1b0d40);
+}
+
+/* Dim arrows on the pad's edge: which ways it moves */
+.joystick-hint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  display: flex;
+  color: #8b6fd6;
+  pointer-events: none;
+}
+
+.joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 0 #1b0d40);
+  /* On release it hops back to the middle in pixel steps */
+  transition: transform 0.12s steps(3, end);
+}
+/* While held the knob sticks to the finger and glows gold */
+.joystick.is-active .joystick-knob {
+  transition: none;
+  filter: drop-shadow(0 4px 0 #1b0d40) drop-shadow(0 0 6px rgba(251, 191, 36, 0.8));
+}
 /* No animation on phones: Enter just turns gold (and glows) when a fight is in reach */
 .key-guide.is-touch .keycap-enter.can-fight {
   animation: none;
@@ -292,6 +336,10 @@
   line-height: 1;
   white-space: nowrap;
 }
+
+/* Phones: the "Lv" tags start one size up (Default looks like the computer's Large) and still follow
+   GUI Scaling from there: 1.4 × the GUI scale */
+html.wf-touch .level-tag[data-ui] { zoom: calc(var(--wf-ui) * 1.4); }
 
 .level-node.is-near .level-tag { border-color: #FBBF24; color: #FBBF24; }
 

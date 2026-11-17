@@ -32,3 +32,21 @@ body {
   width: 100%;
   overflow: hidden;
 }
+
+/* Phones: pixel tap marker (utils/tapIndicator.js): a white pixel circle with a black outline */
+.wf-tap {
+  position: fixed;
+  width: 136px;
+  height: 136px;
+  margin: -68px 0 0 -68px;
+  pointer-events: none;
+  z-index: 99999;
+  will-change: transform, opacity;
+  animation: wfTapPop 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes wfTapPop {
+  0%   { opacity: 1; transform: scale(0.3); }
+  55%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.15); }
+}

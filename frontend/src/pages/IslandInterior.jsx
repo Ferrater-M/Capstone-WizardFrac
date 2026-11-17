@@ -45,15 +45,119 @@ const KEY_TO_CAP = {
 const sendKey = (type, key) => window.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true, cancelable: true }));
 
 // Small pixel arrow for the touch caps (the pixel font has no arrow letters). Points up; rotated per cap.
-const PixelArrow = ({ turn }) => (
-  <svg viewBox="0 0 7 7" width="22" height="22" shapeRendering="crispEdges" style={{ transform: `rotate(${turn}deg)` }} aria-hidden="true">
+const PixelArrow = ({ turn, size = 22 }) => (
+  <svg viewBox="0 0 7 7" width={size} height={size} shapeRendering="crispEdges" style={{ transform: `rotate(${turn}deg)` }} aria-hidden="true">
     <path fill="currentColor" d="M3 0h1v1h1v1h1v1h1v1H5v3H2V4H0V3h1V2h1V1h1z" />
   </svg>
 );
-const TOUCH_CAPS = { W: { key: 'ArrowUp', turn: 0 }, A: { key: 'ArrowLeft', turn: -90 }, S: { key: 'ArrowDown', turn: 180 }, D: { key: 'ArrowRight', turn: 90 } };
+// Phone joystick: put a finger on it and slide. The knob follows (up to KNOB_TRAVEL from the middle) and
+// the direction is sent as the arrow keys a keyboard would press (diagonals press two at once), so the
+// walking code is the same as on a computer. Lifting the finger lets go of every key.
+const KNOB_TRAVEL = 32;      // px the knob can move from the middle (a whole number of art pixels)
+const ART_PX = 4;            // one pixel of the joystick art = 4 px, so the knob moves in 4 px steps
 
-// Phone version: arrow keys instead of WASD, no idle animation, every cap pressable, and a
-// pulsing "Control Your Character" call-out on its right.
+// A round pixel-art disc as an SVG: n×n cells, coloured by colourAt(dx, dy, dist) (null = empty), where
+// dx/dy/dist are the cell's offset from the middle, in cells. Same-coloured cells in a row are merged.
+const PixelDisc = ({ n, colourAt }) => {
+  const rects = [];
+  for (let y = 0; y < n; y++) {
+    let run = null;
+    for (let x = 0; x <= n; x++) {
+      const dx = x + 0.5 - n / 2, dy = y + 0.5 - n / 2;
+      const c = x < n ? colourAt(dx, dy, Math.hypot(dx, dy)) : null;
+      if (run && run.c === c) { run.w++; continue; }
+      if (run && run.c) rects.push(<rect key={`${run.x}-${y}`} x={run.x} y={y} width={run.w} height="1" fill={run.c} />);
+      run = { x, w: 1, c };
+    }
+  }
+  return (
+    <svg viewBox={`0 0 ${n} ${n}`} width="100%" height="100%" shapeRendering="crispEdges" aria-hidden="true" style={{ display: 'block' }}>
+      {rects}
+    </svg>
+  );
+};
+
+// The pad: purple rim (lighter while held), dark inner ring, slightly lighter middle
+const padColour = (active) => (dx, dy, d) => {
+  if (d > 14.5) return null;
+  if (d > 13) return active ? '#A855F7' : '#6D28D9';
+  if (d > 11.5) return '#1b0d40';
+  if (d < 5) return '#3b1c6e';
+  return '#2a1357';
+};
+// The knob: gold rim, purple body with a light top-left shine and a dark bottom-right
+const knobColour = (dx, dy, d) => {
+  if (d > 6.5) return null;
+  if (d > 5.2) return '#FBBF24';
+  if (dx + dy < -3 && d < 4.3) return '#a78bfa';
+  if (dx + dy > 3.5) return '#5b21b6';
+  return '#7C3AED';
+};
+const DEAD_ZONE = 0.3;       // a finger this close to the middle (share of KNOB_TRAVEL) doesn't walk
+const AXIS = 0.38;           // how far a direction must lean to count (0.38 ≈ 8 even directions)
+const Joystick = () => {
+  const baseRef = useRef(null);
+  const heldRef = useRef(new Set());
+  const [knob, setKnob] = useState({ x: 0, y: 0, active: false });
+
+  const setHeld = (want) => {
+    const held = heldRef.current;
+    held.forEach(k => { if (!want.has(k)) sendKey('keyup', k); });
+    want.forEach(k => { if (!held.has(k)) sendKey('keydown', k); });
+    heldRef.current = want;
+  };
+  const move = (e) => {
+    const el = baseRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const k = r.width / (el.offsetWidth || r.width) || 1;   // the guide is drawn scaled: screen px → its own px
+    let dx = (e.clientX - (r.left + r.width / 2)) / k;
+    let dy = (e.clientY - (r.top + r.height / 2)) / k;
+    const d = Math.hypot(dx, dy);
+    const want = new Set();
+    if (d > KNOB_TRAVEL * DEAD_ZONE) {
+      const nx = dx / d, ny = dy / d;
+      if (nx > AXIS) want.add('ArrowRight');
+      if (nx < -AXIS) want.add('ArrowLeft');
+      if (ny > AXIS) want.add('ArrowDown');
+      if (ny < -AXIS) want.add('ArrowUp');
+    }
+    if (d > KNOB_TRAVEL) { dx *= KNOB_TRAVEL / d; dy *= KNOB_TRAVEL / d; }
+    // Snap to the art's pixel grid so the knob moves like pixel art
+    setKnob({ x: Math.round(dx / ART_PX) * ART_PX, y: Math.round(dy / ART_PX) * ART_PX, active: true });
+    setHeld(want);
+  };
+  const release = () => { setHeld(new Set()); setKnob({ x: 0, y: 0, active: false }); };
+  // Leaving the island never leaves a key held down
+  useEffect(() => () => heldRef.current.forEach(k => sendKey('keyup', k)), []);
+
+  return (
+    <div
+      ref={baseRef}
+      className={`joystick${knob.active ? ' is-active' : ''}`}
+      aria-label="Joystick: slide to move"
+      onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId); move(e); }}
+      onPointerMove={(e) => { if (knob.active) move(e); }}
+      onPointerUp={release}
+      onPointerCancel={release}
+      onLostPointerCapture={release}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <PixelDisc n={29} colourAt={padColour(knob.active)} />
+      {[0, 90, 180, -90].map(t => (
+        <span key={t} className="joystick-hint" style={{ transform: `rotate(${t}deg) translateY(-44px)` }}>
+          <PixelArrow size={12} />
+        </span>
+      ))}
+      <span className="joystick-knob" style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }}>
+        <PixelDisc n={13} colourAt={knobColour} />
+      </span>
+    </div>
+  );
+};
+
+// Phone version: a joystick instead of WASD, a pressable Enter, and a pulsing
+// "Control Your Character" call-out on its right.
 const TouchKeyGuide = ({ pressed, canFight }) => {
   // Finger down = key down, finger up (or slid off / interrupted) = key up.
   const press = (key) => ({
@@ -63,17 +167,11 @@ const TouchKeyGuide = ({ pressed, canFight }) => {
     onLostPointerCapture: () => sendKey('keyup', key),
     onContextMenu: (e) => e.preventDefault(),
   });
-  const cap = (k) => (
-    <span key={k} className={`keycap is-pressable${pressed[k] ? ' is-down' : ''}`} {...press(TOUCH_CAPS[k].key)}>
-      <PixelArrow turn={TOUCH_CAPS[k].turn} />
-    </span>
-  );
   return (
-    <div className="key-guide is-touch" aria-label="Controls: arrow buttons to move, Enter to fight">
+    <div className="key-guide is-touch" aria-label="Controls: joystick to move, Enter to fight">
       <PixelCorners />
       <div className="key-guide-group">
-        <div className="key-guide-row">{cap('W')}</div>
-        <div className="key-guide-row">{cap('A')}{cap('S')}{cap('D')}</div>
+        <Joystick />
         <span className="key-guide-label">Move</span>
       </div>
       <div className="key-guide-group">
@@ -573,7 +671,7 @@ const IslandInterior = ({ island, maxStage = 0, stars = {}, character, paused = 
       )}
 
       {/* Island title — the island selection's title box, centred at the top */}
-      <div className="ii-title-box">
+      <div className="ii-title-box" data-ui>
         <PixelCorners outside />
         <div className="ii-title-gem"><span /></div>
         <h1 className="ii-title">{island.title}</h1>

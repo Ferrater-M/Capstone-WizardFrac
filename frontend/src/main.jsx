@@ -9,6 +9,8 @@ import { installAuthFetch } from './utils/authFetch'
 import { installStage } from './utils/stage'
 import { installDeviceClass } from './utils/device'
 import { installUiScale } from './utils/uiScale'
+import { installSideSquares } from './utils/sideSquares'
+import { installTapIndicator } from './utils/tapIndicator'
 
 // Phone or computer? (<html> gets "wf-touch" or "wf-desktop", see utils/device.js)
 installDeviceClass()
@@ -18,6 +20,12 @@ installUiScale()
 
 // The whole game is one 1920×1080 stage, scaled evenly to fit the window with black bars (see utils/stage.js)
 installStage(document.getElementById('wf-stage'))
+
+// Slowly turning pixel squares in the black bars around the stage (see utils/sideSquares.js)
+installSideSquares(document.getElementById('wf-stage'))
+
+// Phones: a pixel tap marker wherever the screen is tapped (see utils/tapIndicator.js)
+installTapIndicator()
 
 // Every request to our server carries the player's login pass (see utils/authFetch.js)
 installAuthFetch()

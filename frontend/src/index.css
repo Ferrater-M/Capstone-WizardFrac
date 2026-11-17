@@ -120,6 +120,38 @@ body {
   zoom: calc(1 / var(--wf-ui));
 }
 
+/* Black bars: slowly turning pixel squares (utils/sideSquares.js). Behind the stage, never on it.
+   Only transform + opacity animate, so phones draw them on the graphics chip. */
+#wf-side-squares {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.wf-side-square {
+  position: absolute;
+  box-sizing: border-box;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: wfSideSquare 6s linear infinite both;
+}
+#wf-side-squares.is-paused .wf-side-square { animation-play-state: paused; }
+html.wf-unsupported #wf-side-squares,
+html.wf-rotate #wf-side-squares { display: none; }
+/* Two fixed spins (no CSS variables in the keyframes, so the animation stays on the graphics chip) */
+@keyframes wfSideSquare {
+  0%   { opacity: 0;    transform: rotate(0deg) scale(0.6); }
+  20%  { opacity: 0.55; }
+  80%  { opacity: 0.55; }
+  100% { opacity: 0;    transform: rotate(180deg) scale(1); }
+}
+@keyframes wfSideSquareBack {
+  0%   { opacity: 0;    transform: rotate(0deg) scale(0.6); }
+  20%  { opacity: 0.55; }
+  80%  { opacity: 0.55; }
+  100% { opacity: 0;    transform: rotate(-180deg) scale(1); }
+}
+
 /* Square-ish or upright window (utils/stage.js MIN_ASPECT): black screen, one pixel-font message. */
 #wf-unsupported {
   display: none;
